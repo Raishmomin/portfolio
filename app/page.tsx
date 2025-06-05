@@ -11,7 +11,7 @@ import { Footer } from "../components/footer";
 
 // ✅ Server-side function
 async function getData() {
-  const res = await fetch(process.env.API_URL + "skils", {
+  const res = await fetch(`${process.env.API_BASE_URL}/skils`, {
     // Avoid caching on server
     cache: "no-store",
   });
