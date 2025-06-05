@@ -72,7 +72,7 @@ export function Contact() {
     {
       icon: Phone,
       title: "Phone",
-      value: "+91 9408782222",
+      value: "+91 9408782333",
       link: "tel:+919408782333",
     },
     {

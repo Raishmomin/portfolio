@@ -1,5 +1,7 @@
+// next.config.js
 const nextConfig = {
-  /* config options here */
-};
+  output: 'export', // Enables static export
+  // ... other config
+}
 
 export default nextConfig;

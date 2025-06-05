@@ -33,6 +33,13 @@ export function Skills({ skillDetails }: any) {
     }),
   };
 
+  const tabs = [
+    { key: "frontend", label: "Front" },
+    { key: "backend", label: "Backend" },
+    { key: "database", label: "Database" },
+    { key: "devops", label: "DevOps" },
+  ];
+
   return (
     <section
       id="skills"
@@ -71,10 +78,10 @@ export function Skills({ skillDetails }: any) {
             defaultValue="frontend"
             value={activeTab}
             onValueChange={setActiveTab}
-            className="w-full"
+            className="w-full flex-wrap"
           >
             <div className="flex justify-center mb-12">
-              <TabsList className="bg-white dark:bg-gray-800 -p-2 rounded-xl shadow-lg">
+              <TabsList className="bg-white dark:bg-gray-800 -p-2 h-24 sm:h-14  rounded-xl shadow-lg grid grid-cols-2 sm:grid-cols-4">
                 <TabsTrigger
                   value="frontend"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-xl px-8 py-2 text-base"
@@ -127,8 +134,8 @@ export function Skills({ skillDetails }: any) {
                               src={skill.icon || "/placeholder.svg"}
                               alt={skill.name}
                               className="w-8 h-8"
-                            />
-                          </div> */}
+                            /> 
+                          </div>  */}
                             <div className="flex-1">
                               <div className="flex justify-between items-center mb-3">
                                 <span className="text-base font-semibold text-gray-900 dark:text-white">

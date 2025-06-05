@@ -101,7 +101,7 @@ export function Projects({ projects }: any) {
             className="w-full"
           >
             <div className="flex justify-center">
-              <TabsList className="bg-white dark:bg-gray-800 -p-2 rounded-xl shadow-lg">
+              <TabsList className="bg-white dark:bg-gray-800 -p-2 h-24 sm:h-14 rounded-xl shadow-lg grid grid-cols-3 sm:grid-cols-5">
                 <TabsTrigger
                   value="all"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-xl px-6 py-2 text-base"
