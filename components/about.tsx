@@ -117,7 +117,7 @@ const highlights = [
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all">
+                {/* <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all">
                   <div className="flex justify-between items-center mb-6">
                     <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">Projects Completed</span>
                     <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
@@ -127,9 +127,9 @@ const highlights = [
                   <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div className="h-full w-[75%] bg-gradient-to-r from-blue-600 to-violet-600 rounded-full"></div>
                   </div>
-                </div>
+                </div> */}
 
-                <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all">
+                {/* <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all">
                   <div className="flex justify-between items-center mb-6">
                     <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">Client Satisfaction</span>
                     <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
@@ -139,7 +139,7 @@ const highlights = [
                   <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div className="h-full w-full bg-gradient-to-r from-blue-600 to-violet-600 rounded-full"></div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>

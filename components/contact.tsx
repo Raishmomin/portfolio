@@ -67,7 +67,7 @@ export function Contact() {
       icon: Mail,
       title: "Email",
       value: "rjmomin.rj@gmail.com",
-      link: "mailto:jmomin.rj@gmail.com",
+      link: "mailto:rjmomin.rj@gmail.com",
     },
     {
       icon: Phone,
@@ -87,17 +87,12 @@ export function Contact() {
     {
       icon: Github,
       name: "GitHub",
-      link: "https://github.com/yourusername",
+      link: "https://github.com/Raishmomin",
     },
     {
       icon: Linkedin,
       name: "LinkedIn",
-      link: "https://linkedin.com/in/yourusername",
-    },
-    {
-      icon: Twitter,
-      name: "Twitter",
-      link: "https://twitter.com/yourusername",
+      link: "https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app",
     },
   ];
 

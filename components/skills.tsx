@@ -6,156 +6,13 @@ import { useInView } from "react-intersection-observer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-export function Skills() {
+export function Skills({ skillDetails }: any) {
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
   });
 
   const [activeTab, setActiveTab] = useState("frontend");
-
-  const skillCategories = {
-    frontend: [
-      { name: "React", level: 95, icon: "/placeholder.svg?height=30&width=30" },
-      {
-        name: "TypeScript",
-        level: 90,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "JavaScript",
-        level: 95,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "HTML/CSS",
-        level: 90,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Next.js",
-        level: 85,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Tailwind CSS",
-        level: 88,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      { name: "Redux", level: 85, icon: "/placeholder.svg?height=30&width=30" },
-      {
-        name: "React Query",
-        level: 80,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-    ],
-    backend: [
-      {
-        name: "Node.js",
-        level: 92,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Express.js",
-        level: 90,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "RESTful APIs",
-        level: 88,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "GraphQL",
-        level: 75,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Microservices",
-        level: 80,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Authentication",
-        level: 85,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "WebSockets",
-        level: 78,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Serverless",
-        level: 75,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-    ],
-    database: [
-      {
-        name: "MongoDB",
-        level: 88,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "PostgreSQL",
-        level: 85,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      { name: "Redis", level: 75, icon: "/placeholder.svg?height=30&width=30" },
-      {
-        name: "Database Design",
-        level: 82,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Query Optimization",
-        level: 78,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Data Modeling",
-        level: 80,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Mongoose",
-        level: 85,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Sequelize",
-        level: 80,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-    ],
-    devops: [
-      {
-        name: "Docker",
-        level: 80,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      { name: "AWS", level: 75, icon: "/placeholder.svg?height=30&width=30" },
-      { name: "CI/CD", level: 78, icon: "/placeholder.svg?height=30&width=30" },
-      { name: "Git", level: 90, icon: "/placeholder.svg?height=30&width=30" },
-      { name: "Linux", level: 82, icon: "/placeholder.svg?height=30&width=30" },
-      {
-        name: "Monitoring",
-        level: 70,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Kubernetes",
-        level: 65,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-      {
-        name: "Terraform",
-        level: 60,
-        icon: "/placeholder.svg?height=30&width=30",
-      },
-    ],
-  };
 
   const getSkillColor = (level: number) => {
     if (level >= 90) return "bg-gradient-to-r from-emerald-500 to-green-500";
@@ -245,54 +102,58 @@ export function Skills() {
               </TabsList>
             </div>
 
-            {Object.entries(skillCategories).map(([category, skills]) => (
+            {Object.entries(skillDetails).map(([category, skills]: any) => (
               <TabsContent key={category} value={category} className="mt-0">
                 <Card className="border-0 shadow-2xl bg-white dark:bg-gray-950 overflow-hidden rounded-3xl">
                   <div className="h-2 bg-gradient-to-r from-blue-600 to-violet-600"></div>
                   <CardContent className="p-8 md:p-12">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                      {skills.map((skill, index) => (
-                        <motion.div
-                          key={skill.name}
-                          custom={index}
-                          variants={skillVariants}
-                          initial="hidden"
-                          animate={
-                            inView && activeTab === category
-                              ? "visible"
-                              : "hidden"
-                          }
-                          className="flex items-center gap-6"
-                        >
-                          <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 shadow-md">
+                      {category != "_id" &&
+                        skills?.map((skill: any, index: any) => (
+                          <motion.div
+                            key={skill.name}
+                            custom={index}
+                            variants={skillVariants}
+                            initial="hidden"
+                            animate={
+                              inView && activeTab === category
+                                ? "visible"
+                                : "hidden"
+                            }
+                            className="flex items-center gap-6"
+                          >
+                            {/* <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 shadow-md">
                             <img
                               src={skill.icon || "/placeholder.svg"}
                               alt={skill.name}
                               className="w-8 h-8"
                             />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center mb-3">
-                              <span className="text-base font-semibold text-gray-900 dark:text-white">
-                                {skill.name}
-                              </span>
-                              <span className="text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
-                                {skill.level}%
-                              </span>
+                          </div> */}
+                            <div className="flex-1">
+                              <div className="flex justify-between items-center mb-3">
+                                <span className="text-base font-semibold text-gray-900 dark:text-white">
+                                  {skill.name}
+                                </span>
+                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
+                                  {skill.level}%
+                                </span>
+                              </div>
+                              <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${skill.level}%` }}
+                                  transition={{
+                                    duration: 1,
+                                    delay: 0.1 * index,
+                                  }}
+                                  className={`h-full ${getSkillColor(
+                                    skill.level
+                                  )} rounded-full shadow-lg`}
+                                ></motion.div>
+                              </div>
                             </div>
-                            <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${skill.level}%` }}
-                                transition={{ duration: 1, delay: 0.1 * index }}
-                                className={`h-full ${getSkillColor(
-                                  skill.level
-                                )} rounded-full shadow-lg`}
-                              ></motion.div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
+                          </motion.div>
+                        ))}
                     </div>
                   </CardContent>
                 </Card>

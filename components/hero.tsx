@@ -190,7 +190,7 @@ export function Hero() {
                 size="lg"
                 className="flex items-center gap-2 px-8 py-6 text-lg rounded-xl border-2 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                <a href="#projects" className="flex items-center">
+                <a href="#projects" className="flex items-center gap-2">
                   <ExternalLink className="h-5 w-5" />
                   View Projects
                 </a>

@@ -16,7 +16,7 @@ import {
   Server,
 } from "lucide-react";
 
-export function Projects() {
+export function Projects({ projects }: any) {
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
@@ -24,115 +24,10 @@ export function Projects() {
 
   const [activeTab, setActiveTab] = useState("all");
 
-  const projects = [
-    {
-      title: "E-Commerce Platform",
-      description:
-        "Full-stack e-commerce solution with payment integration, inventory management, and admin dashboard. Built with React, Node.js, and PostgreSQL.",
-      image: "/placeholder.svg?height=300&width=600",
-      technologies: ["React", "Node.js", "PostgreSQL", "Stripe", "Docker"],
-      category: "fullstack",
-      features: [
-        "User authentication and authorization",
-        "Shopping cart and checkout process",
-        "Payment integration with Stripe",
-        "Admin dashboard for inventory management",
-        "Responsive design for all devices",
-      ],
-      liveUrl: "https://example.com",
-      githubUrl: "https://github.com/username/project",
-    },
-    {
-      title: "Task Management App",
-      description:
-        "Collaborative task management application with real-time updates, team collaboration features, and project tracking capabilities.",
-      image: "/placeholder.svg?height=300&width=600",
-      technologies: ["React", "Express.js", "MongoDB", "Socket.io", "AWS"],
-      category: "fullstack",
-      features: [
-        "Real-time collaboration with Socket.io",
-        "Drag and drop task management",
-        "Team member invitation system",
-        "File upload and sharing",
-        "Progress tracking and analytics",
-      ],
-      liveUrl: "https://example.com",
-      githubUrl: "https://github.com/username/project",
-    },
-    {
-      title: "Analytics Dashboard",
-      description:
-        "Business intelligence dashboard with data visualization, reporting features, and real-time metrics for business decision making.",
-      image: "/placeholder.svg?height=300&width=600",
-      technologies: ["React", "Node.js", "PostgreSQL", "Chart.js", "Redis"],
-      category: "frontend",
-      features: [
-        "Interactive data visualizations",
-        "Custom report generation",
-        "Real-time data updates",
-        "User role-based access control",
-        "Export functionality for reports",
-      ],
-      liveUrl: "https://example.com",
-      githubUrl: "https://github.com/username/project",
-    },
-    {
-      title: "DevOps Automation Tool",
-      description:
-        "CI/CD pipeline automation tool that streamlines deployment processes and infrastructure management for development teams.",
-      image: "/placeholder.svg?height=300&width=600",
-      technologies: ["Node.js", "Docker", "AWS", "Jenkins", "Terraform"],
-      category: "devops",
-      features: [
-        "Automated deployment pipelines",
-        "Infrastructure as Code",
-        "Container orchestration",
-        "Monitoring and alerting",
-        "Multi-environment support",
-      ],
-      liveUrl: "https://example.com",
-      githubUrl: "https://github.com/username/project",
-    },
-    {
-      title: "Real-time Chat Application",
-      description:
-        "Feature-rich chat application with real-time messaging, file sharing, and user presence indicators.",
-      image: "/placeholder.svg?height=300&width=600",
-      technologies: ["React", "Node.js", "Socket.io", "MongoDB", "AWS S3"],
-      category: "fullstack",
-      features: [
-        "Real-time messaging",
-        "File and image sharing",
-        "User presence indicators",
-        "Message read receipts",
-        "Push notifications",
-      ],
-      liveUrl: "https://example.com",
-      githubUrl: "https://github.com/username/project",
-    },
-    {
-      title: "API Gateway Service",
-      description:
-        "Microservice-based API gateway that handles authentication, rate limiting, and request routing for a distributed system.",
-      image: "/placeholder.svg?height=300&width=600",
-      technologies: ["Node.js", "Express", "Redis", "JWT", "Docker"],
-      category: "backend",
-      features: [
-        "Authentication and authorization",
-        "Rate limiting and throttling",
-        "Request routing and load balancing",
-        "API documentation with Swagger",
-        "Monitoring and logging",
-      ],
-      liveUrl: "https://example.com",
-      githubUrl: "https://github.com/username/project",
-    },
-  ];
-
   const filteredProjects =
     activeTab === "all"
       ? projects
-      : projects.filter((project) => project.category === activeTab);
+      : projects.filter((project: any) => project.category === activeTab);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -248,17 +143,17 @@ export function Projects() {
           animate={inView ? "visible" : "hidden"}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
         >
-          {filteredProjects.map((project, index) => (
+          {filteredProjects.map((project: any, index: any) => (
             <motion.div key={index} variants={itemVariants}>
               <Card className="h-full border-0 shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden group bg-white dark:bg-gray-950 rounded-3xl">
                 <div className="relative overflow-hidden">
-                  <div className="aspect-video bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                  {/* <div className="aspect-video bg-gray-200 dark:bg-gray-800 overflow-hidden">
                     <img
                       src={project.image || "/placeholder.svg"}
                       alt={project.title}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
-                  </div>
+                  </div> */}
                   <div className="absolute top-4 left-4">
                     <Badge className="bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 flex items-center gap-1 px-3 py-1.5 text-sm font-medium shadow-lg">
                       {getCategoryIcon(project.category)}
@@ -280,7 +175,7 @@ export function Projects() {
                       Technologies:
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {project.technologies.map((tech, techIndex) => (
+                      {project.technologies.map((tech: any, techIndex: any) => (
                         <Badge
                           key={techIndex}
                           variant="outline"
