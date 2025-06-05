@@ -7,36 +7,38 @@ import { Experience } from "./experience";
 import { Projects } from "./projects";
 import { Contact } from "./contact";
 import { Footer } from "./footer";
+import { usePersonalStore } from "@/lib/zutand";
 
 const MainComponent = () => {
   const [data, setdata] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { fetch, value } = usePersonalStore();
 
   useEffect(() => {
-    GetData();
+    if (loading && !value) {
+      fetch("/api/skils");
+    }
   }, []);
-
-  const GetData = async () => {
-    let details = await fetch("/api/skils")
-      .then((res) => res.json())
-      .catch((err) => console.error("Error fetching skills:", err));
-    setdata(details);
-    setLoading(false);
-  };
+  useEffect(() => {
+    if (value && Object.keys(value).length > 0) {
+      setdata(value);
+      setLoading(false);
+    }
+  }, [value]);
 
   return (
     <div>
-      <Hero />
-      <About />
       {!loading && (
         <>
-          <Skills skillDetails={data?.skils[0]} />
-          <Experience experiences={data?.experience} />
-          <Projects projects={data?.projects} />
+          <Hero />
+          <About />
+          <Skills />
+          <Experience  />
+          <Projects />
+          <Contact />
+          <Footer />
         </>
       )}
-      <Contact />
-      <Footer />
     </div>
   );
 };

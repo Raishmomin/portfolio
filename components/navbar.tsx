@@ -1,23 +1,25 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import { Moon, Sun, Menu, X, Github, Linkedin, Twitter } from "lucide-react"
-import { useTheme } from "next-themes"
+import { useState, useEffect, use } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Moon, Sun, Menu, X, Github, Linkedin, Twitter } from "lucide-react";
+import { useTheme } from "next-themes";
+import { usePersonalStore } from "@/lib/zutand";
 
 export function Navbar() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-  const { theme, setTheme } = useTheme()
+  const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const { value } = usePersonalStore();
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20)
-    }
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const navItems = [
     { href: "#home", label: "Home" },
@@ -27,11 +29,11 @@ export function Navbar() {
     { href: "#projects", label: "Projects" },
     // { href: "#testimonials", label: "Testimonials" },
     { href: "#contact", label: "Contact" },
-  ]
+  ];
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
-  }
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   return (
     <motion.nav
@@ -39,7 +41,9 @@ export function Navbar() {
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
       className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        scrolled ? "bg-white/90 dark:bg-gray-950/90 backdrop-blur-md shadow-lg py-3" : "bg-transparent py-5"
+        scrolled
+          ? "bg-white/90 dark:bg-gray-950/90 backdrop-blur-md shadow-lg py-3"
+          : "bg-transparent py-5"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -89,7 +93,10 @@ export function Navbar() {
               className="flex items-center space-x-3"
             >
               <a
-                href="https://github.com/Raishmomin"
+                href={
+                  value?.personalData[0]?.git_hub ||
+                  "https://github.com/Raishmomin"
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -97,7 +104,10 @@ export function Navbar() {
                 <Github className="h-5 w-5" />
               </a>
               <a
-                href="https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"
+                href={
+                  value?.personalData[0]?.linkdin ||
+                  "https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -114,27 +124,39 @@ export function Navbar() {
               </a> */}
             </motion.div>
 
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.9 }}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.9 }}
+            >
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleTheme}
                 className="rounded-full bg-gray-100 dark:bg-gray-800"
               >
-                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === "dark" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
               </Button>
             </motion.div>
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center space-x-2">
+          <div className="md:hidden flex items-center justify-end w-full space-x-2">
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
               className="rounded-full bg-gray-100 dark:bg-gray-800"
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -142,7 +164,11 @@ export function Navbar() {
               onClick={() => setIsOpen(!isOpen)}
               className="text-gray-700 dark:text-gray-300"
             >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </Button>
           </div>
         </div>
@@ -170,7 +196,10 @@ export function Navbar() {
                 ))}
                 <div className="flex items-center space-x-4 px-3 py-2">
                   <a
-                    href="https://github.com"
+                    href={
+                      value?.personalData[0]?.git_hub ||
+                      "https://github.com/Raishmomin"
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -178,20 +207,15 @@ export function Navbar() {
                     <Github className="h-5 w-5" />
                   </a>
                   <a
-                    href="https://linkedin.com"
+                    href={
+                      value?.personalData[0]?.linkdin ||
+                      "https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                   >
                     <Linkedin className="h-5 w-5" />
-                  </a>
-                  <a
-                    href="https://twitter.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                  >
-                    <Twitter className="h-5 w-5" />
                   </a>
                 </div>
               </div>
@@ -200,5 +224,5 @@ export function Navbar() {
         </AnimatePresence>
       </div>
     </motion.nav>
-  )
+  );
 }

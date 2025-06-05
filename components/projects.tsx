@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,19 +15,28 @@ import {
   Database,
   Server,
 } from "lucide-react";
+import { usePersonalStore } from "@/lib/zutand";
 
-export function Projects({ projects }: any) {
+export function Projects() {
+  const [projects, setProjects] = useState<any>(null);
+  const { value } = usePersonalStore();
+  const [activeTab, setActiveTab] = useState("all");
+
+  useEffect(() => {
+    if (value && Object.keys(value).length > 0) {
+      setProjects(value?.projects || null);
+    }
+  }, [value]);
+
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
   });
 
-  const [activeTab, setActiveTab] = useState("all");
-
   const filteredProjects =
     activeTab === "all"
       ? projects
-      : projects.filter((project: any) => project.category === activeTab);
+      : projects?.filter((project: any) => project?.category === activeTab);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -62,7 +71,7 @@ export function Projects({ projects }: any) {
   return (
     <section
       id="projects"
-      className="py-24 bg-gray-50 dark:bg-gray-900 relative overflow-hidden"
+      className="sm:py-24 py-10 bg-gray-50 dark:bg-gray-900 relative overflow-hidden"
     >
       {/* Background decorative elements */}
       <div className="absolute top-40 right-0 w-96 h-96 bg-blue-100/50 dark:bg-blue-900/10 rounded-full blur-3xl"></div>
@@ -76,13 +85,13 @@ export function Projects({ projects }: any) {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-20"
+          className="text-center mb-10 sm:mb-20"
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Featured Projects
           </h2>
           <div className="w-24 h-1.5 bg-gradient-to-r from-blue-600 to-violet-600 mx-auto mb-8 rounded-full"></div>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Here are some of the projects I've worked on that showcase my skills
             and experience
           </p>
@@ -143,7 +152,7 @@ export function Projects({ projects }: any) {
           animate={inView ? "visible" : "hidden"}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
         >
-          {filteredProjects.map((project: any, index: any) => (
+          {filteredProjects?.map((project: any, index: any) => (
             <motion.div key={index} variants={itemVariants}>
               <Card className="h-full border-0 shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden group bg-white dark:bg-gray-950 rounded-3xl">
                 <div className="relative overflow-hidden">
@@ -187,35 +196,23 @@ export function Projects({ projects }: any) {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 mt-8">
-                    <Button
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-xl py-6"
-                      asChild
-                    >
-                      <a
-                        href={project.liveUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                  {project.liveUrl && (
+                    <div className="flex justify-end gap-4 mt-8 w-full">
+                      <Button
+                        className="sm:w-1/2 w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-xl py-6"
+                        asChild
                       >
-                        <ExternalLink className="h-5 w-5 mr-2" />
-                        Live Demo
-                      </a>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      asChild
-                      className="flex-1 rounded-xl py-6 border-2"
-                    >
-                      <a
-                        href={project.githubUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Github className="h-5 w-5 mr-2" />
-                        Source
-                      </a>
-                    </Button>
-                  </div>
+                        <a
+                          href={project.liveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="h-5 w-5 mr-2" />
+                          Live Demo
+                        </a>
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

@@ -5,13 +5,24 @@ import { useInView } from "react-intersection-observer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Briefcase } from "lucide-react";
+import { useEffect, useState } from "react";
+import { usePersonalStore } from "@/lib/zutand";
 
-export function Experience({ experiences }: any) {
+export function Experience() {
+  const [experiences, setExperiences] = useState<any>(null);
+  const { value } = usePersonalStore();
+
+  useEffect(() => {
+    if (value && Object.keys(value).length > 0) {
+      setExperiences(value?.experience || null);
+    }
+  }, [value]);
+
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
   });
-  
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -28,7 +39,10 @@ export function Experience({ experiences }: any) {
   };
 
   return (
-    <section id="experience" className="py-20 bg-white dark:bg-gray-950">
+    <section
+      id="experience"
+      className="sm:py-24 py-10 bg-white dark:bg-gray-950"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={ref}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -40,7 +54,7 @@ export function Experience({ experiences }: any) {
             Work Experience
           </h2>
           <div className="w-20 h-1.5 bg-gradient-to-r from-blue-600 to-violet-600 mx-auto mb-8 rounded-full"></div>
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             My professional journey and the impact I've made at various
             organizations
           </p>

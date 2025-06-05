@@ -9,17 +9,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Mail,
-  Phone,
-  MapPin,
-  Send,
-  Github,
-  Linkedin,
-  Twitter,
-} from "lucide-react";
+import { Mail, Phone, MapPin, Send, Github, Linkedin } from "lucide-react";
+import { usePersonalStore } from "@/lib/zutand";
 
 export function Contact() {
+  const { value } = usePersonalStore();
+
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
@@ -34,23 +29,42 @@ export function Contact() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitSuccess(false);
+    setSubmitError("");
 
-    // Simulate form submission
-    setTimeout(() => {
-      console.log("Form submitted:", formData);
-      setFormData({ name: "", email: "", subject: "", message: "" });
-      setIsSubmitting(false);
-      setSubmitSuccess(true);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: `${formData.message}`,
+        }),
+      });
 
-      // Reset success message after 3 seconds
-      setTimeout(() => {
-        setSubmitSuccess(false);
-      }, 3000);
-    }, 1500);
+      if (response.ok) {
+        setFormData({ name: "", email: "", subject: "", message: "" });
+        setSubmitSuccess(true);
+        setTimeout(() => setSubmitSuccess(false), 3000);
+      } else {
+        const errorData = await response.json();
+        setSubmitError(errorData?.error || "Something went wrong");
+      }
+    } catch (error: any) {
+      console.error("Submission failed:", error);
+      setSubmitError("Failed to send message. Please try again later.");
+    }
+
+    setIsSubmitting(false);
   };
 
   const handleChange = (
@@ -66,19 +80,19 @@ export function Contact() {
     {
       icon: Mail,
       title: "Email",
-      value: "rjmomin.rj@gmail.com",
-      link: "mailto:rjmomin.rj@gmail.com",
+      value: value?.personalData[0]?.email,
+      link: "mailto:" + value?.personalData[0]?.email,
     },
     {
       icon: Phone,
       title: "Phone",
-      value: "+91 9408782333",
-      link: "tel:+919408782333",
+      value: value?.personalData[0]?.phone_number,
+      link: "tel:" + value?.personalData[0]?.phone_number,
     },
     {
       icon: MapPin,
       title: "Location",
-      value: "Ahemadabad, Gujarat, India",
+      value: value?.personalData[0]?.location,
       link: "#",
     },
   ];
@@ -87,19 +101,21 @@ export function Contact() {
     {
       icon: Github,
       name: "GitHub",
-      link: "https://github.com/Raishmomin",
+      link: value?.personalData[0]?.git_hub || "https://github.com/Raishmomin",
     },
     {
       icon: Linkedin,
       name: "LinkedIn",
-      link: "https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app",
+      link:
+        value?.personalData[0]?.linkdin ||
+        "https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app",
     },
   ];
 
   return (
     <section
       id="contact"
-      className="py-24 bg-gray-50 dark:bg-gray-900 relative overflow-hidden"
+      className="sm:py-24 py-10 bg-gray-50 dark:bg-gray-900 relative overflow-hidden"
     >
       {/* Background decorative elements */}
       <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-blue-100/50 dark:bg-blue-900/10 rounded-full blur-3xl"></div>
@@ -115,11 +131,11 @@ export function Contact() {
           transition={{ duration: 0.5 }}
           className="text-center mb-20"
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Get In Touch
           </h2>
           <div className="w-24 h-1.5 bg-gradient-to-r from-blue-600 to-violet-600 mx-auto mb-8 rounded-full"></div>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          <p className="sm:text-xl text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             I'm always open to discussing new opportunities, interesting
             projects, or just having a chat about technology.
           </p>
@@ -134,11 +150,11 @@ export function Contact() {
             className="space-y-10"
           >
             <div>
-              <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                 Let's Connect
               </h3>
               <div className="w-16 h-1 bg-gradient-to-r from-blue-600 to-violet-600 mb-6 rounded-full"></div>
-              <p className="text-lg text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              <p className="text-base text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
                 Whether you have a project in mind, want to collaborate, or just
                 want to say hello, I'd love to hear from you. Feel free to reach
                 out through any of the channels below.
@@ -152,19 +168,19 @@ export function Contact() {
                   className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 bg-white dark:bg-gray-950 overflow-hidden group"
                 >
                   <div className="h-1 bg-gradient-to-r from-blue-600/40 to-violet-600/40 group-hover:from-blue-600 group-hover:to-violet-600 transition-colors duration-300"></div>
-                  <CardContent className="p-6">
+                  <CardContent className="p-4">
                     <a
                       href={info.link}
                       className="flex items-center space-x-6 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                     >
-                      <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shadow-lg group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-violet-600 transition-colors duration-300">
-                        <info.icon className="h-8 w-8 text-blue-600 dark:text-blue-400 group-hover:text-white transition-colors duration-300" />
+                      <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shadow-lg group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-violet-600 transition-colors duration-300">
+                        <info.icon className="h-6 w-6 text-blue-600 dark:text-blue-400 group-hover:text-white transition-colors duration-300" />
                       </div>
                       <div>
-                        <p className="font-bold text-xl text-gray-900 dark:text-white mb-1">
+                        <p className="font-bold text-lg text-gray-900 dark:text-white mb-1">
                           {info.title}
                         </p>
-                        <p className="text-base text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           {info.value}
                         </p>
                       </div>
