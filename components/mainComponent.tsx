@@ -8,20 +8,20 @@ import { Projects } from "./projects";
 import { Contact } from "./contact";
 import { Footer } from "./footer";
 import { usePersonalStore } from "@/lib/zutand";
+import { fetchIPInfo } from "@/lib/ipInfo";
 
 const MainComponent = () => {
-  const [data, setdata] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { fetch, value } = usePersonalStore();
 
   useEffect(() => {
     if (loading && !value) {
       fetch("/api/skils");
+      fetchIPInfo();
     }
   }, []);
   useEffect(() => {
     if (value && Object.keys(value).length > 0) {
-      setdata(value);
       setLoading(false);
     }
   }, [value]);
@@ -33,7 +33,7 @@ const MainComponent = () => {
           <Hero />
           <About />
           <Skills />
-          <Experience  />
+          <Experience />
           <Projects />
           <Contact />
           <Footer />

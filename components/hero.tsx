@@ -19,10 +19,6 @@ export function Hero() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    console.log(value);
-  }, [value]);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 

@@ -43,13 +43,6 @@ export function Skills() {
     }),
   };
 
-  const tabs = [
-    { key: "frontend", label: "Front" },
-    { key: "backend", label: "Backend" },
-    { key: "database", label: "Database" },
-    { key: "devops", label: "DevOps" },
-  ];
-
   return (
     <section
       id="skills"

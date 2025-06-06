@@ -36,8 +36,11 @@ export function Projects() {
   const filteredProjects =
     activeTab === "all"
       ? projects
-      : projects?.filter((project: any) => project?.category === activeTab);
-
+      : projects?.filter(
+          (project: any) =>
+            Array.isArray(project?.category) &&
+            project.category.includes(activeTab)
+        );
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -155,30 +158,35 @@ export function Projects() {
           {filteredProjects?.map((project: any, index: any) => (
             <motion.div key={index} variants={itemVariants}>
               <Card className="h-full border-0 shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden group bg-white dark:bg-gray-950 rounded-3xl">
-                <div className="relative overflow-hidden">
-                  {/* <div className="aspect-video bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                    <img
-                      src={project.image || "/placeholder.svg"}
-                      alt={project.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                  </div> */}
-                  <div className="absolute top-4 left-4">
-                    <Badge className="bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 flex items-center gap-1 px-3 py-1.5 text-sm font-medium shadow-lg">
-                      {getCategoryIcon(project.category)}
-                      {project.category.charAt(0).toUpperCase() +
-                        project.category.slice(1)}
-                    </Badge>
-                  </div>
-                </div>
                 <CardContent className="p-8">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                  {/* <div className="absolute top-4 right-4">
+                    <Badge className="bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 flex items-center gap-1 px-3 py-1.5 text-sm font-medium shadow-lg">
+                      {getCategoryIcon(project?.category)}
+                      {project?.category?.charAt(0).toUpperCase() +
+                        project?.category?.slice(1)}
+                    </Badge>
+                  </div> */}
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3 mt-6">
                     {project.title}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-300 mb-6">
                     {project.description}
                   </p>
 
+                  {project.features && project.features.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">
+                        Features:
+                      </h4>
+                      <ul className="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300 text-sm">
+                        {project.features.map(
+                          (feature: any, featureIndex: number) => (
+                            <li key={featureIndex}>{feature}</li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
                   <div className="mb-6">
                     <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">
                       Technologies:
@@ -195,7 +203,6 @@ export function Projects() {
                       ))}
                     </div>
                   </div>
-
                   {project.liveUrl && (
                     <div className="flex justify-end gap-4 mt-8 w-full">
                       <Button

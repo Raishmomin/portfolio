@@ -9,7 +9,10 @@ export const usePersonalStore = create<CounterState>((set) => ({
   value: null,
   fetch: async (url: string) => {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
       const data = await response.json();
       set({ value: data });
     } catch (error) {
