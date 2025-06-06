@@ -52,7 +52,7 @@ export function About() {
       <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-violet-100 dark:bg-violet-900/20 rounded-full blur-3xl opacity-50"></div>
 
       <div
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative "
         ref={ref}
       >
         <motion.div
