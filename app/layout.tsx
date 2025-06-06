@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Developer Portfolio | Full Stack Developer & DevOps Engineer",
   icons: {     icon: "/black-grunge-r-logo-modern-lettermark-vector-27974018.jpg"
-         }
+         },
   description:
     "Professional portfolio showcasing 4+ years of experience in React, Node.js, Express, MongoDB, PostgreSQL, and DevOps.",
 }
