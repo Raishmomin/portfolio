@@ -9,6 +9,7 @@ import { Contact } from "./contact";
 import { Footer } from "./footer";
 import { usePersonalStore } from "@/lib/zutand";
 import { fetchIPInfo } from "@/lib/ipInfo";
+import { Loader } from "lucide-react";
 
 const MainComponent = () => {
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,7 @@ const MainComponent = () => {
 
   return (
     <div>
-      {!loading && (
+      {!loading ? (
         <>
           <Hero />
           <About />
@@ -38,6 +39,10 @@ const MainComponent = () => {
           <Contact />
           <Footer />
         </>
+      ) : (
+        <Loader
+          className="fixed top-1/2 left-1/2 h-10 w-10 animate-spin text-gray-500"
+        />
       )}
     </div>
   );

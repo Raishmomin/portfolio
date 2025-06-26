@@ -13,7 +13,7 @@ export async function POST() {
     const data = {
       skils: await collection1.find({}).toArray(),
       experience: await collection2.find({}).toArray(),
-      projects: await collection3.find({}).toArray(),
+      projects: await collection3.find({}).sort({ sort: -1 }).collation({ locale: "en_US", numericOrdering: true }).toArray(),
       personalData: await collection4.find({}).toArray(),
     };
     // Convert MongoDB documents to JSON
