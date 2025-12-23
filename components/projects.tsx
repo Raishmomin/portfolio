@@ -8,224 +8,181 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  ExternalLink,
-  Github,
-  Code,
-  Monitor,
-  Database,
-  Server,
+    ExternalLink,
+    Github,
+    Code2,
+    Layers,
+    Database,
+    LayoutTemplate,
+    ArrowUpRight,
 } from "lucide-react";
 import { usePersonalStore } from "@/lib/zutand";
 
 export function Projects() {
-  const [projects, setProjects] = useState<any>(null);
-  const { value } = usePersonalStore();
-  const [activeTab, setActiveTab] = useState("all");
+    const [projects, setProjects] = useState<any>(null);
+    const { value } = usePersonalStore();
+    const [activeTab, setActiveTab] = useState("all");
 
-  useEffect(() => {
-    if (value && Object.keys(value).length > 0) {
-      setProjects(value?.projects || null);
-    }
-  }, [value]);
+    useEffect(() => {
+        if (value && Object.keys(value).length > 0) {
+            setProjects(value?.projects || null);
+        }
+    }, [value]);
 
-  const [ref, inView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
+    const [ref, inView] = useInView({
+        triggerOnce: true,
+        threshold: 0.1,
+    });
 
-  const filteredProjects =
-    activeTab === "all"
-      ? projects
-      : projects?.filter(
-          (project: any) =>
-            Array.isArray(project?.category) &&
-            project.category.includes(activeTab)
-        );
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
-    },
-  };
+    const filteredProjects =
+        activeTab === "all"
+            ? projects
+            : projects?.filter(
+                (project: any) =>
+                    Array.isArray(project?.category) &&
+                    project.category.includes(activeTab)
+            );
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-  };
+    const container = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1,
+            },
+        },
+    };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "frontend":
-        return <Monitor className="h-4 w-4" />;
-      case "backend":
-        return <Server className="h-4 w-4" />;
-      case "fullstack":
-        return <Code className="h-4 w-4" />;
-      case "devops":
-        return <Database className="h-4 w-4" />;
-      default:
-        return <Code className="h-4 w-4" />;
-    }
-  };
+    const item = {
+        hidden: { opacity: 0, y: 30 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+    };
 
-  return (
-    <section
-      id="projects"
-      className="sm:py-24 py-10 bg-gray-50 dark:bg-gray-900 relative overflow-hidden"
-    >
-      {/* Background decorative elements */}
-      <div className="absolute top-40 right-0 w-96 h-96 bg-blue-100/50 dark:bg-blue-900/10 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-40 left-0 w-96 h-96 bg-violet-100/50 dark:bg-violet-900/10 rounded-full blur-3xl"></div>
-
-      <div
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative"
-        ref={ref}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-10 sm:mb-20"
+    return (
+        <section
+            id="projects"
+            className="py-24 bg-gray-50 dark:bg-black/50 relative overflow-hidden"
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Featured Projects
-          </h2>
-          <div className="w-24 h-1.5 bg-gradient-to-r from-blue-600 to-violet-600 mx-auto mb-8 rounded-full"></div>
-          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Here are some of the projects I've worked on that showcase my skills
-            and experience
-          </p>
-        </motion.div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative" ref={ref}>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                    transition={{ duration: 0.5 }}
+                    className="text-center mb-16"
+                >
+                    <h2 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                        Featured Work
+                    </h2>
+                    <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                        A selection of projects that showcase my passion for building exceptional digital experiences.
+                    </p>
+                </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.7, delay: 0.2 }}
-          className="mb-16"
-        >
-          <Tabs
-            defaultValue="all"
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <div className="flex justify-center">
-              <TabsList className="bg-white dark:bg-gray-800 -p-2 h-24 sm:h-14 rounded-xl shadow-lg grid grid-cols-3 sm:grid-cols-5">
-                <TabsTrigger
-                  value="all"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-xl px-6 py-2 text-base"
+                <div className="flex justify-center mb-12">
+                    <Tabs
+                        defaultValue="all"
+                        value={activeTab}
+                        onValueChange={setActiveTab}
+                        className="w-full max-w-3xl"
+                    >
+                        <TabsList className="w-full grid grid-cols-3 sm:grid-cols-5 bg-white dark:bg-gray-900 p-1 rounded-full border border-gray-200 dark:border-gray-800 shadow-sm h-auto">
+                            {[
+                                { value: "all", label: "All" },
+                                { value: "frontend", label: "Frontend" },
+                                { value: "backend", label: "Backend" },
+                                { value: "fullstack", label: "Full Stack" },
+                                { value: "devops", label: "DevOps" },
+                            ].map((tab) => (
+                                <TabsTrigger
+                                    key={tab.value}
+                                    value={tab.value}
+                                    className="rounded-full py-2.5 text-sm font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-white"
+                                >
+                                    {tab.label}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </Tabs>
+                </div>
+
+                <motion.div
+                    variants={container}
+                    initial="hidden"
+                    animate={inView ? "show" : "hidden"}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
                 >
-                  All Projects
-                </TabsTrigger>
-                <TabsTrigger
-                  value="frontend"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-xl px-6 py-2 text-base"
-                >
-                  Frontend
-                </TabsTrigger>
-                <TabsTrigger
-                  value="backend"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-xl px-6 py-2 text-base"
-                >
-                  Backend
-                </TabsTrigger>
-                <TabsTrigger
-                  value="fullstack"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-xl px-6 py-2.5 text-base"
-                >
-                  Full Stack
-                </TabsTrigger>
-                <TabsTrigger
-                  value="devops"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-xl px-6 py-2 text-base"
-                >
-                  DevOps
-                </TabsTrigger>
-              </TabsList>
+                    {filteredProjects?.map((project: any, index: number) => (
+                        <motion.div key={index} variants={item}>
+                            <Card className="h-full border-0 bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 shadow-xl hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 overflow-hidden group flex flex-col rounded-3xl relative">
+                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                                <CardContent className="p-8 flex-1 flex flex-col relative z-10">
+                                    <div className="mb-6">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">
+                                                {project.title}
+                                            </h3>
+                                            <div className="p-2 rounded-full bg-primary/10 text-primary">
+                                                <Layers className="w-5 h-5" />
+                                            </div>
+                                        </div>
+                                        <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed line-clamp-3 mb-6">
+                                            {project.description}
+                                        </p>
+
+                                        {/* Features Section */}
+                                        {project.features && project.features.length > 0 && (
+                                            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                                                <h4 className="text-xs font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wider flex items-center gap-2">
+                                                    <Database className="w-3 h-3 text-primary" /> Key Features
+                                                </h4>
+                                                <ul className="space-y-2">
+                                                    {project.features.slice(0, 3).map((feature: any, i: number) => (
+                                                        <li key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(124,58,237,0.5)]" />
+                                                            <span className="line-clamp-1">{feature}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-auto space-y-6">
+                                        <div className="flex flex-wrap gap-2">
+                                            {project.technologies.slice(0, 3).map((tech: any, i: number) => (
+                                                <Badge
+                                                    key={i}
+                                                    variant="secondary"
+                                                    className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:border-primary/30 hover:text-primary transition-colors px-3 py-1"
+                                                >
+                                                    {tech}
+                                                </Badge>
+                                            ))}
+                                            {project.technologies.length > 3 && (
+                                                <Badge variant="secondary" className="bg-gray-50 dark:bg-gray-900 text-gray-500 border border-gray-100 dark:border-gray-800">
+                                                    +{project.technologies.length - 3}
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
+                                            {project.liveUrl ? (
+                                                <Button
+                                                    className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300"
+                                                    onClick={() => window.open(project.liveUrl, "_blank")}
+                                                >
+                                                    <ExternalLink className="w-4 h-4 mr-2" /> Live Demo
+                                                </Button>
+                                            ) : <div className="h-10"></div>}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    ))}
+                </motion.div>
             </div>
-          </Tabs>
-        </motion.div>
-
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate={inView ? "visible" : "hidden"}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
-        >
-          {filteredProjects?.map((project: any, index: any) => (
-            <motion.div key={index} variants={itemVariants}>
-              <Card className="h-full border-0 shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden group bg-white dark:bg-gray-950 rounded-3xl">
-                <CardContent className="p-8">
-                  {/* <div className="absolute top-4 right-4">
-                    <Badge className="bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 flex items-center gap-1 px-3 py-1.5 text-sm font-medium shadow-lg">
-                      {getCategoryIcon(project?.category)}
-                      {project?.category?.charAt(0).toUpperCase() +
-                        project?.category?.slice(1)}
-                    </Badge>
-                  </div> */}
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3 mt-6">
-                    {project.title}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-6">
-                    {project.description}
-                  </p>
-
-                  {project.features && project.features.length > 0 && (
-                    <div className="mb-6">
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">
-                        Features:
-                      </h4>
-                      <ul className="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300 text-sm">
-                        {project.features.map(
-                          (feature: any, featureIndex: number) => (
-                            <li key={featureIndex}>{feature}</li>
-                          )
-                        )}
-                      </ul>
-                    </div>
-                  )}
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">
-                      Technologies:
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {project.technologies.map((tech: any, techIndex: any) => (
-                        <Badge
-                          key={techIndex}
-                          variant="outline"
-                          className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800 px-3 py-1"
-                        >
-                          {tech}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  {project.liveUrl && (
-                    <div className="flex justify-end gap-4 mt-8 w-full">
-                      <Button
-                        className="sm:w-1/2 w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-xl py-6"
-                        asChild
-                      >
-                        <a
-                          href={project.liveUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="h-5 w-5 mr-2" />
-                          Live Demo
-                        </a>
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  );
+        </section>
+    );
 }

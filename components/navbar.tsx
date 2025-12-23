@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Menu, X, Github, Linkedin, Twitter } from "lucide-react";
+import { Moon, Sun, Menu, X, Github, Linkedin, Mail } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePersonalStore } from "@/lib/zutand";
 
@@ -27,7 +27,6 @@ export function Navbar() {
     { href: "#skills", label: "Skills" },
     { href: "#experience", label: "Experience" },
     { href: "#projects", label: "Projects" },
-    // { href: "#testimonials", label: "Testimonials" },
     { href: "#contact", label: "Contact" },
   ];
 
@@ -40,58 +39,49 @@ export function Navbar() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
-      className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white/90 dark:bg-gray-950/90 backdrop-blur-md shadow-lg py-3"
-          : "bg-transparent py-5"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-300 ${scrolled ? "py-4" : "py-6"
+        }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div
+        className={`relative w-[95%] max-w-7xl mx-auto px-6 rounded-2xl transition-all duration-300 ${scrolled
+            ? "bg-white/70 dark:bg-black/70 backdrop-blur-lg border border-white/20 dark:border-white/10 shadow-lg py-3"
+            : "bg-transparent py-2"
+          }`}
+      >
         <div className="flex justify-between items-center">
-          {/* <motion.div
+          {/* Logo */}
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
             className="flex items-center"
           >
-            <a href="#home" className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 flex items-center justify-center text-white font-bold text-xl">
-                D
+            <a href="#home" className="flex items-center gap-2 group">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-lg group-hover:shadow-primary/50 transition-all duration-300">
+                R
               </div>
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
-                Developer
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 hidden sm:block">
+                Raish Momin
               </span>
             </a>
-          </motion.div> */}
+          </motion.div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm px-2 py-1.5 rounded-full border border-gray-200/50 dark:border-gray-700/50">
             {navItems.map((item, index) => (
-              <motion.div
+              <a
                 key={item.href}
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
+                href={item.href}
+                className="relative px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors rounded-full hover:bg-white/80 dark:hover:bg-gray-700/80"
               >
-                <a
-                  href={item.href}
-                  className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors relative group"
-                >
-                  {item.label}
-                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-violet-600 transition-all duration-300 group-hover:w-full"></span>
-                </a>
-              </motion.div>
+                {item.label}
+              </a>
             ))}
           </div>
 
           {/* Social Links and Theme Toggle */}
-          <div className="hidden md:flex items-center space-x-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.8 }}
-              className="flex items-center space-x-3"
-            >
+          <div className="hidden md:flex items-center space-x-3">
+            <div className="flex items-center space-x-2 border-r border-gray-200 dark:border-gray-700 pr-4 mr-1">
               <a
                 href={
                   value?.personalData[0]?.git_hub ||
@@ -99,63 +89,49 @@ export function Navbar() {
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
               >
                 <Github className="h-5 w-5" />
               </a>
               <a
                 href={
                   value?.personalData[0]?.linkdin ||
-                  "https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"
+                  "https://www.linkedin.com/in/raish-momin-ba8927253"
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
               >
                 <Linkedin className="h-5 w-5" />
               </a>
-              {/* <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                <Twitter className="h-5 w-5" />
-              </a> */}
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.9 }}
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTheme}
-                className="rounded-full bg-gray-100 dark:bg-gray-800"
-              >
-                {theme === "dark" ? (
-                  <Sun className="h-5 w-5" />
-                ) : (
-                  <Moon className="h-5 w-5" />
-                )}
-              </Button>
-            </motion.div>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center justify-end w-full space-x-2">
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="rounded-full bg-gray-100 dark:bg-gray-800"
+              className="rounded-full bg-gray-100/50 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
             >
               {theme === "dark" ? (
-                <Sun className="h-5 w-5" />
+                <Sun className="h-5 w-5 text-yellow-500" />
               ) : (
-                <Moon className="h-5 w-5" />
+                <Moon className="h-5 w-5 text-primary" />
+              )}
+            </Button>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-full bg-gray-100/50 dark:bg-gray-800/50"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5 text-yellow-500" />
+              ) : (
+                <Moon className="h-5 w-5 text-primary" />
               )}
             </Button>
             <Button
@@ -164,11 +140,7 @@ export function Navbar() {
               onClick={() => setIsOpen(!isOpen)}
               className="text-gray-700 dark:text-gray-300"
             >
-              {isOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
           </div>
         </div>
@@ -177,24 +149,24 @@ export function Navbar() {
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
               transition={{ duration: 0.3 }}
               className="md:hidden overflow-hidden"
             >
-              <div className="px-2 pt-2 pb-3 space-y-1 mt-2 bg-white dark:bg-gray-900 shadow-lg rounded-lg">
+              <div className="p-4 space-y-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
                 {navItems.map((item) => (
                   <a
                     key={item.href}
                     href={item.href}
-                    className="block px-3 py-2 text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    className="block px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl transition-all"
                     onClick={() => setIsOpen(false)}
                   >
                     {item.label}
                   </a>
                 ))}
-                <div className="flex items-center space-x-4 px-3 py-2">
+                <div className="flex items-center justify-center space-x-6 pt-4 border-t border-gray-100 dark:border-gray-800 mt-4">
                   <a
                     href={
                       value?.personalData[0]?.git_hub ||
@@ -202,20 +174,26 @@ export function Navbar() {
                     }
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    className="text-gray-500 hover:text-primary transition-colors"
                   >
-                    <Github className="h-5 w-5" />
+                    <Github className="h-6 w-6" />
                   </a>
                   <a
                     href={
                       value?.personalData[0]?.linkdin ||
-                      "https://www.linkedin.com/in/raish-momin-ba8927253?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"
+                      "https://www.linkedin.com/in/raish-momin-ba8927253"
                     }
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    className="text-gray-500 hover:text-primary transition-colors"
                   >
-                    <Linkedin className="h-5 w-5" />
+                    <Linkedin className="h-6 w-6" />
+                  </a>
+                  <a
+                    href={"mailto:" + (value?.personalData[0]?.email || "")}
+                    className="text-gray-500 hover:text-primary transition-colors"
+                  >
+                    <Mail className="h-6 w-6" />
                   </a>
                 </div>
               </div>
