@@ -1,206 +1,276 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { Moon, Sun, Menu, X, Github, Linkedin, Mail } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePersonalStore } from "@/lib/zutand";
+import { NAV_SECTIONS, SITE } from "@/lib/config";
+import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [active, setActive] = useState<string>("home");
+  const [hovered, setHovered] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
   const { value } = usePersonalStore();
+  const { scrollY } = useScroll();
+
+  useEffect(() => setMounted(true), []);
+
+  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    const sections = NAV_SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean);
+    if (!sections.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) setActive(e.target.id);
+        });
+      },
+      { rootMargin: "-40% 0px -55% 0px", threshold: 0 }
+    );
+    sections.forEach((s) => s && observer.observe(s));
+    return () => observer.disconnect();
   }, []);
 
-  const navItems = [
-    { href: "#home", label: "Home" },
-    { href: "#about", label: "About" },
-    { href: "#skills", label: "Skills" },
-    { href: "#experience", label: "Experience" },
-    { href: "#projects", label: "Projects" },
-    { href: "#contact", label: "Contact" },
-  ];
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
-  const toggleTheme = () => {
+  const github = value?.personalData?.[0]?.git_hub || SITE.github;
+  const linkedin = value?.personalData?.[0]?.linkdin || SITE.linkedin;
+  const email = value?.personalData?.[0]?.email || SITE.email;
+
+  const toggleTheme = () =>
     setTheme(theme === "dark" ? "light" : "dark");
-  };
 
   return (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-300 ${scrolled ? "py-4" : "py-6"
-        }`}
-    >
-      <div
-        className={`relative w-[95%] max-w-7xl mx-auto px-6 rounded-2xl transition-all duration-300 ${scrolled
-            ? "bg-white/70 dark:bg-black/70 backdrop-blur-lg border border-white/20 dark:border-white/10 shadow-lg py-3"
-            : "bg-transparent py-2"
-          }`}
+    <>
+      <motion.nav
+        role="navigation"
+        aria-label="Main"
+        initial={{ y: -64, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none"
       >
-        <div className="flex justify-between items-center">
-          {/* Logo */}
+        <motion.div
+          animate={{
+            paddingTop: scrolled ? 12 : 24,
+            paddingBottom: scrolled ? 12 : 24,
+          }}
+          transition={{ duration: 0.3 }}
+          className="w-full max-w-6xl px-4 sm:px-6 lg:px-8 pointer-events-auto"
+        >
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex items-center"
+            animate={{
+              backgroundColor: scrolled
+                ? "hsl(var(--background) / 0.7)"
+                : "hsl(var(--background) / 0)",
+              borderColor: scrolled
+                ? "hsl(var(--border))"
+                : "hsl(var(--border) / 0)",
+            }}
+            transition={{ duration: 0.3 }}
+            className={cn(
+              "flex items-center justify-between gap-4 px-4 py-3 rounded-full border backdrop-blur-xl"
+            )}
           >
-            <a href="#home" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-lg group-hover:shadow-primary/50 transition-all duration-300">
+            <a
+              href="#home"
+              className="flex items-center gap-3 group"
+              aria-label={`${SITE.name} — home`}
+            >
+              <span className="grid place-items-center w-8 h-8 rounded-lg bg-foreground text-background font-bold text-sm tracking-tight">
                 R
-              </div>
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 hidden sm:block">
-                Raish Momin
+              </span>
+              <span className="font-semibold tracking-tight text-sm hidden sm:block">
+                {SITE.name}
               </span>
             </a>
-          </motion.div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm px-2 py-1.5 rounded-full border border-gray-200/50 dark:border-gray-700/50">
-            {navItems.map((item, index) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="relative px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors rounded-full hover:bg-white/80 dark:hover:bg-gray-700/80"
-              >
-                {item.label}
-              </a>
-            ))}
-          </div>
+            <ul className="hidden md:flex items-center gap-1 relative">
+              {NAV_SECTIONS.map((item) => {
+                const isActive = active === item.id;
+                const isHover = hovered === item.id;
+                return (
+                  <li key={item.id} className="relative">
+                    <a
+                      href={`#${item.id}`}
+                      onMouseEnter={() => setHovered(item.id)}
+                      onMouseLeave={() => setHovered(null)}
+                      className={cn(
+                        "relative inline-flex items-center px-3 py-1.5 text-sm transition-colors duration-200 rounded-md",
+                        isActive
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {isHover && (
+                        <motion.span
+                          layoutId="nav-hover"
+                          className="absolute inset-0 rounded-md bg-muted"
+                          transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                        />
+                      )}
+                      <span className="relative z-10">{item.label}</span>
+                      {isActive && (
+                        <motion.span
+                          layoutId="nav-active-dot"
+                          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-foreground"
+                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                        />
+                      )}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
 
-          {/* Social Links and Theme Toggle */}
-          <div className="hidden md:flex items-center space-x-3">
-            <div className="flex items-center space-x-2 border-r border-gray-200 dark:border-gray-700 pr-4 mr-1">
+            <div className="flex items-center gap-1">
               <a
-                href={
-                  value?.personalData[0]?.git_hub ||
-                  "https://github.com/Raishmomin"
-                }
+                href={github}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
+                aria-label="GitHub"
+                className="hidden sm:grid place-items-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
-                <Github className="h-5 w-5" />
+                <Github className="w-4 h-4" />
               </a>
               <a
-                href={
-                  value?.personalData[0]?.linkdin ||
-                  "https://www.linkedin.com/in/raish-momin-ba8927253"
-                }
+                href={linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
+                aria-label="LinkedIn"
+                className="hidden sm:grid place-items-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
-                <Linkedin className="h-5 w-5" />
+                <Linkedin className="w-4 h-4" />
               </a>
+              <button
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                className="grid place-items-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                {mounted && theme === "dark" ? (
+                  <Sun className="w-4 h-4" />
+                ) : (
+                  <Moon className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                onClick={() => setIsOpen(true)}
+                aria-label="Open menu"
+                aria-expanded={isOpen}
+                className="md:hidden grid place-items-center w-9 h-9 rounded-md text-foreground hover:bg-muted transition-colors"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
             </div>
+          </motion.div>
+        </motion.div>
+      </motion.nav>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full bg-gray-100/50 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-5 w-5 text-yellow-500" />
-              ) : (
-                <Moon className="h-5 w-5 text-primary" />
-              )}
-            </Button>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full bg-gray-100/50 dark:bg-gray-800/50"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-5 w-5 text-yellow-500" />
-              ) : (
-                <Moon className="h-5 w-5 text-primary" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-700 dark:text-gray-300"
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        <AnimatePresence>
-          {isOpen && (
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
             <motion.div
-              initial={{ opacity: 0, height: 0, marginTop: 0 }}
-              animate={{ opacity: 1, height: "auto", marginTop: 16 }}
-              exit={{ opacity: 0, height: 0, marginTop: 0 }}
-              transition={{ duration: 0.3 }}
-              className="md:hidden overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="md:hidden fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm"
+              onClick={() => setIsOpen(false)}
+              aria-hidden="true"
+            />
+            <motion.aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Mobile menu"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 280, damping: 32 }}
+              className="md:hidden fixed top-0 right-0 bottom-0 z-[56] w-full max-w-sm bg-background border-l border-border flex flex-col"
             >
-              <div className="p-4 space-y-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
-                {navItems.map((item) => (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className="block px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl transition-all"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {item.label}
-                  </a>
-                ))}
-                <div className="flex items-center justify-center space-x-6 pt-4 border-t border-gray-100 dark:border-gray-800 mt-4">
-                  <a
-                    href={
-                      value?.personalData[0]?.git_hub ||
-                      "https://github.com/Raishmomin"
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-500 hover:text-primary transition-colors"
-                  >
-                    <Github className="h-6 w-6" />
-                  </a>
-                  <a
-                    href={
-                      value?.personalData[0]?.linkdin ||
-                      "https://www.linkedin.com/in/raish-momin-ba8927253"
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-500 hover:text-primary transition-colors"
-                  >
-                    <Linkedin className="h-6 w-6" />
-                  </a>
-                  <a
-                    href={"mailto:" + (value?.personalData[0]?.email || "")}
-                    className="text-gray-500 hover:text-primary transition-colors"
-                  >
-                    <Mail className="h-6 w-6" />
-                  </a>
-                </div>
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <span className="font-semibold tracking-tight">Menu</span>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  aria-label="Close menu"
+                  className="grid place-items-center w-9 h-9 rounded-md hover:bg-muted transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.nav>
+
+              <nav className="flex-1 p-6">
+                <ul className="space-y-1">
+                  {NAV_SECTIONS.map((item, i) => (
+                    <motion.li
+                      key={item.id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 + i * 0.05, duration: 0.4 }}
+                    >
+                      <a
+                        href={`#${item.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                          "flex items-center justify-between py-4 text-2xl font-semibold tracking-tight border-b border-border/50 transition-colors",
+                          active === item.id
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <span>{item.label}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                      </a>
+                    </motion.li>
+                  ))}
+                </ul>
+              </nav>
+
+              <div className="p-6 border-t border-border flex items-center gap-3">
+                <a
+                  href={github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="GitHub"
+                  className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Github className="w-4 h-4" />
+                </a>
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn"
+                  className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </a>
+                <a
+                  href={`mailto:${email}`}
+                  aria-label="Email"
+                  className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Mail className="w-4 h-4" />
+                </a>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
