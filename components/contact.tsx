@@ -1,298 +1,314 @@
 "use client";
 
-import type React from "react";
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { useInView } from "react-intersection-observer";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Mail, Phone, MapPin, Send, Github, Linkedin, CheckCircle2 } from "lucide-react";
+import { useState, type FormEvent, type ChangeEvent } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Mail, MapPin, Phone, Github, Linkedin, ArrowRight, Check } from "lucide-react";
+import { Section, RevealHeading } from "./section";
+import { Magnetic } from "./magnetic-button";
 import { usePersonalStore } from "@/lib/zutand";
+import { SITE } from "@/lib/config";
 
 export function Contact() {
   const { value } = usePersonalStore();
+  const reduce = useReducedMotion();
+  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
-  const [ref, inView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
+  const email = value?.personalData?.[0]?.email || SITE.email;
+  const phone = value?.personalData?.[0]?.phone_number;
+  const location = value?.personalData?.[0]?.location || "Remote · Worldwide";
+  const github = value?.personalData?.[0]?.git_hub || SITE.github;
+  const linkedin = value?.personalData?.[0]?.linkdin || SITE.linkedin;
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: "",
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitSuccess(false);
-    setSubmitError("");
-
+    setSending(true);
+    setError("");
     try {
-      const response = await fetch("/api/contact", {
+      const res = await fetch("/api/contact", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          subject: formData.subject,
-          message: `${formData.message}`,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
       });
-
-      if (response.ok) {
-        setFormData({ name: "", email: "", subject: "", message: "" });
-        setSubmitSuccess(true);
-        setTimeout(() => setSubmitSuccess(false), 5000);
+      if (res.ok) {
+        setForm({ name: "", email: "", subject: "", message: "" });
+        setSent(true);
+        setTimeout(() => setSent(false), 6000);
       } else {
-        const errorData = await response.json();
-        setSubmitError(errorData?.error || "Something went wrong");
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error || "Something went wrong. Try again.");
       }
-    } catch (error: any) {
-      console.error("Submission failed:", error);
-      setSubmitError("Failed to send message. Please try again later.");
+    } catch {
+      setError("Network error. Please try again.");
     }
+    setSending(false);
+  }
 
-    setIsSubmitting(false);
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const contactInfo = [
-    {
-      icon: Mail,
-      title: "Email",
-      value: value?.personalData[0]?.email,
-      link: "mailto:" + value?.personalData[0]?.email,
-    },
-    {
-      icon: Phone,
-      title: "Phone",
-      value: value?.personalData[0]?.phone_number,
-      link: "tel:" + value?.personalData[0]?.phone_number,
-    },
-    {
-      icon: MapPin,
-      title: "Location",
-      value: value?.personalData[0]?.location,
-      link: "#",
-    },
-  ];
+  function update(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
 
   return (
-    <section
-      id="contact"
-      className="py-24 bg-white dark:bg-black"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative" ref={ref}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-20"
-        >
-          <h2 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-            Get In Touch
-          </h2>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Have a project in mind or just want to say hi? I'd love to hear from you.
-          </p>
-        </motion.div>
+    <Section id="contact" ariaLabel="Contact">
+      <RevealHeading
+        id="contact"
+        eyebrow="Contact"
+        title="Let's build something."
+        description="Have a project in mind, a role to fill, or just want to say hi? Drop me a note."
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
-          {/* Contact Info Side */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={inView ? { opacity: 1, x: 0 } : { opacity: 0, x: -30 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="space-y-12"
-          >
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                Contact Information
-              </h3>
-              <div className="space-y-6">
-                {contactInfo.map((info, index) => (
-                  <a
-                    key={index}
-                    href={info.link}
-                    className="flex items-start gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                      <info.icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {info.title}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        {info.value}
-                      </p>
-                    </div>
-                  </a>
-                ))}
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
+        <aside className="lg:col-span-4 space-y-10">
+          <ul className="space-y-6">
+            <ContactRow icon={Mail} label="Email" value={email} href={`mailto:${email}`} />
+            {phone && (
+              <ContactRow icon={Phone} label="Phone" value={phone} href={`tel:${phone}`} />
+            )}
+            <ContactRow icon={MapPin} label="Location" value={location} />
+          </ul>
+
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
+              Elsewhere
             </div>
-
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                Follow Me
-              </h3>
-              <div className="flex gap-4">
-                <a
-                  href={value?.personalData[0]?.git_hub || "https://github.com/Raishmomin"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary transition-all"
-                >
-                  <Github className="w-5 h-5" />
-                </a>
-                <a
-                  href={value?.personalData[0]?.linkdin || "https://linkedin.com"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary transition-all"
-                >
-                  <Linkedin className="w-5 h-5" />
-                </a>
-              </div>
+            <div className="flex gap-2">
+              <a
+                href={github}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="GitHub"
+                className="grid place-items-center w-10 h-10 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <Github className="w-4 h-4" />
+              </a>
+              <a
+                href={linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="LinkedIn"
+                className="grid place-items-center w-10 h-10 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <Linkedin className="w-4 h-4" />
+              </a>
             </div>
-          </motion.div>
+          </div>
+        </aside>
 
-          {/* Contact Form Side */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={inView ? { opacity: 1, x: 0 } : { opacity: 0, x: 30 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-          >
-            <Card className="border-0 shadow-2xl bg-white dark:bg-gray-900/50 backdrop-blur-sm border border-gray-100 dark:border-gray-800">
-              <CardContent className="p-8">
-                {submitSuccess ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-6">
-                      <CheckCircle2 className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                      Message Sent!
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Thanks for reaching out. I'll get back to you soon.
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="mt-8"
-                      onClick={() => setSubmitSuccess(false)}
-                    >
-                      Send Another Message
-                    </Button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-900 dark:text-gray-300">
-                          Name
-                        </label>
-                        <Input
-                          name="name"
-                          value={formData.name}
-                          onChange={handleChange}
-                          required
-                          placeholder="John Doe"
-                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-primary"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-900 dark:text-gray-300">
-                          Email
-                        </label>
-                        <Input
-                          name="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          required
-                          placeholder="john@example.com"
-                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-primary"
-                        />
-                      </div>
-                    </div>
+        <div className="lg:col-span-8">
+          {sent ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="border border-border rounded-2xl p-12 text-center bg-card"
+            >
+              <div className="grid place-items-center w-12 h-12 mx-auto rounded-full border border-border mb-6">
+                <Check className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <h3 className="text-xl font-semibold tracking-tight mb-2">Message sent.</h3>
+              <p className="text-sm text-muted-foreground">
+                Thanks for reaching out — I&apos;ll reply within a couple of days.
+              </p>
+              <button
+                onClick={() => setSent(false)}
+                className="mt-8 text-sm underline-offset-4 hover:underline text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Send another message
+              </button>
+            </motion.div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <GhostField
+                  id="contact-name"
+                  name="name"
+                  label="Name"
+                  value={form.name}
+                  onChange={update}
+                  required
+                />
+                <GhostField
+                  id="contact-email"
+                  name="email"
+                  label="Email"
+                  type="email"
+                  value={form.email}
+                  onChange={update}
+                  required
+                />
+              </div>
+              <GhostField
+                id="contact-subject"
+                name="subject"
+                label="Subject"
+                value={form.subject}
+                onChange={update}
+                required
+              />
+              <GhostField
+                id="contact-message"
+                name="message"
+                label="Message"
+                value={form.message}
+                onChange={update}
+                multiline
+                required
+              />
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-900 dark:text-gray-300">
-                        Subject
-                      </label>
-                      <Input
-                        name="subject"
-                        value={formData.subject}
-                        onChange={handleChange}
-                        required
-                        placeholder="Project Inquiry"
-                        className="h-12 rounded-xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-primary"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-900 dark:text-gray-300">
-                        Message
-                      </label>
-                      <Textarea
-                        name="message"
-                        value={formData.message}
-                        onChange={handleChange}
-                        required
-                        placeholder="Tell me about your project..."
-                        rows={6}
-                        className="rounded-xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-primary resize-none"
-                      />
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full h-12 text-lg font-medium rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all hover:scale-[1.02]"
-                    >
-                      {isSubmitting ? (
-                        <span className="flex items-center gap-2">
-                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Sending...
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          Send Message <Send className="w-4 h-4" />
-                        </span>
-                      )}
-                    </Button>
-
-                    {submitError && (
-                      <p className="text-red-500 text-sm text-center mt-4">
-                        {submitError}
-                      </p>
-                    )}
-                  </form>
+              <div className="flex items-center justify-between gap-6 pt-2">
+                {error && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {error}
+                  </p>
                 )}
-              </CardContent>
-            </Card>
-          </motion.div>
+                <div className="ml-auto">
+                  <Magnetic
+                    as="button"
+                    type="submit"
+                    disabled={sending}
+                    className="group h-12 px-7 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-60"
+                  >
+                    <span className="flex items-center gap-2">
+                      {sending ? (
+                        <>
+                          <span
+                            aria-hidden="true"
+                            className="w-3.5 h-3.5 border border-background/30 border-t-background rounded-full animate-spin"
+                          />
+                          Sending
+                        </>
+                      ) : (
+                        <>
+                          Send message
+                          <ArrowRight
+                            className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+                            aria-hidden="true"
+                          />
+                        </>
+                      )}
+                    </span>
+                  </Magnetic>
+                </div>
+              </div>
+            </form>
+          )}
         </div>
       </div>
-    </section>
+    </Section>
+  );
+}
+
+function ContactRow({
+  icon: Icon,
+  label,
+  value,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  href?: string;
+}) {
+  const Wrapper: React.ElementType = href ? "a" : "div";
+  return (
+    <li>
+      <Wrapper
+        href={href}
+        className="group flex items-start gap-4 py-2 text-foreground hover:text-foreground transition-colors"
+      >
+        <Icon
+          className="w-4 h-4 mt-1 text-muted-foreground group-hover:text-foreground transition-colors"
+          aria-hidden="true"
+        />
+        <div>
+          <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
+            {label}
+          </div>
+          <div className="text-sm group-hover:underline underline-offset-4">{value}</div>
+        </div>
+      </Wrapper>
+    </li>
+  );
+}
+
+type GhostFieldProps = {
+  id: string;
+  name: string;
+  label: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  type?: string;
+  required?: boolean;
+  multiline?: boolean;
+};
+
+function GhostField({
+  id,
+  name,
+  label,
+  value,
+  onChange,
+  type = "text",
+  required,
+  multiline,
+}: GhostFieldProps) {
+  const reduce = useReducedMotion();
+  const [focused, setFocused] = useState(false);
+  const filled = value.length > 0;
+
+  const labelClass = `pointer-events-none absolute left-0 transition-all duration-200 ${
+    focused || filled
+      ? "top-0 text-xs uppercase tracking-[0.2em] text-muted-foreground"
+      : "top-7 text-base text-muted-foreground"
+  }`;
+
+  const sharedInput =
+    "w-full bg-transparent border-0 border-b border-border focus:border-foreground outline-none pt-7 pb-3 text-base text-foreground placeholder:text-transparent transition-colors";
+
+  return (
+    <div className="relative">
+      <label htmlFor={id} className={labelClass}>
+        {label}
+        {required && <span aria-hidden="true"> *</span>}
+      </label>
+      {multiline ? (
+        <textarea
+          id={id}
+          name={name}
+          value={value}
+          onChange={onChange}
+          required={required}
+          rows={5}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className={`${sharedInput} resize-none`}
+          placeholder={label}
+        />
+      ) : (
+        <input
+          id={id}
+          name={name}
+          type={type}
+          value={value}
+          onChange={onChange}
+          required={required}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className={sharedInput}
+          placeholder={label}
+        />
+      )}
+      <motion.span
+        aria-hidden="true"
+        initial={false}
+        animate={{ scaleX: focused ? 1 : 0 }}
+        transition={
+          reduce ? { duration: 0 } : { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
+        }
+        style={{ transformOrigin: "left" }}
+        className="absolute left-0 right-0 -bottom-px h-px bg-foreground"
+      />
+    </div>
   );
 }

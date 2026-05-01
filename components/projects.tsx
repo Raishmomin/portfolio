@@ -1,188 +1,262 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { useInView } from "react-intersection-observer";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-    ExternalLink,
-    Github,
-    Code2,
-    Layers,
-    Database,
-    LayoutTemplate,
-    ArrowUpRight,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { ArrowUpRight, Plus } from "lucide-react";
+import { Section, RevealHeading } from "./section";
+import { Tilt } from "./tilt-card";
 import { usePersonalStore } from "@/lib/zutand";
+import { cn } from "@/lib/utils";
+
+const FALLBACK_PROJECTS: Project[] = [
+  {
+    title: "Portfolio Platform",
+    description:
+      "A monochrome, motion-rich developer portfolio with a MongoDB-backed CMS and edge-rendered OG images.",
+    features: ["Edge OG image", "MongoDB CMS", "Framer Motion"],
+    technologies: ["Next.js", "TypeScript", "MongoDB", "Tailwind"],
+    category: ["fullstack", "frontend"],
+    liveUrl: "https://raish-portfolio.vercel.app",
+  },
+  {
+    title: "Analytics Dashboard",
+    description:
+      "Real-time KPI dashboard with live charts, role-based access, and incremental data fetching.",
+    features: ["WebSocket streams", "RBAC", "Incremental fetch"],
+    technologies: ["React", "Node.js", "PostgreSQL", "Recharts"],
+    category: ["fullstack", "frontend"],
+  },
+  {
+    title: "Container Pipeline",
+    description:
+      "GitHub Actions → Docker → ECS pipeline with blue-green deploys and metric-driven rollback.",
+    features: ["Blue-green deploys", "Auto-rollback", "Slack alerts"],
+    technologies: ["Docker", "AWS", "GitHub Actions", "Bash"],
+    category: ["devops"],
+  },
+  {
+    title: "Commerce API",
+    description:
+      "High-throughput cart and checkout API with idempotent payments and event-driven inventory.",
+    features: ["Idempotent payments", "Event sourcing"],
+    technologies: ["Node.js", "Express", "Redis", "Stripe"],
+    category: ["backend"],
+  },
+];
+
+type Project = {
+  title: string;
+  description: string;
+  features?: string[];
+  technologies: string[];
+  category: string[];
+  liveUrl?: string;
+};
+
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "frontend", label: "Frontend" },
+  { id: "backend", label: "Backend" },
+  { id: "fullstack", label: "Full Stack" },
+  { id: "devops", label: "DevOps" },
+];
+
+const PAGE_SIZE = 5;
 
 export function Projects() {
-    const [projects, setProjects] = useState<any>(null);
-    const { value } = usePersonalStore();
-    const [activeTab, setActiveTab] = useState("all");
+  const { value } = usePersonalStore();
+  const reduce = useReducedMotion();
+  const [filter, setFilter] = useState("all");
+  const [shown, setShown] = useState(PAGE_SIZE);
 
-    useEffect(() => {
-        if (value && Object.keys(value).length > 0) {
-            setProjects(value?.projects || null);
-        }
-    }, [value]);
+  const projects: Project[] =
+    Array.isArray(value?.projects) && value.projects.length > 0
+      ? value.projects
+      : FALLBACK_PROJECTS;
 
-    const [ref, inView] = useInView({
-        triggerOnce: true,
-        threshold: 0.1,
-    });
-
-    const filteredProjects =
-        activeTab === "all"
-            ? projects
-            : projects?.filter(
-                (project: any) =>
-                    Array.isArray(project?.category) &&
-                    project.category.includes(activeTab)
-            );
-
-    const container = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1,
-            },
-        },
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 30 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-    };
-
-    return (
-        <section
-            id="projects"
-            className="py-24 bg-gray-50 dark:bg-black/50 relative overflow-hidden"
-        >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative" ref={ref}>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                    transition={{ duration: 0.5 }}
-                    className="text-center mb-16"
-                >
-                    <h2 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                        Featured Work
-                    </h2>
-                    <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                        A selection of projects that showcase my passion for building exceptional digital experiences.
-                    </p>
-                </motion.div>
-
-                <div className="flex justify-center mb-12">
-                    <Tabs
-                        defaultValue="all"
-                        value={activeTab}
-                        onValueChange={setActiveTab}
-                        className="w-full max-w-3xl"
-                    >
-                        <TabsList className="w-full grid grid-cols-3 sm:grid-cols-5 bg-white dark:bg-gray-900 p-1 rounded-full border border-gray-200 dark:border-gray-800 shadow-sm h-auto">
-                            {[
-                                { value: "all", label: "All" },
-                                { value: "frontend", label: "Frontend" },
-                                { value: "backend", label: "Backend" },
-                                { value: "fullstack", label: "Full Stack" },
-                                { value: "devops", label: "DevOps" },
-                            ].map((tab) => (
-                                <TabsTrigger
-                                    key={tab.value}
-                                    value={tab.value}
-                                    className="rounded-full py-2.5 text-sm font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-white"
-                                >
-                                    {tab.label}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
-                </div>
-
-                <motion.div
-                    variants={container}
-                    initial="hidden"
-                    animate={inView ? "show" : "hidden"}
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-                >
-                    {filteredProjects?.map((project: any, index: number) => (
-                        <motion.div key={index} variants={item}>
-                            <Card className="h-full border-0 bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 shadow-xl hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 overflow-hidden group flex flex-col rounded-3xl relative">
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-                                <CardContent className="p-8 flex-1 flex flex-col relative z-10">
-                                    <div className="mb-6">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">
-                                                {project.title}
-                                            </h3>
-                                            <div className="p-2 rounded-full bg-primary/10 text-primary">
-                                                <Layers className="w-5 h-5" />
-                                            </div>
-                                        </div>
-                                        <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed line-clamp-3 mb-6">
-                                            {project.description}
-                                        </p>
-
-                                        {/* Features Section */}
-                                        {project.features && project.features.length > 0 && (
-                                            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
-                                                <h4 className="text-xs font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wider flex items-center gap-2">
-                                                    <Database className="w-3 h-3 text-primary" /> Key Features
-                                                </h4>
-                                                <ul className="space-y-2">
-                                                    {project.features.slice(0, 3).map((feature: any, i: number) => (
-                                                        <li key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(124,58,237,0.5)]" />
-                                                            <span className="line-clamp-1">{feature}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-auto space-y-6">
-                                        <div className="flex flex-wrap gap-2">
-                                            {project.technologies.slice(0, 3).map((tech: any, i: number) => (
-                                                <Badge
-                                                    key={i}
-                                                    variant="secondary"
-                                                    className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:border-primary/30 hover:text-primary transition-colors px-3 py-1"
-                                                >
-                                                    {tech}
-                                                </Badge>
-                                            ))}
-                                            {project.technologies.length > 3 && (
-                                                <Badge variant="secondary" className="bg-gray-50 dark:bg-gray-900 text-gray-500 border border-gray-100 dark:border-gray-800">
-                                                    +{project.technologies.length - 3}
-                                                </Badge>
-                                            )}
-                                        </div>
-
-                                        <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-                                            {project.liveUrl ? (
-                                                <Button
-                                                    className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300"
-                                                    onClick={() => window.open(project.liveUrl, "_blank")}
-                                                >
-                                                    <ExternalLink className="w-4 h-4 mr-2" /> Live Demo
-                                                </Button>
-                                            ) : <div className="h-10"></div>}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    ))}
-                </motion.div>
-            </div>
-        </section>
+  const filtered = useMemo(() => {
+    if (filter === "all") return projects;
+    return projects.filter(
+      (p) => Array.isArray(p.category) && p.category.includes(filter)
     );
+  }, [projects, filter]);
+
+  useEffect(() => {
+    setShown(PAGE_SIZE);
+  }, [filter]);
+
+  const visible = filtered.slice(0, shown);
+  const remaining = Math.max(0, filtered.length - shown);
+
+  return (
+    <Section id="projects" ariaLabel="Projects" className="bg-muted/30">
+      <RevealHeading
+        id="projects"
+        eyebrow="Selected work"
+        title="Projects with sharp edges."
+        description="A small set of things I've built and shipped — each one had a real constraint or stakeholder."
+      />
+
+      <div className="mb-12 flex flex-wrap items-center gap-2 relative">
+        {FILTERS.map((f) => {
+          const isActive = filter === f.id;
+          return (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                "relative px-4 py-2 text-sm rounded-full transition-colors duration-200",
+                isActive
+                  ? "text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {isActive && (
+                <motion.span
+                  layoutId="project-filter"
+                  className="absolute inset-0 bg-foreground rounded-full"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <span className="relative z-10">{f.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <motion.div
+        layout={!reduce}
+        className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6 auto-rows-[minmax(220px,_auto)]"
+      >
+        <AnimatePresence mode="popLayout">
+          {visible.map((p, i) => {
+            const isFeatured = i % 5 === 0;
+            return (
+              <motion.div
+                key={`${p.title}-${i}`}
+                layout={!reduce}
+                initial={reduce ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.5, delay: i * 0.05 }}
+                className={cn(
+                  isFeatured ? "md:col-span-4" : "md:col-span-2"
+                )}
+              >
+                <Tilt className="h-full">
+                  <ProjectCard project={p} featured={isFeatured} />
+                </Tilt>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </motion.div>
+
+      {visible.length === 0 && (
+        <p className="text-center py-16 text-muted-foreground">
+          No projects in this category yet.
+        </p>
+      )}
+
+      {remaining > 0 && (
+        <div className="mt-12 flex justify-center">
+          <button
+            onClick={() => setShown((n) => n + PAGE_SIZE)}
+            aria-label={`Load ${Math.min(PAGE_SIZE, remaining)} more projects`}
+            className="group inline-flex items-center gap-3 h-12 pl-5 pr-3 rounded-full border border-border text-sm font-medium text-foreground hover:bg-foreground hover:text-background hover:border-foreground transition-colors"
+          >
+            <span>Load more</span>
+            <span className="text-xs tabular-nums opacity-60 group-hover:opacity-100">
+              +{remaining}
+            </span>
+            <span
+              aria-hidden="true"
+              className="grid place-items-center w-9 h-9 rounded-full border border-border bg-background text-foreground transition-transform group-hover:rotate-90"
+            >
+              <Plus className="w-4 h-4" />
+            </span>
+          </button>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function ProjectCard({ project, featured }: { project: Project; featured: boolean }) {
+  const Inner = (
+    <article className="group relative h-full overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-foreground/40 flex flex-col">
+      <div className="relative flex-1 p-7 md:p-8 flex flex-col">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="flex flex-wrap gap-1.5">
+            {project.category?.slice(0, 2).map((c, i) => (
+              <span
+                key={i}
+                className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                {c}
+                {i === 0 && project.category.length > 1 && (
+                  <span className="mx-2">·</span>
+                )}
+              </span>
+            ))}
+          </div>
+          <span
+            aria-hidden="true"
+            className="grid place-items-center w-9 h-9 rounded-full border border-border text-foreground/60 group-hover:bg-foreground group-hover:text-background group-hover:border-foreground transition-colors"
+          >
+            <ArrowUpRight className="w-4 h-4 transition-transform group-hover:rotate-12" />
+          </span>
+        </div>
+
+        <h3
+          className={cn(
+            "font-semibold tracking-tight text-foreground mb-3",
+            featured ? "text-2xl md:text-3xl" : "text-xl"
+          )}
+        >
+          {project.title}
+        </h3>
+        <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+          {project.description}
+        </p>
+
+        {featured && project.features && project.features.length > 0 && (
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-6 text-xs text-muted-foreground">
+            {project.features.slice(0, 4).map((f, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-foreground/60" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-wrap gap-1.5 mt-auto pt-4 border-t border-border">
+          {project.technologies.slice(0, featured ? 6 : 4).map((t, i) => (
+            <span
+              key={i}
+              className="text-[11px] px-2.5 py-1 rounded-full border border-border text-muted-foreground"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+
+  if (project.liveUrl) {
+    return (
+      <a
+        href={project.liveUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block h-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background rounded-2xl"
+        aria-label={`${project.title} — open live demo`}
+      >
+        {Inner}
+      </a>
+    );
+  }
+  return Inner;
 }
