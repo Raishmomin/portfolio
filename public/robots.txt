@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://raish-portfolio.vercel.app
+
+# Sitemaps
+Sitemap: https://raish-portfolio.vercel.app/sitemap.xml

@@ -2,31 +2,32 @@
 export const dynamic = 'force-dynamic';
 
 import clientPromise from "@/lib/mongodb";
+import { sendContactEmail } from "@/lib/email";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    
+
     // Manual validation
     const errors: string[] = [];
-    
+
     if (!body.name || typeof body.name !== 'string' || body.name.trim().length < 2) {
       errors.push('Name must be at least 2 characters');
     }
-    
+
     if (!body.email || typeof body.email !== 'string' || !isValidEmail(body.email)) {
       errors.push('Valid email is required');
     }
-    
+
     if (!body.subject || typeof body.subject !== 'string' || body.subject.trim().length < 2) {
       errors.push('Subject must be at least 2 characters');
     }
-    
+
     if (!body.message || typeof body.message !== 'string' || body.message.trim().length < 2) {
       errors.push('Message must be at least 2 characters');
     }
-    
+
     if (errors.length > 0) {
       return NextResponse.json({ errors }, { status: 400 });
     }
@@ -45,9 +46,14 @@ export async function POST(req: NextRequest) {
 
     const result = await db.collection("contact_data").insertOne(contactData);
 
-    return NextResponse.json({ 
-      success: true, 
-      insertedId: result.insertedId 
+    // Send email notification (fire-and-forget — don't block response)
+    sendContactEmail(contactData).catch((err) =>
+      console.error("Email send failed:", err)
+    );
+
+    return NextResponse.json({
+      success: true,
+      insertedId: result.insertedId
     }, {
       headers: {
         'Access-Control-Allow-Origin': '*',

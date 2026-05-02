@@ -4,8 +4,10 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { Moon, Sun, Menu, X, Github, Linkedin, Mail } from "lucide-react";
 import { useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { usePersonalStore } from "@/lib/zutand";
-import { NAV_SECTIONS, SITE } from "@/lib/config";
+import { NAV_SECTIONS, PAGES, SITE } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -17,12 +19,16 @@ export function Navbar() {
   const { theme, setTheme } = useTheme();
   const { value } = usePersonalStore();
   const { scrollY } = useScroll();
+  const pathname = usePathname();
+  const isHome = pathname === "/";
 
   useEffect(() => setMounted(true), []);
 
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
 
+  // Hash-based active detection — only on home page
   useEffect(() => {
+    if (!isHome) return;
     const sections = NAV_SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean);
     if (!sections.length) return;
     const observer = new IntersectionObserver(
@@ -35,7 +41,7 @@ export function Navbar() {
     );
     sections.forEach((s) => s && observer.observe(s));
     return () => observer.disconnect();
-  }, []);
+  }, [isHome]);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
@@ -50,6 +56,16 @@ export function Navbar() {
 
   const toggleTheme = () =>
     setTheme(theme === "dark" ? "light" : "dark");
+
+  // Determine nav items based on current page
+  const navItems = isHome
+    ? NAV_SECTIONS.map((s) => ({ href: `#${s.id}`, label: s.label, key: s.id }))
+    : PAGES.map((p) => ({ href: p.path, label: p.label, key: p.path }));
+
+  const isActive = (key: string) => {
+    if (isHome) return active === key;
+    return pathname === key;
+  };
 
   return (
     <>
@@ -83,8 +99,8 @@ export function Navbar() {
               "flex items-center justify-between gap-4 px-4 py-3 rounded-full border backdrop-blur-xl"
             )}
           >
-            <a
-              href="#home"
+            <Link
+              href="/"
               className="flex items-center gap-3 group"
               aria-label={`${SITE.name} — home`}
             >
@@ -94,21 +110,22 @@ export function Navbar() {
               <span className="font-semibold tracking-tight text-sm hidden sm:block">
                 {SITE.name}
               </span>
-            </a>
+            </Link>
 
             <ul className="hidden md:flex items-center gap-1 relative">
-              {NAV_SECTIONS.map((item) => {
-                const isActive = active === item.id;
-                const isHover = hovered === item.id;
+              {navItems.map((item) => {
+                const itemActive = isActive(item.key);
+                const isHover = hovered === item.key;
+                const Tag = isHome ? "a" : Link;
                 return (
-                  <li key={item.id} className="relative">
-                    <a
-                      href={`#${item.id}`}
-                      onMouseEnter={() => setHovered(item.id)}
+                  <li key={item.key} className="relative">
+                    <Tag
+                      href={item.href}
+                      onMouseEnter={() => setHovered(item.key)}
                       onMouseLeave={() => setHovered(null)}
                       className={cn(
                         "relative inline-flex items-center px-3 py-1.5 text-sm transition-colors duration-200 rounded-md",
-                        isActive
+                        itemActive
                           ? "text-foreground"
                           : "text-muted-foreground hover:text-foreground"
                       )}
@@ -121,14 +138,14 @@ export function Navbar() {
                         />
                       )}
                       <span className="relative z-10">{item.label}</span>
-                      {isActive && (
+                      {itemActive && (
                         <motion.span
                           layoutId="nav-active-dot"
                           className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-foreground"
                           transition={{ type: "spring", stiffness: 400, damping: 32 }}
                         />
                       )}
-                    </a>
+                    </Tag>
                   </li>
                 );
               })}
@@ -213,30 +230,33 @@ export function Navbar() {
 
               <nav className="flex-1 p-6">
                 <ul className="space-y-1">
-                  {NAV_SECTIONS.map((item, i) => (
-                    <motion.li
-                      key={item.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1 + i * 0.05, duration: 0.4 }}
-                    >
-                      <a
-                        href={`#${item.id}`}
-                        onClick={() => setIsOpen(false)}
-                        className={cn(
-                          "flex items-center justify-between py-4 text-2xl font-semibold tracking-tight border-b border-border/50 transition-colors",
-                          active === item.id
-                            ? "text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
+                  {navItems.map((item, i) => {
+                    const Tag = isHome ? "a" : Link;
+                    return (
+                      <motion.li
+                        key={item.key}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + i * 0.05, duration: 0.4 }}
                       >
-                        <span>{item.label}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                      </a>
-                    </motion.li>
-                  ))}
+                        <Tag
+                          href={item.href}
+                          onClick={() => setIsOpen(false)}
+                          className={cn(
+                            "flex items-center justify-between py-4 text-2xl font-semibold tracking-tight border-b border-border/50 transition-colors",
+                            isActive(item.key)
+                              ? "text-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <span>{item.label}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                        </Tag>
+                      </motion.li>
+                    );
+                  })}
                 </ul>
               </nav>
 
