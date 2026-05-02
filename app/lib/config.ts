@@ -22,3 +22,13 @@ export const NAV_SECTIONS = [
   { id: "projects", label: "Projects" },
   { id: "contact", label: "Contact" },
 ] as const;
+
+export const PAGES = [
+  { path: "/", label: "Home" },
+  { path: "/about", label: "About" },
+  { path: "/projects", label: "Projects" },
+  { path: "/experience", label: "Experience" },
+  { path: "/skills", label: "Skills" },
+  { path: "/contact", label: "Contact" },
+  { path: "/blog", label: "Blog" },
+] as const;

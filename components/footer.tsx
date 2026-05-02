@@ -2,12 +2,16 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { Github, Linkedin, Mail, ArrowUp } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { usePersonalStore } from "@/lib/zutand";
-import { SITE, NAV_SECTIONS } from "@/lib/config";
+import { SITE, PAGES } from "@/lib/config";
 
 export function Footer() {
   const { value } = usePersonalStore();
   const reduce = useReducedMotion();
+  const pathname = usePathname();
+  const isHome = pathname === "/";
 
   const github = value?.personalData?.[0]?.git_hub || SITE.github;
   const linkedin = value?.personalData?.[0]?.linkdin || SITE.linkedin;
@@ -45,14 +49,14 @@ export function Footer() {
               Sitemap
             </p>
             <ul className="space-y-3">
-              {NAV_SECTIONS.map((s) => (
-                <li key={s.id}>
-                  <a
-                    href={`#${s.id}`}
+              {PAGES.map((p) => (
+                <li key={p.path}>
+                  <Link
+                    href={p.path}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {s.label}
-                  </a>
+                    {p.label}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -110,17 +114,31 @@ export function Footer() {
               </span>
               Available
             </span>
-            <a
-              href="#home"
-              className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors group"
-              aria-label="Back to top"
-            >
-              <span>Back to top</span>
-              <ArrowUp
-                className="w-3.5 h-3.5 transition-transform group-hover:-translate-y-0.5"
-                aria-hidden="true"
-              />
-            </a>
+            {isHome ? (
+              <a
+                href="#home"
+                className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors group"
+                aria-label="Back to top"
+              >
+                <span>Back to top</span>
+                <ArrowUp
+                  className="w-3.5 h-3.5 transition-transform group-hover:-translate-y-0.5"
+                  aria-hidden="true"
+                />
+              </a>
+            ) : (
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors group"
+                aria-label="Back to home"
+              >
+                <span>Back to home</span>
+                <ArrowUp
+                  className="w-3.5 h-3.5 transition-transform group-hover:-translate-y-0.5"
+                  aria-hidden="true"
+                />
+              </Link>
+            )}
           </div>
         </div>
       </div>
