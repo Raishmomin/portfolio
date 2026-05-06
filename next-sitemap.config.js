@@ -4,6 +4,7 @@ const { MongoClient } = require('mongodb');
 module.exports = {
     siteUrl: 'https://raish-momin.vercel.app',
     generateRobotsTxt: true,
+    sitemapBaseFileName: 'sitemap-success',
     outDir: './public',
     additionalPaths: async (config) => {
         const result = [];
