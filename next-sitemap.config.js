@@ -2,7 +2,7 @@ const { MongoClient } = require('mongodb');
 
 /** @type {import('next-sitemap').IConfig} */
 module.exports = {
-    siteUrl: 'https://raish-portfolio.vercel.app',
+    siteUrl: 'https://raish-momin.vercel.app',
     generateRobotsTxt: true,
     outDir: './public',
     additionalPaths: async (config) => {

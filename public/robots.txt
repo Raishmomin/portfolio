@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://raish-portfolio.vercel.app
+Host: https://raish-momin.vercel.app
 
 # Sitemaps
-Sitemap: https://raish-portfolio.vercel.app/sitemap.xml
+Sitemap: https://raish-momin.vercel.app/sitemap.xml
