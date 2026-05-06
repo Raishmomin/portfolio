@@ -8,42 +8,6 @@ import { Tilt } from "./tilt-card";
 import { usePersonalStore } from "@/lib/zutand";
 import { cn } from "@/lib/utils";
 
-const FALLBACK_PROJECTS: Project[] = [
-  {
-    title: "Portfolio Platform",
-    description:
-      "A monochrome, motion-rich developer portfolio with a MongoDB-backed CMS and edge-rendered OG images.",
-    features: ["Edge OG image", "MongoDB CMS", "Framer Motion"],
-    technologies: ["Next.js", "TypeScript", "MongoDB", "Tailwind"],
-    category: ["fullstack", "frontend"],
-    liveUrl: "https://raish-portfolio.vercel.app",
-  },
-  {
-    title: "Analytics Dashboard",
-    description:
-      "Real-time KPI dashboard with live charts, role-based access, and incremental data fetching.",
-    features: ["WebSocket streams", "RBAC", "Incremental fetch"],
-    technologies: ["React", "Node.js", "PostgreSQL", "Recharts"],
-    category: ["fullstack", "frontend"],
-  },
-  {
-    title: "Container Pipeline",
-    description:
-      "GitHub Actions → Docker → ECS pipeline with blue-green deploys and metric-driven rollback.",
-    features: ["Blue-green deploys", "Auto-rollback", "Slack alerts"],
-    technologies: ["Docker", "AWS", "GitHub Actions", "Bash"],
-    category: ["devops"],
-  },
-  {
-    title: "Commerce API",
-    description:
-      "High-throughput cart and checkout API with idempotent payments and event-driven inventory.",
-    features: ["Idempotent payments", "Event sourcing"],
-    technologies: ["Node.js", "Express", "Redis", "Stripe"],
-    category: ["backend"],
-  },
-];
-
 type Project = {
   title: string;
   description: string;
@@ -69,10 +33,9 @@ export function Projects() {
   const [filter, setFilter] = useState("all");
   const [shown, setShown] = useState(PAGE_SIZE);
 
-  const projects: Project[] =
-    Array.isArray(value?.projects) && value.projects.length > 0
-      ? value.projects
-      : FALLBACK_PROJECTS;
+  const projects: Project[] = Array.isArray(value?.projects)
+    ? value.projects
+    : [];
 
   const filtered = useMemo(() => {
     if (filter === "all") return projects;

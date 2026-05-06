@@ -20,9 +20,7 @@ export function Hero() {
   const y = useTransform(scrollYProgress, [0, 1], [0, 120]);
   const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
 
-  const description =
-    value?.personalData?.[0]?.main_desc ||
-    "I transform complex problems into elegant, scalable solutions. Specialized in the React ecosystem and cloud infrastructure.";
+  const description = value?.personalData?.[0]?.main_desc || "";
   const resume = value?.personalData?.[0]?.resume_link;
 
   return (

@@ -5,37 +5,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Section, RevealHeading } from "./section";
 import { usePersonalStore } from "@/lib/zutand";
 
-const FALLBACK_SKILLS: Record<string, { name: string; level: number }[]> = {
-  frontend: [
-    { name: "React", level: 95 },
-    { name: "Next.js", level: 92 },
-    { name: "TypeScript", level: 90 },
-    { name: "Tailwind CSS", level: 95 },
-    { name: "Framer Motion", level: 85 },
-    { name: "Redux", level: 80 },
-  ],
-  backend: [
-    { name: "Node.js", level: 90 },
-    { name: "Express", level: 88 },
-    { name: "REST APIs", level: 92 },
-    { name: "GraphQL", level: 75 },
-    { name: "Python", level: 70 },
-  ],
-  database: [
-    { name: "MongoDB", level: 90 },
-    { name: "PostgreSQL", level: 82 },
-    { name: "Redis", level: 75 },
-    { name: "Prisma", level: 78 },
-  ],
-  devops: [
-    { name: "Docker", level: 85 },
-    { name: "AWS", level: 78 },
-    { name: "CI/CD", level: 80 },
-    { name: "Linux", level: 82 },
-    { name: "Nginx", level: 75 },
-  ],
-};
-
 const CATEGORY_ORDER = ["frontend", "backend", "database", "devops"] as const;
 
 type SkillRow = { name: string; level: number };
@@ -46,15 +15,14 @@ export function Skills() {
 
   const grouped = useMemo(() => {
     const fromStore = value?.skils?.[0];
+    const out: Record<string, SkillRow[]> = {};
     if (fromStore && typeof fromStore === "object") {
-      const out: Record<string, SkillRow[]> = {};
       for (const [k, v] of Object.entries(fromStore)) {
         if (k === "_id" || !Array.isArray(v)) continue;
         out[k] = v as SkillRow[];
       }
-      if (Object.keys(out).length > 0) return out;
     }
-    return FALLBACK_SKILLS;
+    return out;
   }, [value]);
 
   const categories = CATEGORY_ORDER.filter((c) => grouped[c]?.length > 0);

@@ -6,7 +6,7 @@ import { Moon, Sun, Menu, X, Github, Linkedin, Mail } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { usePersonalStore } from "@/lib/zutand";
+import { usePersonalStore, usePersonalDataLoader } from "@/lib/zutand";
 import { NAV_SECTIONS, PAGES, SITE } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,7 @@ export function Navbar() {
   const [hovered, setHovered] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
   const { value } = usePersonalStore();
+  usePersonalDataLoader();
   const { scrollY } = useScroll();
   const pathname = usePathname();
   const isHome = pathname === "/";
@@ -50,9 +51,10 @@ export function Navbar() {
     };
   }, [isOpen]);
 
-  const github = value?.personalData?.[0]?.git_hub || SITE.github;
-  const linkedin = value?.personalData?.[0]?.linkdin || SITE.linkedin;
-  const email = value?.personalData?.[0]?.email || SITE.email;
+  const personal = value?.personalData?.[0];
+  const github = personal?.git_hub || "";
+  const linkedin = personal?.linkdin || "";
+  const email = personal?.email || "";
 
   const toggleTheme = () =>
     setTheme(theme === "dark" ? "light" : "dark");
@@ -152,24 +154,28 @@ export function Navbar() {
             </ul>
 
             <div className="flex items-center gap-1">
-              <a
-                href={github}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="GitHub"
-                className="hidden sm:grid place-items-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Github className="w-4 h-4" />
-              </a>
-              <a
-                href={linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="LinkedIn"
-                className="hidden sm:grid place-items-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Linkedin className="w-4 h-4" />
-              </a>
+              {github && (
+                <a
+                  href={github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="GitHub"
+                  className="hidden sm:grid place-items-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Github className="w-4 h-4" />
+                </a>
+              )}
+              {linkedin && (
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn"
+                  className="hidden sm:grid place-items-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              )}
               <button
                 onClick={toggleTheme}
                 aria-label="Toggle theme"
@@ -261,31 +267,37 @@ export function Navbar() {
               </nav>
 
               <div className="p-6 border-t border-border flex items-center gap-3">
-                <a
-                  href={github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="GitHub"
-                  className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <Github className="w-4 h-4" />
-                </a>
-                <a
-                  href={linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="LinkedIn"
-                  className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <Linkedin className="w-4 h-4" />
-                </a>
-                <a
-                  href={`mailto:${email}`}
-                  aria-label="Email"
-                  className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <Mail className="w-4 h-4" />
-                </a>
+                {github && (
+                  <a
+                    href={github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="GitHub"
+                    className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Github className="w-4 h-4" />
+                  </a>
+                )}
+                {linkedin && (
+                  <a
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="LinkedIn"
+                    className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Linkedin className="w-4 h-4" />
+                  </a>
+                )}
+                {email && (
+                  <a
+                    href={`mailto:${email}`}
+                    aria-label="Email"
+                    className="grid place-items-center w-10 h-10 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Mail className="w-4 h-4" />
+                  </a>
+                )}
               </div>
             </motion.aside>
           </>

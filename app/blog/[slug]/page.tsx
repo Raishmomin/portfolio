@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "../../../components/navbar";
 import { Footer } from "../../../components/footer";
+import { PageJsonLd } from "../../../components/page-json-ld";
+import { buildMetadata, breadcrumbList } from "@/lib/seo";
 import { SITE, SITE_URL } from "@/lib/config";
 import { Calendar, Clock, ArrowLeft, Tag } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
@@ -30,25 +32,16 @@ export async function generateMetadata({
     const post = await getPost(params.slug);
     if (!post) return { title: "Post Not Found" };
 
-    return {
+    return buildMetadata({
+        path: `/blog/${post.slug}`,
         title: post.title,
         description: post.excerpt,
-        alternates: { canonical: `${SITE_URL}/blog/${post.slug}` },
-        openGraph: {
-            title: `${post.title} — ${SITE.name}`,
-            description: post.excerpt,
-            url: `${SITE_URL}/blog/${post.slug}`,
-            type: "article",
-            publishedTime: new Date(post.publishedAt).toISOString(),
-            authors: [SITE.name],
-            tags: post.tags,
-        },
-        twitter: {
-            card: "summary_large_image",
-            title: post.title,
-            description: post.excerpt,
-        },
-    };
+        keywords: post.tags,
+        ogType: "article",
+        publishedTime: new Date(post.publishedAt).toISOString(),
+        authors: [SITE.name],
+        tags: post.tags,
+    });
 }
 
 function formatDate(date: string | Date): string {
@@ -130,8 +123,39 @@ export default async function BlogPostPage({
     const post = await getPost(params.slug);
     if (!post) notFound();
 
+    const url = `${SITE_URL}/blog/${post.slug}`;
+    const published = new Date(post.publishedAt).toISOString();
+    const schema: object[] = [
+        {
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            "@id": `${url}#blogposting`,
+            mainEntityOfPage: { "@type": "WebPage", "@id": url },
+            headline: post.title,
+            name: post.title,
+            description: post.excerpt,
+            articleBody: post.content,
+            url,
+            datePublished: published,
+            dateModified: published,
+            wordCount: post.content?.split(/\s+/).filter(Boolean).length,
+            timeRequired: `PT${post.readTime || 1}M`,
+            keywords: post.tags?.join(", "),
+            inLanguage: "en-US",
+            image: [`${SITE_URL}/opengraph-image`],
+            author: { "@id": `${SITE_URL}#person` },
+            publisher: { "@id": `${SITE_URL}#person` },
+        },
+        breadcrumbList([
+            { name: "Home", path: "/" },
+            { name: "Blog", path: "/blog" },
+            { name: post.title, path: `/blog/${post.slug}` },
+        ]),
+    ];
+
     return (
         <>
+            <PageJsonLd data={schema} />
             <Navbar />
             <main className="relative pt-24">
                 <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">

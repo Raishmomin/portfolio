@@ -7,43 +7,6 @@ import { Section, RevealHeading } from "./section";
 import { usePersonalStore } from "@/lib/zutand";
 import { cn } from "@/lib/utils";
 
-const FALLBACK: ExperienceItem[] = [
-  {
-    title: "Senior Full Stack Developer",
-    company: "Freelance",
-    period: "2023 — Present",
-    description:
-      "Building production web apps and cloud infrastructure for startups and SMBs. End-to-end ownership from architecture to deploy.",
-    achievements: [
-      "Shipped 10+ production apps on Next.js / Node.js stack",
-      "Cut infra costs ~40% via container right-sizing & caching",
-      "Mentored 3 junior engineers across 2 client teams",
-    ],
-    technologies: ["Next.js", "Node.js", "MongoDB", "Docker", "AWS"],
-  },
-  {
-    title: "Full Stack Developer",
-    company: "Tech Studio",
-    period: "2021 — 2023",
-    description:
-      "Owned features across the React frontend and Node API. Drove migration to TypeScript across the platform.",
-    achievements: [
-      "Led TypeScript migration of a 60k LOC codebase",
-      "Built CI/CD pipeline cutting release time from 45 → 8 min",
-    ],
-    technologies: ["React", "TypeScript", "Express", "PostgreSQL"],
-  },
-  {
-    title: "Junior Developer",
-    company: "Studio One",
-    period: "2020 — 2021",
-    description:
-      "Started in product engineering — UI components, API endpoints, and a lot of code review.",
-    achievements: ["Built component library used across 4 products"],
-    technologies: ["React", "Node.js", "MongoDB"],
-  },
-];
-
 type ExperienceItem = {
   title: string;
   company: string;
@@ -59,10 +22,9 @@ export function Experience() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
 
-  const items: ExperienceItem[] =
-    Array.isArray(value?.experience) && value.experience.length > 0
-      ? value.experience
-      : FALLBACK;
+  const items: ExperienceItem[] = Array.isArray(value?.experience)
+    ? value.experience
+    : [];
 
   useEffect(() => {
     if (reduce || paused) return;
