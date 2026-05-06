@@ -11,13 +11,14 @@ export function About() {
   const { value } = usePersonalStore();
   const reduce = useReducedMotion();
 
-  const description =
-    value?.personalData?.[0]?.about_desc ||
-    "I'm a Full Stack Developer building scalable, efficient, user-friendly web applications. Strong foundation in React, Next.js, and Node.js — focused on shipping high-quality code that solves real problems.";
+  const description = value?.personalData?.[0]?.about_desc || "";
 
   const yearsRaw = value?.personalData?.[0]?.experience;
-  const years = typeof yearsRaw === "number" ? yearsRaw : parseInt(String(yearsRaw || "4"), 10) || 4;
-  const projectCount = value?.projects?.length || 12;
+  const years =
+    typeof yearsRaw === "number"
+      ? yearsRaw
+      : parseInt(String(yearsRaw || "0"), 10) || 0;
+  const projectCount = Array.isArray(value?.projects) ? value.projects.length : 0;
 
   const stats = [
     { label: "Years experience", value: years, suffix: "+" },

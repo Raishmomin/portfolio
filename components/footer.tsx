@@ -13,9 +13,10 @@ export function Footer() {
   const pathname = usePathname();
   const isHome = pathname === "/";
 
-  const github = value?.personalData?.[0]?.git_hub || SITE.github;
-  const linkedin = value?.personalData?.[0]?.linkdin || SITE.linkedin;
-  const email = value?.personalData?.[0]?.email || SITE.email;
+  const personal = value?.personalData?.[0];
+  const github = personal?.git_hub || "";
+  const linkedin = personal?.linkdin || "";
+  const email = personal?.email || "";
 
   return (
     <footer
@@ -32,13 +33,15 @@ export function Footer() {
               Open to senior engineering roles, freelance, and meaningful
               collaborations.
             </p>
-            <a
-              href={`mailto:${email}`}
-              className="mt-8 inline-flex items-center gap-2 text-sm border-b border-foreground/40 pb-1 hover:border-foreground transition-colors"
-            >
-              <Mail className="w-4 h-4" aria-hidden="true" />
-              {email}
-            </a>
+            {email && (
+              <a
+                href={`mailto:${email}`}
+                className="mt-8 inline-flex items-center gap-2 text-sm border-b border-foreground/40 pb-1 hover:border-foreground transition-colors"
+              >
+                <Mail className="w-4 h-4" aria-hidden="true" />
+                {email}
+              </a>
+            )}
           </div>
 
           <nav
@@ -67,37 +70,43 @@ export function Footer() {
               Elsewhere
             </p>
             <ul className="space-y-3">
-              <li>
-                <a
-                  href={github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Github className="w-3.5 h-3.5" aria-hidden="true" />
-                  GitHub
-                </a>
-              </li>
-              <li>
-                <a
-                  href={linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Linkedin className="w-3.5 h-3.5" aria-hidden="true" />
-                  LinkedIn
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`mailto:${email}`}
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Mail className="w-3.5 h-3.5" aria-hidden="true" />
-                  Email
-                </a>
-              </li>
+              {github && (
+                <li>
+                  <a
+                    href={github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Github className="w-3.5 h-3.5" aria-hidden="true" />
+                    GitHub
+                  </a>
+                </li>
+              )}
+              {linkedin && (
+                <li>
+                  <a
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Linkedin className="w-3.5 h-3.5" aria-hidden="true" />
+                    LinkedIn
+                  </a>
+                </li>
+              )}
+              {email && (
+                <li>
+                  <a
+                    href={`mailto:${email}`}
+                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5" aria-hidden="true" />
+                    Email
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
         </div>

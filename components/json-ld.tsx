@@ -1,14 +1,56 @@
+import clientPromise from "@/lib/mongodb";
 import { SITE, SITE_URL } from "@/lib/config";
 
-export function JsonLd() {
+type PersonalDoc = {
+  email?: string;
+  phone_number?: string;
+  location?: string;
+  git_hub?: string;
+  linkdin?: string;
+  about_desc?: string;
+  main_desc?: string;
+  resume_link?: string;
+  experience?: number | string;
+};
+
+async function getPersonal(): Promise<PersonalDoc | null> {
+  try {
+    const client = await clientPromise;
+    const db = client.db("Portfolio");
+    const doc = await db.collection("personal-data").findOne({});
+    if (!doc) return null;
+    return JSON.parse(JSON.stringify(doc));
+  } catch {
+    return null;
+  }
+}
+
+export async function JsonLd() {
+  const personal = await getPersonal();
+
+  const sameAs = [
+    personal?.git_hub || SITE.github,
+    personal?.linkdin || SITE.linkedin,
+  ].filter(Boolean);
+
   const person = {
     "@context": "https://schema.org",
     "@type": "Person",
+    "@id": `${SITE_URL}#person`,
     name: SITE.name,
     url: SITE_URL,
+    image: `${SITE_URL}/opengraph-image`,
     jobTitle: SITE.jobTitle,
-    description: SITE.description,
-    sameAs: [SITE.github, SITE.linkedin].filter(Boolean),
+    description: personal?.about_desc || SITE.description,
+    email: personal?.email
+      ? `mailto:${personal.email}`
+      : SITE.email
+      ? `mailto:${SITE.email}`
+      : undefined,
+    address: personal?.location
+      ? { "@type": "PostalAddress", addressLocality: personal.location }
+      : undefined,
+    sameAs,
     knowsAbout: [
       "React",
       "Next.js",
@@ -20,66 +62,28 @@ export function JsonLd() {
       "Docker",
       "AWS",
       "DevOps",
+      "Full Stack Development",
     ],
   };
 
   const website = {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": `${SITE_URL}#website`,
     url: SITE_URL,
     name: SITE.name,
     description: SITE.description,
     inLanguage: "en-US",
-    author: { "@type": "Person", name: SITE.name },
-  };
-
-  const breadcrumb = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: "Home",
-        item: SITE_URL,
+    publisher: { "@id": `${SITE_URL}#person` },
+    author: { "@id": `${SITE_URL}#person` },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${SITE_URL}/blog?q={search_term_string}`,
       },
-      {
-        "@type": "ListItem",
-        position: 2,
-        name: "About",
-        item: `${SITE_URL}/about`,
-      },
-      {
-        "@type": "ListItem",
-        position: 3,
-        name: "Projects",
-        item: `${SITE_URL}/projects`,
-      },
-      {
-        "@type": "ListItem",
-        position: 4,
-        name: "Experience",
-        item: `${SITE_URL}/experience`,
-      },
-      {
-        "@type": "ListItem",
-        position: 5,
-        name: "Skills",
-        item: `${SITE_URL}/skills`,
-      },
-      {
-        "@type": "ListItem",
-        position: 6,
-        name: "Contact",
-        item: `${SITE_URL}/contact`,
-      },
-      {
-        "@type": "ListItem",
-        position: 7,
-        name: "Blog",
-        item: `${SITE_URL}/blog`,
-      },
-    ],
+      "query-input": "required name=search_term_string",
+    },
   };
 
   return (
@@ -91,10 +95,6 @@ export function JsonLd() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
     </>
   );

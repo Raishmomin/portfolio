@@ -6,7 +6,6 @@ import { Mail, MapPin, Phone, Github, Linkedin, ArrowRight, Check } from "lucide
 import { Section, RevealHeading } from "./section";
 import { Magnetic } from "./magnetic-button";
 import { usePersonalStore } from "@/lib/zutand";
-import { SITE } from "@/lib/config";
 
 export function Contact() {
   const { value } = usePersonalStore();
@@ -16,11 +15,12 @@ export function Contact() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
-  const email = value?.personalData?.[0]?.email || SITE.email;
-  const phone = value?.personalData?.[0]?.phone_number;
-  const location = value?.personalData?.[0]?.location || "Remote · Worldwide";
-  const github = value?.personalData?.[0]?.git_hub || SITE.github;
-  const linkedin = value?.personalData?.[0]?.linkdin || SITE.linkedin;
+  const personal = value?.personalData?.[0];
+  const email = personal?.email || "";
+  const phone = personal?.phone_number;
+  const location = personal?.location || "";
+  const github = personal?.git_hub || "";
+  const linkedin = personal?.linkdin || "";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -62,11 +62,13 @@ export function Contact() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
         <aside className="lg:col-span-4 space-y-10">
           <ul className="space-y-6">
-            <ContactRow icon={Mail} label="Email" value={email} href={`mailto:${email}`} />
+            {email && (
+              <ContactRow icon={Mail} label="Email" value={email} href={`mailto:${email}`} />
+            )}
             {phone && (
               <ContactRow icon={Phone} label="Phone" value={phone} href={`tel:${phone}`} />
             )}
-            <ContactRow icon={MapPin} label="Location" value={location} />
+            {location && <ContactRow icon={MapPin} label="Location" value={location} />}
           </ul>
 
           <div>
@@ -74,24 +76,28 @@ export function Contact() {
               Elsewhere
             </div>
             <div className="flex gap-2">
-              <a
-                href={github}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="GitHub"
-                className="grid place-items-center w-10 h-10 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Github className="w-4 h-4" />
-              </a>
-              <a
-                href={linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="LinkedIn"
-                className="grid place-items-center w-10 h-10 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Linkedin className="w-4 h-4" />
-              </a>
+              {github && (
+                <a
+                  href={github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="GitHub"
+                  className="grid place-items-center w-10 h-10 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Github className="w-4 h-4" />
+                </a>
+              )}
+              {linkedin && (
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn"
+                  className="grid place-items-center w-10 h-10 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              )}
             </div>
           </div>
         </aside>

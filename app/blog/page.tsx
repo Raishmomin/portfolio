@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
+import { PageJsonLd } from "../../components/page-json-ld";
+import { buildMetadata, breadcrumbList } from "@/lib/seo";
 import { SITE, SITE_URL } from "@/lib/config";
 import { Calendar, Clock, ArrowRight, Rss } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
@@ -9,17 +11,20 @@ import type { BlogPost } from "@/lib/blog-types";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildMetadata({
+    path: "/blog",
     title: "Blog",
     description: `Thoughts, tutorials, and dev notes by ${SITE.name} — covering AI, React, Node.js, DevOps, and full-stack engineering.`,
-    alternates: { canonical: `${SITE_URL}/blog` },
-    openGraph: {
-        title: `Blog — ${SITE.name}`,
-        description:
-            "Thoughts, tutorials, and dev notes on full-stack engineering, DevOps, and modern web development.",
-        url: `${SITE_URL}/blog`,
-    },
-};
+    keywords: [
+        "Raish Momin blog",
+        "React tutorials",
+        "Next.js tutorials",
+        "Node.js tutorials",
+        "DevOps notes",
+        "Full Stack engineering blog",
+        "AI engineering",
+    ],
+});
 
 async function getPosts(): Promise<BlogPost[]> {
     try {
@@ -47,8 +52,36 @@ function formatDate(date: string | Date): string {
 export default async function BlogPage() {
     const posts = await getPosts();
 
+    const schema: object[] = [
+        {
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            "@id": `${SITE_URL}/blog#blog`,
+            url: `${SITE_URL}/blog`,
+            name: `Blog — ${SITE.name}`,
+            description: metadata.description as string,
+            inLanguage: "en-US",
+            author: { "@id": `${SITE_URL}#person` },
+            publisher: { "@id": `${SITE_URL}#person` },
+            blogPost: posts.slice(0, 10).map((p) => ({
+                "@type": "BlogPosting",
+                headline: p.title,
+                description: p.excerpt,
+                url: `${SITE_URL}/blog/${p.slug}`,
+                datePublished: new Date(p.publishedAt).toISOString(),
+                keywords: p.tags?.join(", "),
+                author: { "@id": `${SITE_URL}#person` },
+            })),
+        },
+        breadcrumbList([
+            { name: "Home", path: "/" },
+            { name: "Blog", path: "/blog" },
+        ]),
+    ];
+
     return (
         <>
+            <PageJsonLd data={schema} />
             <Navbar />
             <main className="relative pt-24">
                 <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
