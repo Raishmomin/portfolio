@@ -6,4 +6,4 @@ Allow: /
 Host: https://raish-momin.vercel.app
 
 # Sitemaps
-Sitemap: https://raish-momin.vercel.app/sitemap.xml
+Sitemap: https://raish-momin.vercel.app/sitemap-success.xml
