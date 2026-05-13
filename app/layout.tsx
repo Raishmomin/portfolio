@@ -72,7 +72,15 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
-  alternates: { canonical: SITE_URL },
+  alternates: {
+    canonical: SITE_URL,
+    types: {
+      "application/rss+xml": `${SITE_URL}/feed.xml`,
+    },
+  },
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
