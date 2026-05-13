@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
 import { Projects } from "../../components/projects";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
 import { SITE_URL } from "@/lib/config";
+import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 export const metadata: Metadata = buildMetadata({
   path: "/projects",
@@ -32,21 +34,25 @@ type ProjectDoc = {
   category?: string[];
 };
 
-async function getProjects(): Promise<ProjectDoc[]> {
-  try {
-    const client = await clientPromise;
-    const db = client.db("Portfolio");
-    const docs = await db
-      .collection("projects")
-      .find({})
-      .sort({ sort: -1 })
-      .collation({ locale: "en_US", numericOrdering: true })
-      .toArray();
-    return JSON.parse(JSON.stringify(docs));
-  } catch {
-    return [];
-  }
-}
+const getProjects = unstable_cache(
+  async (): Promise<ProjectDoc[]> => {
+    try {
+      const client = await clientPromise;
+      const db = client.db("Portfolio");
+      const docs = await db
+        .collection("projects")
+        .find({})
+        .sort({ sort: -1 })
+        .collation({ locale: "en_US", numericOrdering: true })
+        .toArray();
+      return JSON.parse(JSON.stringify(docs));
+    } catch {
+      return [];
+    }
+  },
+  ["projects-list"],
+  { tags: [TAGS.projects], revalidate: 86400 }
+);
 
 export default async function ProjectsPage() {
   const projects = await getProjects();

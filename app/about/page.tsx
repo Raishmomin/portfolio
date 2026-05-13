@@ -3,7 +3,14 @@ import { Navbar } from "../../components/navbar";
 import { About } from "../../components/about";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
+import { FAQSection } from "../../components/faq-section";
+import {
+  buildMetadata,
+  breadcrumbList,
+  webPageSchema,
+  faqPageSchema,
+} from "@/lib/seo";
+import { FAQS } from "@/lib/faqs";
 
 export const metadata: Metadata = buildMetadata({
   path: "/about",
@@ -20,6 +27,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default function AboutPage() {
+  const faqs = FAQS["/about"] ?? [];
   const schema = [
     webPageSchema({
       type: "AboutPage",
@@ -27,6 +35,7 @@ export default function AboutPage() {
       description: metadata.description as string,
       path: "/about",
     }),
+    faqPageSchema(faqs, "/about"),
     breadcrumbList([
       { name: "Home", path: "/" },
       { name: "About", path: "/about" },
@@ -39,6 +48,7 @@ export default function AboutPage() {
       <Navbar />
       <main className="relative pt-24">
         <About />
+        <FAQSection faqs={faqs} />
       </main>
       <Footer />
     </>

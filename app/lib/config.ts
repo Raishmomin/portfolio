@@ -26,9 +26,10 @@ export const NAV_SECTIONS = [
 export const PAGES = [
   { path: "/", label: "Home" },
   { path: "/about", label: "About" },
+  { path: "/services", label: "Services" },
   { path: "/projects", label: "Projects" },
   { path: "/experience", label: "Experience" },
   { path: "/skills", label: "Skills" },
-  { path: "/contact", label: "Contact" },
   { path: "/blog", label: "Blog" },
+  { path: "/contact", label: "Contact" },
 ] as const;

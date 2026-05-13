@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList } from "@/lib/seo";
 import { SITE, SITE_URL } from "@/lib/config";
+import { TAGS } from "@/lib/cache-tags";
 import { Calendar, Clock, ArrowRight, Rss } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPost } from "@/lib/blog-types";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
     path: "/blog",
@@ -26,20 +28,24 @@ export const metadata: Metadata = buildMetadata({
     ],
 });
 
-async function getPosts(): Promise<BlogPost[]> {
-    try {
-        const client = await clientPromise;
-        const db = client.db("Portfolio");
-        const posts = await db
-            .collection("blogs")
-            .find({})
-            .sort({ publishedAt: -1 })
-            .toArray();
-        return JSON.parse(JSON.stringify(posts));
-    } catch {
-        return [];
-    }
-}
+const getPosts = unstable_cache(
+    async (): Promise<BlogPost[]> => {
+        try {
+            const client = await clientPromise;
+            const db = client.db("Portfolio");
+            const posts = await db
+                .collection("blogs")
+                .find({ published: { $ne: false } })
+                .sort({ publishedAt: -1 })
+                .toArray();
+            return JSON.parse(JSON.stringify(posts));
+        } catch {
+            return [];
+        }
+    },
+    ["blog-posts-list"],
+    { tags: [TAGS.blogs], revalidate: 3600 }
+);
 
 function formatDate(date: string | Date): string {
     return new Date(date).toLocaleDateString("en-US", {

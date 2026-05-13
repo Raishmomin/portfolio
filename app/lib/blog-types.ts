@@ -7,5 +7,7 @@ export type BlogPost = {
     tags: string[];
     readTime: number;
     publishedAt: Date;
+    updatedAt?: Date;
+    published?: boolean;
     generatedBy: string;
 };

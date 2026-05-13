@@ -87,3 +87,40 @@ export function webPageSchema(input: {
     inLanguage: "en-US",
   };
 }
+
+export type FAQ = { q: string; a: string };
+
+export function faqPageSchema(faqs: FAQ[], path?: string): object {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    ...(path ? { "@id": `${SITE_URL}${path}#faq` } : {}),
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+}
+
+export function serviceSchema(input: {
+  name: string;
+  description: string;
+  serviceType: string;
+  path: string;
+  areaServed?: string;
+  priceRange?: string;
+}): object {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "@id": `${SITE_URL}${input.path}#service`,
+    name: input.name,
+    description: input.description,
+    serviceType: input.serviceType,
+    url: `${SITE_URL}${input.path}`,
+    provider: { "@id": `${SITE_URL}#person` },
+    areaServed: input.areaServed || "Worldwide",
+    ...(input.priceRange ? { priceRange: input.priceRange } : {}),
+  };
+}

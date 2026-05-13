@@ -1,9 +1,0 @@
-# *
-User-agent: *
-Allow: /
-
-# Host
-Host: https://raish-momin.vercel.app
-
-# Sitemaps
-Sitemap: https://raish-momin.vercel.app/sitemap.xml

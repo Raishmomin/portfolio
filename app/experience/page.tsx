@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
 import { Experience } from "../../components/experience";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
+import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 export const metadata: Metadata = buildMetadata({
   path: "/experience",
@@ -29,16 +31,20 @@ type ExperienceDoc = {
   description?: string;
 };
 
-async function getExperience(): Promise<ExperienceDoc[]> {
-  try {
-    const client = await clientPromise;
-    const db = client.db("Portfolio");
-    const docs = await db.collection("experience").find({}).toArray();
-    return JSON.parse(JSON.stringify(docs));
-  } catch {
-    return [];
-  }
-}
+const getExperience = unstable_cache(
+  async (): Promise<ExperienceDoc[]> => {
+    try {
+      const client = await clientPromise;
+      const db = client.db("Portfolio");
+      const docs = await db.collection("experience").find({}).toArray();
+      return JSON.parse(JSON.stringify(docs));
+    } catch {
+      return [];
+    }
+  },
+  ["experience-list"],
+  { tags: [TAGS.experience], revalidate: 86400 }
+);
 
 export default async function ExperiencePage() {
   const experience = await getExperience();

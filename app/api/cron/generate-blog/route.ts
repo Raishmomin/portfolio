@@ -3,6 +3,8 @@ export const maxDuration = 60; // Allow up to 60s for AI generation
 
 import clientPromise from "@/lib/mongodb";
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { TAGS } from "@/lib/cache-tags";
 
 const NVIDIA_API_URL =
     "https://integrate.api.nvidia.com/v1/chat/completions";
@@ -57,7 +59,7 @@ async function callNvidia(prompt: string): Promise<string> {
             model: MODEL,
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
-            max_tokens: 2048,
+            max_tokens: 4096,
         }),
     });
 
@@ -97,16 +99,26 @@ export async function GET(req: NextRequest) {
         const existingTitles = existing.map((d) => d.title);
 
         // ── 2. Generate a unique topic ──
-        const topicPrompt = `You are a tech blog topic generator for a full-stack developer's portfolio blog.
+        const topicPrompt = `You generate blog post titles for a senior full-stack developer's portfolio. The site targets freelance hire intent + technical authority. Audience: working engineers, CTOs, and engineering managers searching Google.
 
-The blog focuses on these areas: ${TOPICS.join(", ")}.
+Focus areas: ${TOPICS.join(", ")}.
 
-These blog posts already exist (DO NOT repeat any of them):
+Existing titles (DO NOT repeat, DO NOT use near-synonyms):
 ${existingTitles.length > 0 ? existingTitles.map((t) => `- ${t}`).join("\n") : "- (none yet)"}
 
-Suggest exactly ONE new, unique, and specific blog post title. The title should be practical and actionable (e.g., "How to Build a Real-Time Chat App with WebSockets and Node.js").
+Generate ONE new title that meets ALL of these rules:
+1. 8–14 words, specific enough to map to a single Google search query
+2. Includes a concrete tool/version (e.g. "Next.js 14", "Node 20", "Mongo 7", "Postgres 16")
+3. Promises a SPECIFIC outcome, lesson, or comparison — not a generic overview
+4. Avoids clickbait formulas ("Ultimate Guide", "Everything You Need", "The Complete")
+5. Reads like an experienced engineer wrote it, not marketing
 
-Return ONLY the title, nothing else. No quotes, no numbering, no explanation.`;
+Good examples:
+- "Cutting Next.js 14 cold starts from 3.2s to 400ms with PPR and edge runtime"
+- "When MongoDB compound indexes actually help (and the 4 times they hurt)"
+- "Server Components data fetching: 5 patterns that survived production"
+
+Return ONLY the title — no quotes, no numbering, no preamble.`;
 
         const title = (await callNvidia(topicPrompt)).replace(/^["']|["']$/g, "");
         const slug = slugify(title);
@@ -121,20 +133,42 @@ Return ONLY the title, nothing else. No quotes, no numbering, no explanation.`;
         }
 
         // ── 4. Generate the full blog post ──
-        const contentPrompt = `Write a technical blog post with the title: "${title}"
+        const contentPrompt = `You are writing a deep technical blog post for a senior full-stack engineer's portfolio. Target audience: working developers, tech leads, and CTOs. The voice is direct, opinionated, and grounded in production experience — never marketing.
 
-Requirements:
-- Write 600-800 words
-- Use markdown formatting with ## headings
-- Include practical code examples where relevant (use fenced code blocks with language)
-- Make it informative and actionable
-- Write in a professional but approachable tone
+Title: "${title}"
 
-At the very end, on separate lines, provide:
-EXCERPT: (a compelling 1-2 sentence summary)
-TAGS: (3-5 comma-separated tags like AI, React, Node.js)
+REQUIRED STRUCTURE (use markdown):
 
-Do NOT include the title as a heading in the content (it will be rendered separately).`;
+## The problem
+2–3 paragraphs framing the concrete production problem this post solves. Use specific scenarios ("when traffic spikes past X RPS…", "when a Mongo collection grows past Y docs…"). Avoid platitudes.
+
+## How most teams get this wrong
+1–2 paragraphs naming the common anti-patterns. Be specific. Reference real failure modes (cache stampedes, N+1 queries, cold-start cascades, schema drift, etc.).
+
+## The approach that works
+The core of the post: 3–5 subsections (### subheadings) explaining the solution. Each subsection must include either a code block OR a concrete numeric example (latency numbers, query counts, bundle sizes, dollar amounts). Show, don't tell.
+
+## A working example
+A self-contained code example (30–80 lines) that a reader could paste and run, with brief inline comments where non-obvious. Use a fenced code block with the correct language tag.
+
+## When this approach is wrong
+1 paragraph — honest tradeoffs. Every real engineering choice has a "don't use this if…" caveat. Skipping this section makes the post sound like marketing.
+
+## Takeaways
+Bulleted list of 4–6 short, declarative lessons.
+
+WRITING RULES:
+- 1500–2000 words total
+- First person ("I", "we") — confident, not hedging. Avoid "it's important to" / "make sure to" filler.
+- Use specific tools and versions (Next.js 14, Node 20 LTS, Mongo 7, Postgres 16) — never vague "modern frameworks".
+- Code blocks must have language tags (\`\`\`typescript, \`\`\`javascript, \`\`\`bash, \`\`\`sql, etc.).
+- DO NOT fabricate specific client names, company logos, or named case studies. Generic patterns ("a SaaS client", "a fintech team") are fine.
+- DO NOT include the title as a heading — it's rendered separately.
+- DO NOT add a "Conclusion" heading — the Takeaways section closes the post.
+
+After the post, on separate lines (NOT inside the article):
+EXCERPT: 1–2 sentence summary, written to make a developer click. ≤180 chars.
+TAGS: 4–6 comma-separated tags. Use Title Case. Prefer specific tags (Next.js, Server Components, MongoDB) over generic ones (Web, Coding). Include the primary tool/framework as the first tag.`;
 
         const raw = await callNvidia(contentPrompt);
 
@@ -166,6 +200,7 @@ Do NOT include the title as a heading in the content (it will be rendered separa
         }
 
         // ── 6. Save to MongoDB ──
+        const now = new Date();
         const post = {
             title,
             slug,
@@ -173,17 +208,23 @@ Do NOT include the title as a heading in the content (it will be rendered separa
             content,
             tags,
             readTime: estimateReadTime(content),
-            publishedAt: new Date(),
+            publishedAt: now,
+            updatedAt: now,
+            published: true,
             generatedBy: MODEL,
         };
 
         const result = await blogsCol.insertOne(post);
+
+        revalidateTag(TAGS.blogs);
 
         return NextResponse.json({
             success: true,
             insertedId: result.insertedId,
             title,
             slug,
+            published: true,
+            wordCount: content.split(/\s+/).filter(Boolean).length,
         });
     } catch (error) {
         console.error("Blog generation error:", error);

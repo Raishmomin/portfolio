@@ -1,27 +1,57 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { Navbar } from "../../../components/navbar";
 import { Footer } from "../../../components/footer";
 import { PageJsonLd } from "../../../components/page-json-ld";
+import { AuthorBio } from "../../../components/author-bio";
+import { RelatedPosts } from "../../../components/related-posts";
+import { TableOfContents, extractToc, slugifyHeading } from "../../../components/toc";
 import { buildMetadata, breadcrumbList } from "@/lib/seo";
 import { SITE, SITE_URL } from "@/lib/config";
+import { TAGS } from "@/lib/cache-tags";
+import { autolink } from "@/lib/internal-links";
 import { Calendar, Clock, ArrowLeft, Tag } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPost } from "@/lib/blog-types";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
-async function getPost(slug: string): Promise<BlogPost | null> {
+export async function generateStaticParams() {
     try {
         const client = await clientPromise;
         const db = client.db("Portfolio");
-        const post = await db.collection("blogs").findOne({ slug });
-        if (!post) return null;
-        return JSON.parse(JSON.stringify(post));
+        const posts = await db
+            .collection("blogs")
+            .find({ published: { $ne: false } }, { projection: { slug: 1 } })
+            .toArray();
+        return posts.map((p) => ({ slug: p.slug as string }));
     } catch {
-        return null;
+        return [];
     }
+}
+
+function getPostCached(slug: string) {
+    return unstable_cache(
+        async (): Promise<BlogPost | null> => {
+            try {
+                const client = await clientPromise;
+                const db = client.db("Portfolio");
+                const post = await db.collection("blogs").findOne({ slug });
+                if (!post) return null;
+                return JSON.parse(JSON.stringify(post));
+            } catch {
+                return null;
+            }
+        },
+        ["blog-post", slug],
+        { tags: [TAGS.blogs, TAGS.blog(slug)], revalidate: 3600 }
+    )();
+}
+
+async function getPost(slug: string): Promise<BlogPost | null> {
+    return getPostCached(slug);
 }
 
 export async function generateMetadata({
@@ -39,6 +69,7 @@ export async function generateMetadata({
         keywords: post.tags,
         ogType: "article",
         publishedTime: new Date(post.publishedAt).toISOString(),
+        modifiedTime: new Date(post.updatedAt || post.publishedAt).toISOString(),
         authors: [SITE.name],
         tags: post.tags,
     });
@@ -52,7 +83,7 @@ function formatDate(date: string | Date): string {
     });
 }
 
-/** Basic markdown → HTML (headings, code blocks, bold, italic, links, lists) */
+/** Basic markdown → HTML (headings get anchor IDs for TOC). */
 function renderMarkdown(md: string): string {
     let html = md
         // Fenced code blocks
@@ -66,14 +97,16 @@ function renderMarkdown(md: string): string {
         )
         // Inline code
         .replace(/`([^`]+)`/g, '<code class="blog-inline-code">$1</code>')
-        // Headings
+        // Headings (with anchor IDs)
         .replace(
             /^### (.+)$/gm,
-            '<h3 class="text-lg font-semibold tracking-tight text-foreground mt-8 mb-3">$1</h3>'
+            (_m, text) =>
+                `<h3 id="${slugifyHeading(text)}" class="text-lg font-semibold tracking-tight text-foreground mt-8 mb-3 scroll-mt-24">${text}</h3>`
         )
         .replace(
             /^## (.+)$/gm,
-            '<h2 class="text-xl font-semibold tracking-tight text-foreground mt-10 mb-4">$1</h2>'
+            (_m, text) =>
+                `<h2 id="${slugifyHeading(text)}" class="text-xl font-semibold tracking-tight text-foreground mt-10 mb-4 scroll-mt-24">${text}</h2>`
         )
         // Bold / italic
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -112,7 +145,8 @@ function renderMarkdown(md: string): string {
         })
         .join("\n");
 
-    return html;
+    // Inject internal links to service pages on plain prose
+    return autolink(html);
 }
 
 export default async function BlogPostPage({
@@ -125,10 +159,14 @@ export default async function BlogPostPage({
 
     const url = `${SITE_URL}/blog/${post.slug}`;
     const published = new Date(post.publishedAt).toISOString();
+    const modified = new Date(post.updatedAt || post.publishedAt).toISOString();
+    const toc = extractToc(post.content);
+    const wordCount = post.content?.split(/\s+/).filter(Boolean).length || 0;
+
     const schema: object[] = [
         {
             "@context": "https://schema.org",
-            "@type": "BlogPosting",
+            "@type": ["BlogPosting", "Article"],
             "@id": `${url}#blogposting`,
             mainEntityOfPage: { "@type": "WebPage", "@id": url },
             headline: post.title,
@@ -137,12 +175,12 @@ export default async function BlogPostPage({
             articleBody: post.content,
             url,
             datePublished: published,
-            dateModified: published,
-            wordCount: post.content?.split(/\s+/).filter(Boolean).length,
+            dateModified: modified,
+            wordCount,
             timeRequired: `PT${post.readTime || 1}M`,
             keywords: post.tags?.join(", "),
             inLanguage: "en-US",
-            image: [`${SITE_URL}/opengraph-image`],
+            image: [`${url}/opengraph-image`],
             author: { "@id": `${SITE_URL}#person` },
             publisher: { "@id": `${SITE_URL}#person` },
         },
@@ -152,6 +190,8 @@ export default async function BlogPostPage({
             { name: post.title, path: `/blog/${post.slug}` },
         ]),
     ];
+
+    const showToc = wordCount > 1000 && toc.length >= 3;
 
     return (
         <>
@@ -206,11 +246,20 @@ export default async function BlogPostPage({
                     {/* Divider */}
                     <div className="h-px bg-border mb-12" />
 
+                    {/* Table of Contents (long posts only) */}
+                    {showToc && <TableOfContents items={toc} />}
+
                     {/* Content */}
                     <div
                         className="blog-content"
                         dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }}
                     />
+
+                    {/* Author bio */}
+                    <AuthorBio />
+
+                    {/* Related posts */}
+                    <RelatedPosts currentSlug={post.slug} tags={post.tags || []} />
 
                     {/* Footer nav */}
                     <div className="mt-16 pt-8 border-t border-border">
