@@ -1,11 +1,14 @@
 // Public API of the cluster module. UI lanes import ONLY from "@/components/cluster".
-// STUB (pre-3D): renders the pre-sized frame + caption bar so layouts can be built.
-// The 3D lane replaces the internals (poster SVG, capability gate, lazy R3F scene) without changing these exports.
+// ClusterMonitor is a Server Component: the frame, the SVG poster and the default
+// caption are in the server HTML. The client island adds the gated, lazy R3F scene.
 import type { ClusterVariant, FormationData } from "./types";
+import { ClusterIsland } from "./cluster-island";
+import { ClusterPoster } from "./poster";
 import { cn } from "@/lib/utils";
 
 export type { FormationData, FormationKey, ClusterVariant, SkillGroupKey } from "./types";
 export { toFormationData } from "./formation-data";
+export { SectionSpy } from "./section-spy";
 
 export function ClusterMonitor({
   data,
@@ -16,29 +19,29 @@ export function ClusterMonitor({
   variant?: ClusterVariant;
   className?: string;
 }) {
-  void data;
+  // Subpage motif: static SVG only, never a canvas.
+  if (variant === "motif") {
+    return (
+      <div aria-hidden="true" className={cn("aspect-square w-full max-w-xs", className)}>
+        <ClusterPoster data={data} variant="motif" className="h-full w-full" />
+      </div>
+    );
+  }
+
   return (
-    <figure
-      aria-hidden="true"
+    <div
+      data-cluster={variant}
       className={cn(
-        "relative overflow-hidden rounded-lg border border-border bg-card",
-        variant === "band" && "aspect-[16/10] w-full",
-        variant === "sticky" && "h-full w-full",
-        variant === "motif" && "aspect-square w-full max-w-xs",
+        "flex flex-col overflow-hidden rounded-lg border border-border bg-card",
+        variant === "sticky" ? "h-full w-full" : "w-full",
         className,
       )}
     >
-      <div className="absolute inset-0 [contain:strict]" />
-      {variant !== "motif" ? (
-        <figcaption className="absolute inset-x-0 bottom-0 border-t border-border px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-          kubectl get pods -A · Running
-        </figcaption>
-      ) : null}
-    </figure>
+      <ClusterIsland
+        data={data}
+        variant={variant}
+        poster={<ClusterPoster data={data} variant={variant} className="absolute inset-0 h-full w-full" />}
+      />
+    </div>
   );
-}
-
-/** Scroll-spy island (stub: renders nothing). Mount once per page that uses data-section. */
-export function SectionSpy() {
-  return null;
 }
