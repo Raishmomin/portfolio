@@ -6,26 +6,24 @@ import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import type { ServiceConfig } from "@/lib/services";
 import type { BlogPost } from "@/lib/blog-types";
+import { LISTED_POSTS, plainExcerpt, postTitle } from "@/lib/blog";
 
+// DB errors throw (never cached), so a failed ISR revalidation keeps the last good output.
 const getRelatedPosts = unstable_cache(
   async (tags: string[]): Promise<Pick<BlogPost, "title" | "slug" | "excerpt">[]> => {
     if (!tags.length) return [];
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const posts = await db
-        .collection("blogs")
-        .find(
-          { published: { $ne: false }, tags: { $in: tags } },
-          { projection: { title: 1, slug: 1, excerpt: 1 } }
-        )
-        .sort({ publishedAt: -1 })
-        .limit(4)
-        .toArray();
-      return JSON.parse(JSON.stringify(posts));
-    } catch {
-      return [];
-    }
+    const client = await clientPromise;
+    const db = client.db("Portfolio");
+    const posts = await db
+      .collection("blogs")
+      .find(
+        { ...LISTED_POSTS, tags: { $in: tags } },
+        { projection: { title: 1, slug: 1, excerpt: 1 } }
+      )
+      .sort({ publishedAt: -1 })
+      .limit(4)
+      .toArray();
+    return JSON.parse(JSON.stringify(posts));
   },
   ["service-related-posts"],
   { tags: [TAGS.blogs], revalidate: 3600 }
@@ -164,10 +162,10 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
                   className="group block p-6 rounded-xl border border-border bg-card hover:border-foreground/40 transition-colors"
                 >
                   <h3 className="text-base font-semibold tracking-tight text-foreground mb-2 group-hover:text-foreground/80 transition-colors">
-                    {p.title}
+                    {postTitle(p.title)}
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                    {p.excerpt}
+                    {plainExcerpt(p.excerpt)}
                   </p>
                 </Link>
               </li>

@@ -14,7 +14,7 @@ export const metadata: Metadata = buildMetadata({
   path: "/services",
   title: "Services",
   description:
-    "Freelance services by Raish Momin — Next.js & React development, MERN stack apps, DevOps & AWS consulting, and Node.js API/backend engineering. Remote, worldwide.",
+    "Freelance services by Raish Momin — Next.js & React development, MERN stack apps, DevOps & AWS consulting, and Node.js API engineering. Remote, worldwide.",
   keywords: [
     "freelance developer services",
     "Next.js freelancer",
@@ -38,11 +38,13 @@ export default function ServicesIndex() {
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
+      numberOfItems: services.length,
       itemListElement: services.map((s, i) => ({
         "@type": "ListItem",
         position: i + 1,
         item: {
           "@type": "Service",
+          "@id": `${SITE_URL}/services/${s.slug}#service`,
           name: s.h1,
           description: s.metaDescription,
           url: `${SITE_URL}/services/${s.slug}`,
@@ -61,7 +63,7 @@ export default function ServicesIndex() {
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main className="relative pt-24">
+      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="text-center mb-16 md:mb-20">
             <span className="inline-flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-muted-foreground mb-8">

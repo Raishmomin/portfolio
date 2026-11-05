@@ -3,32 +3,26 @@ import { ArrowRight } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import clientPromise from "@/lib/mongodb";
 import { TAGS } from "@/lib/cache-tags";
+import { LISTED_POSTS, plainExcerpt, postTitle } from "@/lib/blog";
 
 type RelatedPost = { title: string; slug: string; excerpt: string };
 
+// DB errors throw (never cached), so a failed ISR revalidation keeps the last good output.
 const getRelated = unstable_cache(
   async (currentSlug: string, tags: string[]): Promise<RelatedPost[]> => {
     if (!tags || tags.length === 0) return [];
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const posts = await db
-        .collection("blogs")
-        .find(
-          {
-            published: { $ne: false },
-            slug: { $ne: currentSlug },
-            tags: { $in: tags },
-          },
-          { projection: { title: 1, slug: 1, excerpt: 1 } }
-        )
-        .sort({ publishedAt: -1 })
-        .limit(3)
-        .toArray();
-      return JSON.parse(JSON.stringify(posts));
-    } catch {
-      return [];
-    }
+    const client = await clientPromise;
+    const db = client.db("Portfolio");
+    const posts = await db
+      .collection("blogs")
+      .find(
+        { $and: [LISTED_POSTS, { slug: { $ne: currentSlug }, tags: { $in: tags } }] },
+        { projection: { title: 1, slug: 1, excerpt: 1 } }
+      )
+      .sort({ publishedAt: -1 })
+      .limit(3)
+      .toArray();
+    return JSON.parse(JSON.stringify(posts));
   },
   ["related-posts"],
   { tags: [TAGS.blogs], revalidate: 3600 }
@@ -57,10 +51,10 @@ export async function RelatedPosts({
               className="group block h-full p-5 rounded-xl border border-border bg-card hover:border-foreground/40 transition-colors"
             >
               <h3 className="text-sm md:text-base font-semibold tracking-tight text-foreground mb-2 group-hover:text-foreground/80 transition-colors line-clamp-2">
-                {p.title}
+                {postTitle(p.title)}
               </h3>
               <p className="text-xs md:text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-                {p.excerpt}
+                {plainExcerpt(p.excerpt)}
               </p>
               <span className="inline-flex items-center gap-1.5 text-xs text-foreground/80">
                 Read post

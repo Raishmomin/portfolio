@@ -1,29 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { Moon, Sun, Menu, X, Github, Linkedin, Mail } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { usePersonalStore, usePersonalDataLoader } from "@/lib/zutand";
 import { NAV_SECTIONS, PAGES, SITE } from "@/lib/config";
+import { PROFILE } from "@/lib/profile";
 import { cn } from "@/lib/utils";
+import { enterProps } from "./reveal";
+
+// Slide-down entrance in CSS (gated by html.js + reduced motion), so the server HTML is visible.
+const navEnter = enterProps({ y: -64 });
+
+const subscribeNoop = () => () => {};
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState<string>("home");
   const [hovered, setHovered] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
-  const { value } = usePersonalStore();
-  usePersonalDataLoader();
   const { scrollY } = useScroll();
   const pathname = usePathname();
   const isHome = pathname === "/";
 
-  useEffect(() => setMounted(true), []);
+  // false on the server and during hydration, true afterwards (theme is only known on the client)
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
 
@@ -51,10 +55,8 @@ export function Navbar() {
     };
   }, [isOpen]);
 
-  const personal = value?.personalData?.[0];
-  const github = personal?.git_hub || "";
-  const linkedin = personal?.linkdin || "";
-  const email = personal?.email || "";
+  const { github, linkedin } = PROFILE.social;
+  const email = PROFILE.email;
 
   const toggleTheme = () =>
     setTheme(theme === "dark" ? "light" : "dark");
@@ -71,15 +73,16 @@ export function Navbar() {
 
   return (
     <>
-      <motion.nav
+      <nav
         role="navigation"
         aria-label="Main"
-        initial={{ y: -64, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        {...navEnter}
         className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none"
       >
+        {/* initial={false}: the server HTML carries the top-of-page state (no pill), so
+            the no-JS view and first paint match the hydrated navbar. */}
         <motion.div
+          initial={false}
           animate={{
             paddingTop: scrolled ? 12 : 24,
             paddingBottom: scrolled ? 12 : 24,
@@ -88,6 +91,7 @@ export function Navbar() {
           className="w-full max-w-6xl px-4 sm:px-6 lg:px-8 pointer-events-auto"
         >
           <motion.div
+            initial={false}
             animate={{
               backgroundColor: scrolled
                 ? "hsl(var(--background) / 0.7)"
@@ -198,7 +202,7 @@ export function Navbar() {
             </div>
           </motion.div>
         </motion.div>
-      </motion.nav>
+      </nav>
 
       {/* Mobile drawer */}
       <AnimatePresence>

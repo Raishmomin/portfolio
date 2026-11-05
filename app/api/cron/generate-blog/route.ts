@@ -73,18 +73,21 @@ async function callNvidia(prompt: string): Promise<string> {
 }
 
 export async function GET(req: NextRequest) {
-    // ── Auth: accept both Vercel cron header and Bearer token ──
-    const isVercelCron =
-        req.headers.get("x-vercel-cron") !== null;
-    const authHeader = req.headers.get("authorization");
+    // ── Auth: Bearer CRON_SECRET only (Vercel Cron sends it when the env var is set).
+    // Fails closed without a secret; the x-vercel-cron header is client-spoofable.
     const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (cronSecret) {
-        const bearerValid =
-            authHeader === `Bearer ${cronSecret}`;
-        if (!isVercelCron && !bearerValid) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    // Paused: auto-published posts were near-duplicates (scaled-content risk).
+    // The schedule is removed from vercel.json. To run it manually, set BLOG_AUTOGEN_ENABLED=true
+    // and call it with the Bearer secret; it inserts a draft for review.
+    if (process.env.BLOG_AUTOGEN_ENABLED !== "true") {
+        return NextResponse.json({
+            skipped: true,
+            reason: "Blog auto-generation is paused (BLOG_AUTOGEN_ENABLED is not \"true\").",
+        });
     }
 
     try {
@@ -199,7 +202,8 @@ TAGS: 4–6 comma-separated tags. Use Title Case. Prefer specific tags (Next.js,
             tags = ["Tech", "Development"];
         }
 
-        // ── 6. Save to MongoDB ──
+        // ── 6. Save to MongoDB as a draft: a human reviews and publishes it
+        // (sets published: true), since unreviewed posts were near-duplicates. ──
         const now = new Date();
         const post = {
             title,
@@ -210,20 +214,20 @@ TAGS: 4–6 comma-separated tags. Use Title Case. Prefer specific tags (Next.js,
             readTime: estimateReadTime(content),
             publishedAt: now,
             updatedAt: now,
-            published: true,
+            published: false,
             generatedBy: MODEL,
         };
 
         const result = await blogsCol.insertOne(post);
 
-        revalidateTag(TAGS.blogs);
+        revalidateTag(TAGS.blogs, { expire: 0 });
 
         return NextResponse.json({
             success: true,
             insertedId: result.insertedId,
             title,
             slug,
-            published: true,
+            published: false,
             wordCount: content.split(/\s+/).filter(Boolean).length,
         });
     } catch (error) {

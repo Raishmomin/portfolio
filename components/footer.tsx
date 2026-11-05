@@ -1,22 +1,18 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
 import { Github, Linkedin, Mail, ArrowUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { usePersonalStore } from "@/lib/zutand";
 import { SITE, PAGES } from "@/lib/config";
+import { PROFILE } from "@/lib/profile";
+import { revealProps } from "./reveal";
 
 export function Footer() {
-  const { value } = usePersonalStore();
-  const reduce = useReducedMotion();
   const pathname = usePathname();
   const isHome = pathname === "/";
 
-  const personal = value?.personalData?.[0];
-  const github = personal?.git_hub || "";
-  const linkedin = personal?.linkdin || "";
-  const email = personal?.email || "";
+  const { github, linkedin } = PROFILE.social;
+  const email = PROFILE.email;
 
   return (
     <footer
@@ -152,12 +148,9 @@ export function Footer() {
         </div>
       </div>
 
-      <motion.div
+      <div
         aria-hidden="true"
-        initial={reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.1 }}
-        transition={{ duration: reduce ? 0 : 1.2, ease: [0.22, 1, 0.36, 1] }}
+        {...revealProps({ y: 30, duration: 1.2 })}
         className="relative w-full overflow-hidden select-none"
       >
         <div
@@ -174,7 +167,7 @@ export function Footer() {
             {SITE.name}
           </div>
         </div>
-      </motion.div>
+      </div>
     </footer>
   );
 }

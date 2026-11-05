@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
 import { Skills } from "../../components/skills";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
-import { TAGS } from "@/lib/cache-tags";
-import clientPromise from "@/lib/mongodb";
+import { getSkills } from "@/lib/data";
 
 export const revalidate = 86400;
 
@@ -28,29 +26,9 @@ export const metadata: Metadata = buildMetadata({
   ],
 });
 
-const getSkillNames = unstable_cache(
-  async (): Promise<string[]> => {
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const doc = await db.collection("skills").findOne({});
-      if (!doc) return [];
-      const out: string[] = [];
-      for (const [k, v] of Object.entries(doc)) {
-        if (k === "_id" || !Array.isArray(v)) continue;
-        for (const s of v as { name?: string }[]) if (s?.name) out.push(s.name);
-      }
-      return out;
-    } catch {
-      return [];
-    }
-  },
-  ["skills-list"],
-  { tags: [TAGS.skills], revalidate: 86400 }
-);
-
 export default async function SkillsPage() {
-  const skills = await getSkillNames();
+  const groups = await getSkills();
+  const skills = groups.flatMap((g) => g.skills.map((s) => s.name));
 
   const schema: object[] = [
     webPageSchema({
@@ -79,8 +57,8 @@ export default async function SkillsPage() {
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main className="relative pt-24">
-        <Skills headingAs="h1" />
+      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
+        <Skills groups={groups} headingAs="h1" />
       </main>
       <Footer />
     </>

@@ -9,7 +9,8 @@ import { SITE, SITE_URL } from "@/lib/config";
 import { TAGS } from "@/lib/cache-tags";
 import { Calendar, Clock, ArrowRight, Rss } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
-import type { BlogPost } from "@/lib/blog-types";
+import type { BlogPostSummary } from "@/lib/blog-types";
+import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTitle } from "@/lib/blog";
 
 export const revalidate = 3600;
 
@@ -28,20 +29,17 @@ export const metadata: Metadata = buildMetadata({
     ],
 });
 
+// DB errors throw (never cached), so a failed ISR revalidation keeps the last good output.
 const getPosts = unstable_cache(
-    async (): Promise<BlogPost[]> => {
-        try {
-            const client = await clientPromise;
-            const db = client.db("Portfolio");
-            const posts = await db
-                .collection("blogs")
-                .find({ published: { $ne: false } })
-                .sort({ publishedAt: -1 })
-                .toArray();
-            return JSON.parse(JSON.stringify(posts));
-        } catch {
-            return [];
-        }
+    async (): Promise<BlogPostSummary[]> => {
+        const client = await clientPromise;
+        const db = client.db("Portfolio");
+        const posts = await db
+            .collection("blogs")
+            .find(LISTED_POSTS, { projection: POST_SUMMARY_PROJECTION })
+            .sort({ publishedAt: -1 })
+            .toArray();
+        return JSON.parse(JSON.stringify(posts));
     },
     ["blog-posts-list"],
     { tags: [TAGS.blogs], revalidate: 3600 }
@@ -71,8 +69,8 @@ export default async function BlogPage() {
             publisher: { "@id": `${SITE_URL}#person` },
             blogPost: posts.slice(0, 10).map((p) => ({
                 "@type": "BlogPosting",
-                headline: p.title,
-                description: p.excerpt,
+                headline: postTitle(p.title),
+                description: plainExcerpt(p.excerpt),
                 url: `${SITE_URL}/blog/${p.slug}`,
                 datePublished: new Date(p.publishedAt).toISOString(),
                 keywords: p.tags?.join(", "),
@@ -89,7 +87,7 @@ export default async function BlogPage() {
         <>
             <PageJsonLd data={schema} />
             <Navbar />
-            <main className="relative pt-24">
+            <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
                 <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
                     {/* Header */}
                     <div className="text-center mb-16 md:mb-24">
@@ -124,7 +122,7 @@ export default async function BlogPage() {
                     ) : (
                         /* Blog grid */
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {posts.map((post, i) => (
+                            {posts.map((post) => (
                                 <Link
                                     key={post.slug}
                                     href={`/blog/${post.slug}`}
@@ -149,12 +147,12 @@ export default async function BlogPage() {
 
                                         {/* Title */}
                                         <h2 className="text-xl font-semibold tracking-tight text-foreground mb-3 group-hover:text-foreground/80 transition-colors">
-                                            {post.title}
+                                            {postTitle(post.title)}
                                         </h2>
 
                                         {/* Excerpt */}
                                         <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-1">
-                                            {post.excerpt}
+                                            {plainExcerpt(post.excerpt)}
                                         </p>
 
                                         {/* Meta */}

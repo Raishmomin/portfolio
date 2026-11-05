@@ -1,10 +1,13 @@
 import { ImageResponse } from "next/og";
-import { SITE } from "@/lib/config";
+import { SITE, SITE_URL } from "@/lib/config";
+import { experienceLabel } from "@/lib/profile";
 
-export const runtime = "edge";
 export const alt = `${SITE.name} — Portfolio`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+// The card prints the derived years figure, so it is regenerated like the home
+// page (ISR, daily) instead of being fixed at build time.
+export const revalidate = 86400;
 
 export default async function OG() {
   return new ImageResponse(
@@ -61,8 +64,8 @@ export default async function OG() {
             color: "#A1A1AA",
           }}
         >
-          <span>raish-portfolio.vercel.app</span>
-          <span>4+ years · React · Node · DevOps</span>
+          <span>{new URL(SITE_URL).host}</span>
+          <span>{experienceLabel()} years · React · Node · DevOps</span>
         </div>
       </div>
     ),

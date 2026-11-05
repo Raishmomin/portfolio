@@ -1,32 +1,6 @@
-export type TocItem = { text: string; slug: string; depth: 2 | 3 };
+import type { TocItem } from "@/lib/markdown";
 
-export function extractToc(markdown: string): TocItem[] {
-  const lines = markdown.split("\n");
-  const items: TocItem[] = [];
-  let inCodeFence = false;
-  for (const raw of lines) {
-    if (raw.startsWith("```")) {
-      inCodeFence = !inCodeFence;
-      continue;
-    }
-    if (inCodeFence) continue;
-    const h2 = raw.match(/^##\s+(.+?)\s*$/);
-    if (h2) {
-      items.push({ text: h2[1], slug: slugifyHeading(h2[1]), depth: 2 });
-      continue;
-    }
-    const h3 = raw.match(/^###\s+(.+?)\s*$/);
-    if (h3) items.push({ text: h3[1], slug: slugifyHeading(h3[1]), depth: 3 });
-  }
-  return items;
-}
-
-export function slugifyHeading(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+// Items come from renderMarkdown, so they always match the rendered heading ids.
 
 export function TableOfContents({ items }: { items: TocItem[] }) {
   if (items.length < 3) return null;

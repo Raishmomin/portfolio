@@ -1,7 +1,7 @@
 // app/api/contact/route.ts
 export const dynamic = 'force-dynamic';
 
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { dbWritesEnabled } from "@/lib/mongodb";
 import { sendContactEmail } from "@/lib/email";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -30,6 +30,11 @@ export async function POST(req: NextRequest) {
 
     if (errors.length > 0) {
       return NextResponse.json({ errors }, { status: 400 });
+    }
+
+    // Outside production (local, preview, QA) nothing is stored or emailed: the DB is live.
+    if (!dbWritesEnabled()) {
+      return NextResponse.json({ success: true, skipped: true });
     }
 
     // Sanitize inputs

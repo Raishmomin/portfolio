@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
 import { Experience } from "../../components/experience";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
-import { TAGS } from "@/lib/cache-tags";
-import clientPromise from "@/lib/mongodb";
+import { buildMetadata, breadcrumbList, employeeRoles, webPageSchema } from "@/lib/seo";
+import { getExperience } from "@/lib/data";
 
 export const revalidate = 86400;
 
@@ -14,7 +12,7 @@ export const metadata: Metadata = buildMetadata({
   path: "/experience",
   title: "Experience",
   description:
-    "Work experience timeline of Raish Momin — from junior developer to senior full-stack engineer, with roles spanning React, Node.js, TypeScript, and cloud infrastructure.",
+    "Work experience timeline of Raish Momin — from junior developer to senior full-stack engineer, across React, Node.js, TypeScript, and cloud infrastructure.",
   keywords: [
     "Raish Momin experience",
     "Full Stack engineer roles",
@@ -23,28 +21,6 @@ export const metadata: Metadata = buildMetadata({
     "Career timeline",
   ],
 });
-
-type ExperienceDoc = {
-  title?: string;
-  company?: string;
-  period?: string;
-  description?: string;
-};
-
-const getExperience = unstable_cache(
-  async (): Promise<ExperienceDoc[]> => {
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const docs = await db.collection("experience").find({}).toArray();
-      return JSON.parse(JSON.stringify(docs));
-    } catch {
-      return [];
-    }
-  },
-  ["experience-list"],
-  { tags: [TAGS.experience], revalidate: 86400 }
-);
 
 export default async function ExperiencePage() {
   const experience = await getExperience();
@@ -60,17 +36,11 @@ export default async function ExperiencePage() {
       "@context": "https://schema.org",
       "@type": "ItemList",
       numberOfItems: experience.length,
-      itemListElement: experience.map((e, i) => ({
+      // Same EmployeeRole nodes (same @id) as Person.worksFor in components/json-ld.tsx.
+      itemListElement: employeeRoles(experience, { withDescription: true }).map((role, i) => ({
         "@type": "ListItem",
         position: i + 1,
-        item: {
-          "@type": "OrganizationRole",
-          roleName: e.title,
-          startDate: e.period?.split("—")[0]?.trim(),
-          endDate: e.period?.split("—")[1]?.trim(),
-          description: e.description,
-          memberOf: { "@type": "Organization", name: e.company },
-        },
+        item: role,
       })),
     },
     breadcrumbList([
@@ -83,8 +53,8 @@ export default async function ExperiencePage() {
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main className="relative pt-24">
-        <Experience headingAs="h1" />
+      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
+        <Experience items={experience} headingAs="h1" />
       </main>
       <Footer />
     </>

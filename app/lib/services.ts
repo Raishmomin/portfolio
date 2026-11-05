@@ -1,4 +1,5 @@
 import type { FAQ } from "./seo";
+import { experienceLabel } from "./profile";
 
 export type ServiceSection = {
   heading: string;
@@ -31,13 +32,15 @@ export const SERVICES: Record<string, ServiceConfig> = {
     h1: "Next.js Development Services",
     tagline: "Production-grade Next.js apps — App Router, Server Components, edge-ready.",
     metaTitle: "Next.js Development Services — Raish Momin",
-    metaDescription:
-      "Freelance Next.js developer building production App Router apps with Server Components, ISR, edge runtime, and MongoDB/Postgres. 4+ years shipping at scale.",
+    // Getter: the years figure is derived per render, not fixed at module load.
+    get metaDescription() {
+      return `Freelance Next.js developer building production App Router apps with Server Components, ISR, edge runtime, and MongoDB/Postgres. ${experienceLabel()} years shipping at scale.`;
+    },
     keywords: [
       "freelance Next.js developer",
       "hire Next.js developer",
       "Next.js App Router developer",
-      "Next.js 14 freelancer",
+      "Next.js freelancer",
       "Server Components developer",
       "Next.js SSR consultant",
     ],
@@ -78,7 +81,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
       {
         heading: "SEO is built-in, not bolted on",
         body:
-          "Every page gets typed metadata, JSON-LD (Article, BreadcrumbList, FAQPage where relevant), a dynamic sitemap that reflects live content, ISR with tag-based revalidation so Google sees fresh pages, and per-page OG images. This site is the proof — it's a Next.js 14 portfolio with full schema coverage.",
+          "Every page gets typed metadata, JSON-LD (Article, BreadcrumbList, FAQPage where relevant), a dynamic sitemap that reflects live content, ISR with tag-based revalidation so Google sees fresh pages, and per-page OG images. This site is the proof — it's a Next.js App Router portfolio with full schema coverage.",
       },
     ],
     deliverables: [
@@ -91,8 +94,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
       "CI: GitHub Actions, lint + typecheck + build on every PR",
     ],
     techStack: [
-      "Next.js 14 (App Router)",
-      "React 18 + Server Components",
+      "Next.js (App Router)",
+      "React Server Components",
       "TypeScript (strict)",
       "Tailwind CSS + shadcn/ui",
       "MongoDB / Postgres / Drizzle / Prisma",
@@ -147,8 +150,10 @@ export const SERVICES: Record<string, ServiceConfig> = {
     h1: "MERN Stack Development",
     tagline: "End-to-end MERN apps — MongoDB, Express, React, Node — built for production.",
     metaTitle: "MERN Stack Developer for Hire — Raish Momin",
-    metaDescription:
-      "Freelance MERN stack developer. End-to-end MongoDB + Express + React + Node.js applications: SaaS MVPs, admin tools, real-time apps. 4+ years shipping production.",
+    // Getter: the years figure is derived per render, not fixed at module load.
+    get metaDescription() {
+      return `Freelance MERN stack developer. End-to-end MongoDB + Express + React + Node.js apps: SaaS MVPs, admin tools, real-time apps. ${experienceLabel()} years shipping production.`;
+    },
     keywords: [
       "hire MERN stack developer",
       "freelance MERN developer",
@@ -199,7 +204,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
       "MongoDB Atlas",
       "Express.js / Fastify",
       "Node.js 20 LTS",
-      "React 18 / Next.js 14",
+      "React / Next.js",
       "TypeScript (strict)",
       "Mongoose / native driver",
       "Socket.IO",
@@ -254,7 +259,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
     tagline: "CI/CD, infrastructure-as-code, AWS architecture — without the consultancy markup.",
     metaTitle: "Freelance DevOps & AWS Engineer — Raish Momin",
     metaDescription:
-      "Freelance DevOps engineer specializing in AWS, CI/CD, Docker, Kubernetes, Terraform, and observability. Cut deploy times, fix flaky pipelines, lower cloud bills.",
+      "Freelance DevOps engineer for AWS, CI/CD, Docker, Kubernetes, Terraform, and observability. Cut deploy times, fix flaky pipelines, lower cloud bills.",
     keywords: [
       "freelance AWS DevOps engineer",
       "hire DevOps engineer",
@@ -362,7 +367,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
     tagline: "REST and GraphQL APIs built to outlast the team that ships them.",
     metaTitle: "Node.js API Developer for Hire — Raish Momin",
     metaDescription:
-      "Freelance backend engineer building production REST and GraphQL APIs in Node.js, TypeScript, and Go. Auth, rate limiting, observability, and zero-downtime migrations.",
+      "Freelance backend engineer building REST and GraphQL APIs in Node.js, TypeScript, and Go. Auth, rate limiting, observability, and zero-downtime migrations.",
     keywords: [
       "Node.js API developer for hire",
       "hire backend developer",

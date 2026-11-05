@@ -3,49 +3,56 @@
 @tailwind utilities;
 
 @layer base {
+  /* Control Plane palette — see tasks/design-spec.md §2. HSL triplets for Tailwind's hsl(var(--x)). */
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 6% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 6% 10%;
+    --background: 43 26% 95%;      /* paper #F5F3EE */
+    --foreground: 225 9% 9%;       /* ink #141518 */
+    --card: 0 0% 100%;             /* panel */
+    --card-foreground: 225 9% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 10%;
-    --primary: 240 6% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 6% 10%;
-    --destructive: 0 70% 45%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 240 6% 10%;
-    --radius: 0.75rem;
+    --popover-foreground: 225 9% 9%;
+    --primary: 17 90% 38%;         /* orange #B83A0A — 5.1:1 on paper */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 20% 91%;
+    --secondary-foreground: 225 9% 9%;
+    --muted: 40 20% 91%;
+    --muted-foreground: 213 5% 39%; /* #5F6368 — 5.4:1 on paper */
+    --accent: 40 20% 91%;
+    --accent-foreground: 225 9% 9%;
+    --destructive: 0 70% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 42 18% 86%;          /* hairline #E2DED5 */
+    --input: 42 18% 86%;
+    --ring: 17 90% 38%;
+    --brand: 17 90% 38%;
+    --brand-foreground: 0 0% 100%;
+    --ok: 154 63% 33%;             /* #1F8A5B */
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 240 6% 7%;
-    --foreground: 0 0% 96%;
-    --card: 240 6% 9%;
-    --card-foreground: 0 0% 96%;
-    --popover: 240 6% 9%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 0 0% 96%;
-    --primary-foreground: 240 6% 10%;
-    --secondary: 240 5% 14%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 240 5% 14%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 240 5% 14%;
-    --accent-foreground: 0 0% 96%;
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 0 0% 96%;
-    --border: 240 5% 18%;
-    --input: 240 5% 18%;
-    --ring: 0 0% 96%;
+    --background: 220 10% 6%;      /* ink #0E0F11 */
+    --foreground: 41 30% 89%;      /* bone #ECE7DC */
+    --card: 220 12% 10%;           /* panel #16181C */
+    --card-foreground: 41 30% 89%;
+    --popover: 220 12% 10%;
+    --popover-foreground: 41 30% 89%;
+    --primary: 16 100% 56%;        /* safety orange #FF5B1F — 6.2:1 on ink */
+    --primary-foreground: 220 10% 6%;
+    --secondary: 220 12% 10%;
+    --secondary-foreground: 41 30% 89%;
+    --muted: 220 12% 10%;
+    --muted-foreground: 227 4% 57%; /* #8E9097 — 6.0:1 on ink */
+    --accent: 220 12% 13%;
+    --accent-foreground: 41 30% 89%;
+    --destructive: 0 70% 58%;
+    --destructive-foreground: 220 10% 6%;
+    --border: 220 11% 17%;         /* hairline #26292F */
+    --input: 220 11% 17%;
+    --ring: 16 100% 56%;
+    --brand: 16 100% 56%;
+    --brand-foreground: 220 10% 6%;
+    --ok: 153 65% 54%;             /* #3BD68F */
   }
 }
 
@@ -180,6 +187,51 @@
   }
 }
 
+/*
+ * Reveal and entrance animations (components/reveal.tsx). Progressive enhancement:
+ * server HTML is visible by default, without JS, for reduced motion and in print.
+ * Only under html.js (set by the inline head script) is a [data-reveal] element
+ * hidden until the script marks it data-in. The animations use the `translate`
+ * property, so they never clobber an element's own `transform`.
+ */
+@media screen and (prefers-reduced-motion: no-preference) {
+  html.js [data-reveal]:not([data-in]) {
+    opacity: 0;
+  }
+  html.js [data-reveal][data-in],
+  html.js [data-enter] {
+    animation: reveal-up var(--reveal-duration, 0.6s) cubic-bezier(0.22, 1, 0.36, 1)
+      var(--reveal-delay, 0s) backwards;
+  }
+  /* "clip" wipes the children in; the observed element itself stays unclipped. */
+  html.js [data-reveal="clip"]:not([data-in]) {
+    opacity: 1;
+  }
+  html.js [data-reveal="clip"]:not([data-in]) > * {
+    clip-path: inset(0 100% 0 0);
+  }
+  html.js [data-reveal="clip"][data-in] {
+    animation: none;
+  }
+  html.js [data-reveal="clip"][data-in] > * {
+    animation: reveal-clip var(--reveal-duration, 0.8s) cubic-bezier(0.77, 0, 0.175, 1)
+      var(--reveal-delay, 0s) backwards;
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    translate: 0 var(--reveal-y, 16px);
+  }
+}
+
+@keyframes reveal-clip {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -226,3 +278,14 @@
   line-height: 1.7;
 }
 
+
+/* Control Plane: status dot pulse — only when JS is on and motion is allowed. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js .status-dot {
+    animation: status-pulse 2s ease-in-out infinite;
+  }
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

@@ -7,24 +7,33 @@ import { Footer } from "../../../components/footer";
 import { PageJsonLd } from "../../../components/page-json-ld";
 import { AuthorBio } from "../../../components/author-bio";
 import { RelatedPosts } from "../../../components/related-posts";
-import { TableOfContents, extractToc, slugifyHeading } from "../../../components/toc";
+import { TableOfContents } from "../../../components/toc";
 import { buildMetadata, breadcrumbList } from "@/lib/seo";
 import { SITE, SITE_URL } from "@/lib/config";
 import { TAGS } from "@/lib/cache-tags";
-import { autolink } from "@/lib/internal-links";
+import {
+    LISTED_POSTS,
+    SEO_TITLE_MAX,
+    metaDescription,
+    plainExcerpt,
+    postTitle,
+    shortPostTitle,
+} from "@/lib/blog";
+import { renderMarkdown } from "@/lib/markdown";
 import { Calendar, Clock, ArrowLeft, Tag } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPost } from "@/lib/blog-types";
 
 export const revalidate = 3600;
 
+// Consolidated (redirected) slugs are left out; next.config.js 301s them.
 export async function generateStaticParams() {
     try {
         const client = await clientPromise;
         const db = client.db("Portfolio");
         const posts = await db
             .collection("blogs")
-            .find({ published: { $ne: false } }, { projection: { slug: 1 } })
+            .find(LISTED_POSTS, { projection: { slug: 1 } })
             .toArray();
         return posts.map((p) => ({ slug: p.slug as string }));
     } catch {
@@ -32,18 +41,18 @@ export async function generateStaticParams() {
     }
 }
 
+// Unpublished (draft) posts 404. DB errors throw instead of returning null, so a
+// failed ISR revalidation keeps serving the last good page rather than caching a 404.
 function getPostCached(slug: string) {
     return unstable_cache(
         async (): Promise<BlogPost | null> => {
-            try {
-                const client = await clientPromise;
-                const db = client.db("Portfolio");
-                const post = await db.collection("blogs").findOne({ slug });
-                if (!post) return null;
-                return JSON.parse(JSON.stringify(post));
-            } catch {
-                return null;
-            }
+            const client = await clientPromise;
+            const db = client.db("Portfolio");
+            const post = await db
+                .collection("blogs")
+                .findOne({ slug, published: { $ne: false } });
+            if (!post) return null;
+            return JSON.parse(JSON.stringify(post));
         },
         ["blog-post", slug],
         { tags: [TAGS.blogs, TAGS.blog(slug)], revalidate: 3600 }
@@ -57,15 +66,20 @@ async function getPost(slug: string): Promise<BlogPost | null> {
 export async function generateMetadata({
     params,
 }: {
-    params: { slug: string };
+    params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-    const post = await getPost(params.slug);
+    const { slug } = await params;
+    const post = await getPost(slug);
     if (!post) return { title: "Post Not Found" };
 
-    return buildMetadata({
+    // Long generated titles get a phrase-boundary cut for <title>/og:title; the H1 keeps the full title.
+    const shortTitle = shortPostTitle(post.title);
+    const metadata = buildMetadata({
         path: `/blog/${post.slug}`,
-        title: post.title,
-        description: post.excerpt,
+        image: `/blog/${post.slug}/opengraph-image`,
+        title: shortTitle ?? post.title,
+        ogTitle: shortTitle,
+        description: metaDescription(post.excerpt),
         keywords: post.tags,
         ogType: "article",
         publishedTime: new Date(post.publishedAt).toISOString(),
@@ -73,6 +87,10 @@ export async function generateMetadata({
         authors: [SITE.name],
         tags: post.tags,
     });
+    // The cut title keeps the layout's " | Raish Momin" suffix when both fit in 60 chars;
+    // otherwise `absolute` drops the suffix.
+    const keepBrand = !shortTitle || `${shortTitle} | ${SITE.name}`.length <= SEO_TITLE_MAX;
+    return keepBrand ? metadata : { ...metadata, title: { absolute: shortTitle } };
 }
 
 function formatDate(date: string | Date): string {
@@ -83,84 +101,21 @@ function formatDate(date: string | Date): string {
     });
 }
 
-/** Basic markdown → HTML (headings get anchor IDs for TOC). */
-function renderMarkdown(md: string): string {
-    let html = md
-        // Fenced code blocks
-        .replace(
-            /```(\w+)?\n([\s\S]*?)```/g,
-            (_m, lang, code) =>
-                `<pre class="blog-pre"><code class="language-${lang || "text"}">${code
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")}</code></pre>`
-        )
-        // Inline code
-        .replace(/`([^`]+)`/g, '<code class="blog-inline-code">$1</code>')
-        // Headings (with anchor IDs)
-        .replace(
-            /^### (.+)$/gm,
-            (_m, text) =>
-                `<h3 id="${slugifyHeading(text)}" class="text-lg font-semibold tracking-tight text-foreground mt-8 mb-3 scroll-mt-24">${text}</h3>`
-        )
-        .replace(
-            /^## (.+)$/gm,
-            (_m, text) =>
-                `<h2 id="${slugifyHeading(text)}" class="text-xl font-semibold tracking-tight text-foreground mt-10 mb-4 scroll-mt-24">${text}</h2>`
-        )
-        // Bold / italic
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.+?)\*/g, "<em>$1</em>")
-        // Links
-        .replace(
-            /\[([^\]]+)\]\(([^)]+)\)/g,
-            '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-foreground underline underline-offset-4 hover:text-foreground/70 transition-colors">$1</a>'
-        )
-        // Unordered lists
-        .replace(/^- (.+)$/gm, '<li class="blog-li">$1</li>')
-        // Numbered lists
-        .replace(/^\d+\. (.+)$/gm, '<li class="blog-li">$1</li>');
-
-    // Wrap consecutive <li> in <ul>
-    html = html.replace(
-        /(<li class="blog-li">[\s\S]*?<\/li>\n?)+/g,
-        (match) =>
-            `<ul class="space-y-2 pl-5 my-4 text-muted-foreground list-disc">${match}</ul>`
-    );
-
-    // Paragraphs: wrap remaining bare lines
-    html = html
-        .split("\n\n")
-        .map((block) => {
-            const trimmed = block.trim();
-            if (!trimmed) return "";
-            if (
-                trimmed.startsWith("<h") ||
-                trimmed.startsWith("<pre") ||
-                trimmed.startsWith("<ul") ||
-                trimmed.startsWith("<ol")
-            )
-                return trimmed;
-            return `<p class="text-base text-muted-foreground leading-relaxed mb-4">${trimmed}</p>`;
-        })
-        .join("\n");
-
-    // Inject internal links to service pages on plain prose
-    return autolink(html);
-}
-
 export default async function BlogPostPage({
     params,
 }: {
-    params: { slug: string };
+    params: Promise<{ slug: string }>;
 }) {
-    const post = await getPost(params.slug);
+    const { slug } = await params;
+    const post = await getPost(slug);
     if (!post) notFound();
 
     const url = `${SITE_URL}/blog/${post.slug}`;
+    const title = postTitle(post.title);
     const published = new Date(post.publishedAt).toISOString();
     const modified = new Date(post.updatedAt || post.publishedAt).toISOString();
-    const toc = extractToc(post.content);
+    const { html, toc } = renderMarkdown(post.content, post.title);
+    const excerpt = plainExcerpt(post.excerpt);
     const wordCount = post.content?.split(/\s+/).filter(Boolean).length || 0;
 
     const schema: object[] = [
@@ -169,10 +124,9 @@ export default async function BlogPostPage({
             "@type": ["BlogPosting", "Article"],
             "@id": `${url}#blogposting`,
             mainEntityOfPage: { "@type": "WebPage", "@id": url },
-            headline: post.title,
-            name: post.title,
-            description: post.excerpt,
-            articleBody: post.content,
+            headline: title,
+            name: title,
+            description: excerpt,
             url,
             datePublished: published,
             dateModified: modified,
@@ -187,7 +141,7 @@ export default async function BlogPostPage({
         breadcrumbList([
             { name: "Home", path: "/" },
             { name: "Blog", path: "/blog" },
-            { name: post.title, path: `/blog/${post.slug}` },
+            { name: title, path: `/blog/${post.slug}` },
         ]),
     ];
 
@@ -197,7 +151,7 @@ export default async function BlogPostPage({
         <>
             <PageJsonLd data={schema} />
             <Navbar />
-            <main className="relative pt-24">
+            <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
                 <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
                     {/* Back link */}
                     <Link
@@ -222,11 +176,11 @@ export default async function BlogPostPage({
                         </div>
 
                         <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground leading-tight mb-6">
-                            {post.title}
+                            {title}
                         </h1>
 
                         <p className="text-lg text-muted-foreground leading-relaxed">
-                            {post.excerpt}
+                            {excerpt}
                         </p>
 
                         {/* Tags */}
@@ -252,7 +206,7 @@ export default async function BlogPostPage({
                     {/* Content */}
                     <div
                         className="blog-content"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }}
+                        dangerouslySetInnerHTML={{ __html: html }}
                     />
 
                     {/* Author bio */}

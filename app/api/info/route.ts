@@ -1,4 +1,4 @@
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { dbWritesEnabled } from "@/lib/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 
 function getVisitorIp(request: NextRequest): string | null {
@@ -7,20 +7,34 @@ function getVisitorIp(request: NextRequest): string | null {
   return request.headers.get("x-real-ip");
 }
 
+type GeoData = {
+  ip?: string;
+  city?: string;
+  region?: string;
+  country_name?: string;
+  latitude?: number;
+  longitude?: number;
+  org?: string;
+  timezone?: string;
+};
+
 export async function POST(request: NextRequest) {
+  // Outside production (local, preview, QA) the visit is not logged: the DB is live.
+  if (!dbWritesEnabled()) return NextResponse.json({ ok: true, skipped: true });
+
   try {
     const ip = getVisitorIp(request);
 
     // Geo lookup of the visitor's IP (not the server's). Best-effort — a
     // failed lookup still records the visit with whatever we have.
-    let geoData: Record<string, any> = {};
+    let geoData: GeoData = {};
     if (ip) {
       try {
         const response = await fetch(`https://ipapi.co/${ip}/json/`, {
           headers: { "User-Agent": "raish-momin-portfolio/1.0" },
           signal: AbortSignal.timeout(5000),
         });
-        if (response.ok) geoData = await response.json();
+        if (response.ok) geoData = (await response.json()) as GeoData;
       } catch {
         // ignore lookup failures — still log the raw IP below
       }

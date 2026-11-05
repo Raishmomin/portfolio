@@ -1,34 +1,26 @@
-"use client";
-
-import { motion, useReducedMotion } from "framer-motion";
 import { Section, RevealHeading } from "./section";
 import { CountUp } from "./count-up";
 import { Tilt } from "./tilt-card";
-import { usePersonalStore } from "@/lib/zutand";
+import { Reveal } from "./reveal";
 import { SITE } from "@/lib/config";
+import type { Personal } from "@/lib/data";
 
-export function About({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
-  const { value } = usePersonalStore();
-  const reduce = useReducedMotion();
+type AboutProps = {
+  personal: Personal;
+  projectCount: number;
+  headingAs?: "h1" | "h2";
+};
 
-  const description = value?.personalData?.[0]?.about_desc || "";
-
-  const yearsRaw = value?.personalData?.[0]?.experience;
-  const years =
-    typeof yearsRaw === "number"
-      ? yearsRaw
-      : parseInt(String(yearsRaw || "0"), 10) || 0;
-  const projectCount = Array.isArray(value?.projects) ? value.projects.length : 0;
-
+export function About({ personal, projectCount, headingAs = "h2" }: AboutProps) {
   const stats = [
-    { label: "Years experience", value: years, suffix: "+" },
+    { label: "Years experience", value: personal.years, suffix: "+" },
     { label: "Projects shipped", value: projectCount, suffix: "+" },
     { label: "Happy clients", value: 10, suffix: "+" },
     { label: "Coffee · ∞", value: 0, suffix: "", static: "∞" },
   ];
 
   return (
-    <Section id="about" ariaLabel="About">
+    <Section id="about" ariaLabel="About" reveal={headingAs !== "h1"}>
       <RevealHeading
         as={headingAs}
         id="about"
@@ -40,7 +32,7 @@ export function About({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
         <div className="lg:col-span-7 space-y-8">
           <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-            {description}
+            {personal.about}
           </p>
           <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
             Whether it&apos;s architecting backend systems, tuning database queries, or
@@ -49,14 +41,7 @@ export function About({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
 
           <div className="grid grid-cols-2 gap-px bg-border mt-12">
             {stats.map((s, i) => (
-              <motion.div
-                key={i}
-                initial={reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: reduce ? 0 : 0.6, delay: reduce ? 0 : i * 0.08 }}
-                className="bg-background p-6"
-              >
+              <Reveal key={i} y={12} delay={i * 0.08} className="bg-background p-6">
                 <div className="text-3xl md:text-5xl font-semibold tracking-tight tabular-nums">
                   {s.static ? (
                     s.static
@@ -67,7 +52,7 @@ export function About({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
                 <div className="mt-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                   {s.label}
                 </div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>

@@ -45,11 +45,22 @@ module.exports = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        brand: {
+          DEFAULT: "hsl(var(--brand))",
+          foreground: "hsl(var(--brand-foreground))",
+        },
+        ok: "hsl(var(--ok))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
       },
+      fontFamily: {
+        sans: ["var(--font-geist)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        serif: ["var(--font-instrument-serif)", "ui-serif", "Georgia", "serif"],
+      },
       fontSize: {
+        display: ["clamp(2.75rem, 7vw, 6.5rem)", { lineHeight: "0.95", letterSpacing: "-0.035em" }],
         "fluid-display": ["clamp(2.5rem, 8vw, 6rem)", { lineHeight: "1", letterSpacing: "-0.04em" }],
         "fluid-heading": ["clamp(1.875rem, 4.5vw, 3.25rem)", { lineHeight: "1.05", letterSpacing: "-0.03em" }],
         "fluid-title": ["clamp(1.25rem, 2.2vw, 1.75rem)", { lineHeight: "1.2", letterSpacing: "-0.02em" }],
@@ -84,5 +95,6 @@ module.exports = {
       },
     },
   },
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- the config file stays CommonJS
   plugins: [require("tailwindcss-animate")],
 };

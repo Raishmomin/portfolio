@@ -1,36 +1,44 @@
 import { ImageResponse } from "next/og";
+import { notFound } from "next/navigation";
 import clientPromise from "@/lib/mongodb";
 import { SITE } from "@/lib/config";
+import { postTitle } from "@/lib/blog";
 
 export const runtime = "nodejs";
 export const alt = "Blog post — Raish Momin";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-async function getPostMeta(slug: string): Promise<{
-  title: string;
-  tags: string[];
-  publishedAt: string;
-} | null> {
-  try {
-    const client = await clientPromise;
-    const db = client.db("Portfolio");
-    const post = await db
-      .collection("blogs")
-      .findOne({ slug }, { projection: { title: 1, tags: 1, publishedAt: 1 } });
-    if (!post) return null;
-    return {
-      title: String(post.title || ""),
-      tags: (post.tags as string[]) || [],
-      publishedAt: new Date(post.publishedAt as Date).toISOString(),
-    };
-  } catch {
-    return null;
-  }
+type PostMeta = { title: string; tags: string[]; publishedAt: string };
+
+/** null when there is no such (published) post; throws on DB errors. */
+async function getPostMeta(slug: string): Promise<PostMeta | null> {
+  const client = await clientPromise;
+  const db = client.db("Portfolio");
+  const post = await db
+    .collection("blogs")
+    .findOne(
+      { slug, published: { $ne: false } },
+      { projection: { title: 1, tags: 1, publishedAt: 1 } }
+    );
+  if (!post) return null;
+  return {
+    title: postTitle(String(post.title || "")),
+    tags: (post.tags as string[]) || [],
+    publishedAt: new Date(post.publishedAt as Date).toISOString(),
+  };
 }
 
-export default async function OG({ params }: { params: { slug: string } }) {
-  const meta = await getPostMeta(params.slug);
+export default async function OG({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  let meta: PostMeta | null | undefined;
+  try {
+    meta = await getPostMeta(slug);
+  } catch {
+    meta = undefined; // DB hiccup: fall back to the generic card below
+  }
+  // Unknown slugs 404 like the page does (no image render or DB read amplification).
+  if (meta === null) notFound();
   const title = meta?.title || "Blog post";
   const tag = meta?.tags?.[0] || "Engineering";
   const date = meta?.publishedAt

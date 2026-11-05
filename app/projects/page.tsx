@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
 import { Projects } from "../../components/projects";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
-import { SITE_URL } from "@/lib/config";
-import { TAGS } from "@/lib/cache-tags";
-import clientPromise from "@/lib/mongodb";
+import { getProjects } from "@/lib/data";
 
 export const revalidate = 86400;
 
@@ -25,34 +22,6 @@ export const metadata: Metadata = buildMetadata({
     "Portfolio projects",
   ],
 });
-
-type ProjectDoc = {
-  title?: string;
-  description?: string;
-  liveUrl?: string;
-  technologies?: string[];
-  category?: string[];
-};
-
-const getProjects = unstable_cache(
-  async (): Promise<ProjectDoc[]> => {
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const docs = await db
-        .collection("projects")
-        .find({})
-        .sort({ sort: -1 })
-        .collation({ locale: "en_US", numericOrdering: true })
-        .toArray();
-      return JSON.parse(JSON.stringify(docs));
-    } catch {
-      return [];
-    }
-  },
-  ["projects-list"],
-  { tags: [TAGS.projects], revalidate: 86400 }
-);
 
 export default async function ProjectsPage() {
   const projects = await getProjects();
@@ -76,7 +45,8 @@ export default async function ProjectsPage() {
           "@type": "CreativeWork",
           name: p.title,
           description: p.description,
-          url: p.liveUrl || `${SITE_URL}/projects`,
+          // No listing-page fallback: four works sharing one url would read as one.
+          ...(p.liveUrl || p.githubUrl ? { url: p.liveUrl || p.githubUrl } : {}),
           keywords: (p.technologies || []).join(", "),
           genre: (p.category || []).join(", "),
         },
@@ -92,8 +62,8 @@ export default async function ProjectsPage() {
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main className="relative pt-24">
-        <Projects headingAs="h1" />
+      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
+        <Projects projects={projects} headingAs="h1" showAll />
       </main>
       <Footer />
     </>

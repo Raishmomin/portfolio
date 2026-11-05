@@ -1,28 +1,49 @@
-# 3D Portfolio Redesign — Plan (awaiting approval)
+# 3D Portfolio Redesign — Plan (approved: 8 agents, commit WIP, upgrade to latest)
 
 Source of inspiration: https://github.com/emmabostian/developer-portfolios
 Rule: borrow patterns, never clone any single portfolio's design, copy, or assets.
 
 ## Phase 0 — Prep (lead)
-- [ ] Commit current WIP on main (19 files) or move it to its own branch
-- [ ] Create branch `redesign-3d`
-- [ ] Upgrade Next 14.0.0 -> latest 14.2.x (security patches); keep React 18
-- [ ] Baseline snapshot of current site: Lighthouse, page HTML with JS off, JSON-LD, sitemap, all URLs
+- [x] Create branch `redesign-3d`, commit WIP (dee9f64)
+- [x] Baseline snapshot of current site (68 URLs 200, HTML, JSON-LD, sitemap, robots, llms.txt, Lighthouse)
+- [x] Upgrade Next 14.0.0 -> 16.4.5, React 18 -> 19.3.1, ESLint 9 flat config
+  - [x] async `params` in 5 dynamic routes; `revalidateTag(tag, { expire: 0 })`
+  - [x] drop deprecated edge runtime on OG/Twitter/apple icons (now static)
+  - [x] build + typecheck clean; all 68 URLs 200; titles/descriptions/canonicals/JSON-LD identical (home canonical drops trailing slash — equivalent URL)
+  - [ ] Lighthouse A/B baseline vs upgrade on an idle machine (first run invalid: machine under capture load)
+  - [ ] 10 pre-existing lint errors from stricter React 19 rules (navbar, projects, count-up, any-types) — fix during build phase
 
 ## Phase 1 — Research (4 agents, parallel)
-- [ ] Scout: parse README, scan every link (alive, three.js/R3F/WebGL/GSAP/Spline, meta/JSON-LD) -> ranked shortlist of ~40
-- [ ] Design analyst A: open shortlist 1-20 in a real browser, screenshots, record hero/nav/3D/motion/layout patterns
-- [ ] Design analyst B: same for shortlist 21-40
-- [ ] SEO/GEO auditor: audit current site + best-practice gaps -> non-negotiable checklist
+- [x] Scan all 2,095 README entries: 1,877 alive, 103 three.js, 106 WebGL, 204 GSAP, 159 Lenis, 756 with basic SEO
+- [x] Scout: curate (alive, three.js/R3F/WebGL/GSAP/Spline, meta/JSON-LD) -> ranked shortlist of ~40
+- [x] Design analyst A (immersive 3D, 20 sites): patterns, anti-patterns, 3 concepts — recommends 'Control Plane'
+- [x] Design analyst B (crafted, 20 sites): IA/copy/motion skeleton, 3 concepts — recommends 'Scheduler' (same idea)
+- [x] SEO/GEO auditor: 4 P0 / 8 P1 / 10 P2 gaps, guardrails, QA checklist (scratchpad data/seo-audit.md, checker data/seo_check.py)
+
+## Owner decisions (2026-11-05)
+- Email: rjmomin.rj@gmail.com · LinkedIn: /in/raish-momin-ba8927253 (no UTM) · X: @RWankanery · GitHub: Raishmomin
+- Years derived from career start Sept 2021 ("5+"); location "Ahmedabad, Gujarat, India"
+- Blog: pause auto-gen cron + consolidate near-duplicates with 301s — code-only, no MongoDB writes
+- AI crawlers (search + training) explicitly allowed
+- Headshot: not provided yet -> Person.image stays OG card (TODO)
+
+## Phase 1.5 — SEO/GEO foundation (design-independent, started early)
+- [x] app/lib/profile.ts single source of identity facts; config.ts reads it
+- [x] Impl A: server-render all content (kill client /api/skils fetch, loader, "0 +" stats)
+- [ ] Impl B: JSON-LD escaping + Person/ProfilePage, robots AI groups, per-route OG, RSS alternates, services schema, experience dates, sitemap lastmod, llms.txt + llms-full route, skip link, manifest icons
+- [ ] Impl C: pause cron, cluster + 301 duplicate posts, exclude from sitemap/RSS/llms, sanitize markdown, one h1 per post
+- [ ] 4-lens verification panel + fix loop until no blocker/major
 
 ## Gate 1 — Design spec (lead -> user approval)
-- [ ] Synthesize findings -> `tasks/design-spec.md` (3D concept, palette, type, motion, section-by-section layout, perf budget)
-- [ ] User approves spec before any build work
+- [x] Synthesize findings -> `tasks/design-spec.md` — concept "Control Plane" (K8s scheduler pods from real data)
+- [x] User said "yes start" — build proceeds straight after foundation (no approval stop)
 
-## Phase 2 — Build (3 agents, strict file ownership)
-- [ ] 3D/motion engineer: R3F scene + scroll motion, lazy-loaded, reduced-motion + low-end/mobile fallback
-- [ ] UI engineer: redesign all sections/pages on top of existing content
-- [ ] SEO/GEO engineer: keep + upgrade metadata, JSON-LD, llms.txt, sitemap, robots, OG images
+## Phase 2 — Build (sequential, strict file ownership; see design-spec §5)
+- [ ] UI-1: design system + header/footer + home sections + monitor slot
+- [ ] 3D engineer: components/cluster/* (formations, SVG poster, store, island, R3F scene)
+- [ ] UI-2: all subpages on the new system
+- [ ] SEO/GEO guardrail engineer: re-run rulebook, fix regressions
+- [ ] 5-lens verification panel + fix loop
 
 ## Phase 3 — QA (1 agent + lead)
 - [ ] build, lint, typecheck clean

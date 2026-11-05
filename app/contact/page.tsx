@@ -11,6 +11,9 @@ import {
   faqPageSchema,
 } from "@/lib/seo";
 import { FAQS } from "@/lib/faqs";
+import { getPersonal } from "@/lib/data";
+
+export const revalidate = 86400;
 
 export const metadata: Metadata = buildMetadata({
   path: "/contact",
@@ -26,7 +29,8 @@ export const metadata: Metadata = buildMetadata({
   ],
 });
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const personal = await getPersonal();
   const faqs = FAQS["/contact"] ?? [];
   const schema = [
     webPageSchema({
@@ -46,8 +50,8 @@ export default function ContactPage() {
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main className="relative pt-24">
-        <Contact headingAs="h1" />
+      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
+        <Contact personal={personal} headingAs="h1" />
         <FAQSection faqs={faqs} heading="Before you reach out" />
       </main>
       <Footer />

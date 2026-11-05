@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Github, Linkedin, Mail, ArrowRight } from "lucide-react";
 import { SITE } from "@/lib/config";
+import { experienceLabel } from "@/lib/profile";
 
 export function AuthorBio() {
   return (
@@ -20,7 +21,7 @@ export function AuthorBio() {
             Written by {SITE.name}
           </h2>
           <p className="mt-2 text-sm md:text-base text-muted-foreground leading-relaxed">
-            {SITE.jobTitle}. 4+ years shipping production Next.js, Node.js, and AWS infrastructure
+            {SITE.jobTitle}. {experienceLabel()} years shipping production Next.js, Node.js, and AWS infrastructure
             for SaaS, e-commerce, and internal platforms. Available for freelance{" "}
             <Link
               href="/services/nextjs-development"
