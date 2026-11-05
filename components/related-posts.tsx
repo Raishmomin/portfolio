@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import clientPromise from "@/lib/mongodb";
 import { TAGS } from "@/lib/cache-tags";
@@ -39,26 +38,27 @@ export async function RelatedPosts({
   if (posts.length === 0) return null;
 
   return (
-    <section className="mt-16 pt-12 border-t border-border" aria-label="Related posts">
-      <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground mb-8">
+    <section className="mt-16" aria-labelledby="related-posts">
+      <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">keep reading</p>
+      <h2 id="related-posts" className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
         Related reading
       </h2>
-      <ul className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <ul className="mt-6 border-b border-border">
         {posts.map((p) => (
-          <li key={p.slug}>
+          <li key={p.slug} className="border-t border-border">
             <Link
               href={`/blog/${p.slug}`}
-              className="group block h-full p-5 rounded-xl border border-border bg-card hover:border-foreground/40 transition-colors"
+              className="group block py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             >
-              <h3 className="text-sm md:text-base font-semibold tracking-tight text-foreground mb-2 group-hover:text-foreground/80 transition-colors line-clamp-2">
+              <h3 className="text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-150 group-hover:text-primary md:text-lg">
                 {postTitle(p.title)}
               </h3>
-              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-                {plainExcerpt(p.excerpt)}
-              </p>
-              <span className="inline-flex items-center gap-1.5 text-xs text-foreground/80">
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{plainExcerpt(p.excerpt)}</p>
+              <span className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-foreground">
                 Read post
-                <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                <span aria-hidden="true" className="inline-block text-primary transition-transform duration-150 group-hover:translate-x-0.5">
+                  →
+                </span>
               </span>
             </Link>
           </li>
