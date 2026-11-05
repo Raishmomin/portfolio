@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
-import { Projects } from "../../components/projects";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
 import { getProjects } from "@/lib/data";
+import { Accent, ButtonLink, Container } from "../../components/ui/primitives";
+import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/projects/subpage-header";
+import { ProjectIndex } from "../../components/pages/projects/project-index";
+import { ProjectFilter } from "../../components/pages/projects/project-filter";
+import { categoryChips } from "../../components/pages/projects/categories";
 
 export const revalidate = 86400;
 
@@ -58,12 +62,61 @@ export default async function ProjectsPage() {
     ]),
   ];
 
+  const live = projects.filter((p) => p.liveUrl).length;
+  const techCount = new Set(projects.flatMap((p) => p.technologies.map((t) => t.toLowerCase()))).size;
+
   return (
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
-        <Projects projects={projects} headingAs="h1" showAll />
+      <main id="main" tabIndex={-1} className="relative outline-none">
+        <SubpageHeader
+          kicker={`~/projects · ${projects.length} shipped`}
+          title={
+            <>
+              Projects with <Accent>sharp edges.</Accent>
+            </>
+          }
+          lead="A small set of things I've built and shipped — each one had a real constraint or stakeholder. Every project is listed here with its stack, features and links."
+          aside={<PageMotif />}
+        >
+          <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
+            <div className="flex gap-2">
+              <dt>Projects</dt>
+              <dd className="text-foreground">{projects.length}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt>Live</dt>
+              <dd className="text-foreground">{live}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt>Technologies</dt>
+              <dd className="text-foreground">{techCount}</dd>
+            </div>
+          </dl>
+        </SubpageHeader>
+
+        <section aria-label="All projects" className="border-t border-border">
+          <Container className="pb-8 pt-8">
+            <ProjectFilter chips={categoryChips(projects)} total={projects.length} />
+          </Container>
+          <Container>
+            <ProjectIndex projects={projects} />
+          </Container>
+        </section>
+
+        <ContactBand
+          title={
+            <>
+              Have a product to ship? <Accent>Let&apos;s talk.</Accent>
+            </>
+          }
+        >
+          <ButtonLink href="/contact">Start a project</ButtonLink>
+          <ButtonLink href="/services" variant="ghost">
+            See services
+          </ButtonLink>
+        </ContactBand>
       </main>
       <Footer />
     </>

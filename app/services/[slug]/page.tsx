@@ -81,7 +81,7 @@ export default async function ServiceRoute({
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main id="main" tabIndex={-1} className="outline-none">
+      <main id="main" tabIndex={-1} className="relative outline-none">
         <ServicePage config={config} />
       </main>
       <Footer />

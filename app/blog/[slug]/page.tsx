@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
 import { Navbar } from "../../../components/navbar";
@@ -20,9 +19,12 @@ import {
     shortPostTitle,
 } from "@/lib/blog";
 import { renderMarkdown } from "@/lib/markdown";
-import { Calendar, Clock, ArrowLeft, Tag } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPost } from "@/lib/blog-types";
+import { ButtonLink, Container, Kicker } from "../../../components/ui/primitives";
+import { Crumbs } from "../../../components/pages/projects/subpage-header";
+import { BlogProse } from "../../../components/pages/blog/prose";
+import { cleanTag, shortDate } from "../../../components/pages/blog/post-list";
 
 export const revalidate = 3600;
 
@@ -93,14 +95,6 @@ export async function generateMetadata({
     return keepBrand ? metadata : { ...metadata, title: { absolute: shortTitle } };
 }
 
-function formatDate(date: string | Date): string {
-    return new Date(date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    });
-}
-
 export default async function BlogPostPage({
     params,
 }: {
@@ -151,79 +145,77 @@ export default async function BlogPostPage({
         <>
             <PageJsonLd data={schema} />
             <Navbar />
-            <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
-                <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-                    {/* Back link */}
-                    <Link
-                        href="/blog"
-                        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-12 group"
-                    >
-                        <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-                        Back to blog
-                    </Link>
-
-                    {/* Header */}
-                    <header className="mb-12">
-                        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground mb-6">
-                            <span className="inline-flex items-center gap-1.5">
-                                <Calendar className="w-3 h-3" />
-                                {formatDate(post.publishedAt)}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5">
-                                <Clock className="w-3 h-3" />
+            <main id="main" tabIndex={-1} className="relative outline-none">
+                <article>
+                    <Container className="pb-12 pt-28 md:pb-16 md:pt-36">
+                        <Crumbs
+                            items={[
+                                { name: "Home", href: "/" },
+                                { name: "Blog", href: "/blog" },
+                                { name: title },
+                            ]}
+                        />
+                        <header className="mt-10 max-w-4xl md:mt-14">
+                            <Kicker>
+                                <time dateTime={published}>{shortDate(post.publishedAt)}</time>
+                                <span aria-hidden="true"> · </span>
+                                <span className="sr-only">, </span>
                                 {post.readTime} min read
-                            </span>
-                        </div>
+                            </Kicker>
+                            <h1 className="mt-4 text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground">
+                                {title}
+                            </h1>
+                            <p className="mt-6 max-w-[68ch] text-lg leading-8 text-muted-foreground">
+                                {excerpt}
+                            </p>
+                            {post.tags?.length ? (
+                                <ul aria-label="Tags" className="mt-6 flex flex-wrap gap-1.5">
+                                    {post.tags.map((tag) => (
+                                        <li
+                                            key={tag}
+                                            className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground"
+                                        >
+                                            {cleanTag(tag)}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : null}
+                        </header>
+                    </Container>
 
-                        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground leading-tight mb-6">
-                            {title}
-                        </h1>
-
-                        <p className="text-lg text-muted-foreground leading-relaxed">
-                            {excerpt}
-                        </p>
-
-                        {/* Tags */}
-                        <div className="flex flex-wrap gap-2 mt-6">
-                            {post.tags.map((tag) => (
-                                <span
-                                    key={tag}
-                                    className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border border-border text-muted-foreground"
-                                >
-                                    <Tag className="w-2.5 h-2.5" />
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
-                    </header>
-
-                    {/* Divider */}
-                    <div className="h-px bg-border mb-12" />
-
-                    {/* Table of Contents (long posts only) */}
-                    {showToc && <TableOfContents items={toc} />}
-
-                    {/* Content */}
-                    <div
-                        className="blog-content"
-                        dangerouslySetInnerHTML={{ __html: html }}
-                    />
-
-                    {/* Author bio */}
-                    <AuthorBio />
-
-                    {/* Related posts */}
-                    <RelatedPosts currentSlug={post.slug} tags={post.tags || []} />
-
-                    {/* Footer nav */}
-                    <div className="mt-16 pt-8 border-t border-border">
-                        <Link
-                            href="/blog"
-                            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+                    <div className="border-t border-border">
+                        <Container
+                            className={
+                                showToc
+                                    ? "grid gap-10 py-12 text-[18px] md:py-16 lg:grid-cols-[minmax(0,68ch)_minmax(0,1fr)] lg:gap-16 xl:gap-24"
+                                    : "py-12 md:py-16"
+                            }
                         >
-                            <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-                            All posts
-                        </Link>
+                            {/* Table of contents: a block above the post on mobile, a sticky rail on desktop */}
+                            {showToc && (
+                                <div className="lg:col-start-2 lg:row-start-1">
+                                    <TableOfContents
+                                        items={toc}
+                                        className="rounded-lg border border-border bg-card p-5 lg:sticky lg:max-w-xs lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+                                <BlogProse html={html} />
+
+                                <div className="max-w-[68ch]">
+                                    <AuthorBio />
+                                    <RelatedPosts currentSlug={post.slug} tags={post.tags || []} />
+                                    <div className="mt-16 border-t border-border pt-8">
+                                        <ButtonLink href="/blog" variant="ghost">
+                                            <span aria-hidden="true">←</span>
+                                            All posts
+                                        </ButtonLink>
+                                    </div>
+                                </div>
+                            </div>
+                        </Container>
                     </div>
                 </article>
             </main>
