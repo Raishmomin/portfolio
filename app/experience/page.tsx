@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
-import { Experience } from "../../components/experience";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
+import { toFormationData } from "../../components/cluster";
+import { Accent, Kicker } from "../../components/ui/primitives";
+import { RelatedPages, SubpageIntro } from "../../components/pages/about/subpage";
+import { ExperienceTimeline } from "../../components/pages/experience/timeline";
 import { buildMetadata, breadcrumbList, employeeRoles, webPageSchema } from "@/lib/seo";
-import { getExperience } from "@/lib/data";
+import { careerStartLabel, sortRoles } from "@/lib/llms";
+import { experienceLabel } from "@/lib/profile";
+import { getExperience, getProjects, getSkills } from "@/lib/data";
 
 export const revalidate = 86400;
 
@@ -23,7 +28,9 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function ExperiencePage() {
-  const experience = await getExperience();
+  const [experience, skills, projects] = await Promise.all([getExperience(), getSkills(), getProjects()]);
+  // Newest first, and the ItemList positions follow the same visible order.
+  const roles = sortRoles(experience);
 
   const schema: object[] = [
     webPageSchema({
@@ -35,9 +42,9 @@ export default async function ExperiencePage() {
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      numberOfItems: experience.length,
+      numberOfItems: roles.length,
       // Same EmployeeRole nodes (same @id) as Person.worksFor in components/json-ld.tsx.
-      itemListElement: employeeRoles(experience, { withDescription: true }).map((role, i) => ({
+      itemListElement: employeeRoles(roles, { withDescription: true }).map((role, i) => ({
         "@type": "ListItem",
         position: i + 1,
         item: role,
@@ -48,13 +55,32 @@ export default async function ExperiencePage() {
       { name: "Experience", path: "/experience" },
     ]),
   ];
+  const motif = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
+  const companies = new Set(roles.map((r) => r.company)).size;
 
   return (
     <>
       <PageJsonLd data={schema} />
       <Navbar />
       <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
-        <Experience items={experience} headingAs="h1" />
+        <SubpageIntro
+          crumb="Experience"
+          title={
+            <>
+              Experience — <Accent>a working timeline.</Accent>
+            </>
+          }
+          lead="Roles, projects, and the through-line that connects them."
+          motif={motif}
+        >
+          <Kicker className="mt-6">
+            {experienceLabel()} years · {roles.length} roles · {companies} companies · since {careerStartLabel}
+          </Kicker>
+        </SubpageIntro>
+
+        <ExperienceTimeline roles={roles} />
+
+        <RelatedPages kicker="02 · next" keys={["projects", "skills", "about", "contact"]} />
       </main>
       <Footer />
     </>
