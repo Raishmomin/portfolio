@@ -9,7 +9,7 @@ const CATEGORY_ORDER = ["frontend", "backend", "database", "devops"] as const;
 
 type SkillRow = { name: string; level: number };
 
-export function Skills() {
+export function Skills({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
   const { value } = usePersonalStore();
   const reduce = useReducedMotion();
 
@@ -38,6 +38,7 @@ export function Skills() {
       className="bg-muted/30"
     >
       <RevealHeading
+        as={headingAs}
         id="skills"
         eyebrow="Skills"
         title="Tools I reach for."

@@ -27,15 +27,16 @@ const FILTERS = [
 
 const PAGE_SIZE = 5;
 
-export function Projects() {
+export function Projects({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
   const { value } = usePersonalStore();
   const reduce = useReducedMotion();
   const [filter, setFilter] = useState("all");
   const [shown, setShown] = useState(PAGE_SIZE);
 
-  const projects: Project[] = Array.isArray(value?.projects)
-    ? value.projects
-    : [];
+  const projects: Project[] = useMemo(
+    () => (Array.isArray(value?.projects) ? value.projects : []),
+    [value?.projects]
+  );
 
   const filtered = useMemo(() => {
     if (filter === "all") return projects;
@@ -54,6 +55,7 @@ export function Projects() {
   return (
     <Section id="projects" ariaLabel="Projects" className="bg-muted/30">
       <RevealHeading
+        as={headingAs}
         id="projects"
         eyebrow="Selected work"
         title="Projects with sharp edges."

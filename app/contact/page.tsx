@@ -47,7 +47,7 @@ export default function ContactPage() {
       <PageJsonLd data={schema} />
       <Navbar />
       <main className="relative pt-24">
-        <Contact />
+        <Contact headingAs="h1" />
         <FAQSection faqs={faqs} heading="Before you reach out" />
       </main>
       <Footer />

@@ -7,7 +7,7 @@ import { Section, RevealHeading } from "./section";
 import { Magnetic } from "./magnetic-button";
 import { usePersonalStore } from "@/lib/zutand";
 
-export function Contact() {
+export function Contact({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
   const { value } = usePersonalStore();
   const reduce = useReducedMotion();
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
@@ -53,6 +53,7 @@ export function Contact() {
   return (
     <Section id="contact" ariaLabel="Contact">
       <RevealHeading
+        as={headingAs}
         id="contact"
         eyebrow="Contact"
         title="Let's build something."

@@ -16,7 +16,7 @@ type ExperienceItem = {
   technologies: string[];
 };
 
-export function Experience() {
+export function Experience({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
   const { value } = usePersonalStore();
   const reduce = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +49,7 @@ export function Experience() {
     <Section id="experience" ariaLabel="Experience">
       <div className="flex items-end justify-between gap-6 mb-12 md:mb-20">
         <RevealHeading
+          as={headingAs}
           id="experience"
           eyebrow="Experience"
           title="A working timeline."

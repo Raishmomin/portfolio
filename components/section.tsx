@@ -53,6 +53,7 @@ type RevealHeadingProps = {
   title: string;
   description?: string;
   className?: string;
+  as?: "h1" | "h2";
 };
 
 export function RevealHeading({
@@ -61,6 +62,7 @@ export function RevealHeading({
   title,
   description,
   className,
+  as: HeadingTag = "h2",
 }: RevealHeadingProps) {
   const reduce = useReducedMotion();
 
@@ -78,7 +80,7 @@ export function RevealHeading({
           {eyebrow}
         </motion.span>
       )}
-      <h2
+      <HeadingTag
         id={`${id}-heading`}
         className="mt-4 heading-fluid font-semibold text-foreground"
       >
@@ -91,7 +93,7 @@ export function RevealHeading({
         >
           {title}
         </motion.span>
-      </h2>
+      </HeadingTag>
       {description && (
         <motion.p
           initial={reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}

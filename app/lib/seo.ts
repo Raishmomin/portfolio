@@ -23,7 +23,11 @@ export function buildMetadata(input: PageSeoInput): Metadata {
   const ogDescription = input.ogDescription || input.description;
 
   return {
-    title: input.title,
+    // If the title already contains the site name, skip the layout's
+    // "%s | Raish Momin" template to avoid "… — Raish Momin | Raish Momin"
+    title: input.title.includes(SITE.name)
+      ? { absolute: input.title }
+      : input.title,
     description: input.description,
     keywords: input.keywords,
     alternates: { canonical: url },

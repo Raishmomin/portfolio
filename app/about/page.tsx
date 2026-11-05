@@ -47,7 +47,7 @@ export default function AboutPage() {
       <PageJsonLd data={schema} />
       <Navbar />
       <main className="relative pt-24">
-        <About />
+        <About headingAs="h1" />
         <FAQSection faqs={faqs} />
       </main>
       <Footer />

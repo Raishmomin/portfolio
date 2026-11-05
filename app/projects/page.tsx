@@ -93,7 +93,7 @@ export default async function ProjectsPage() {
       <PageJsonLd data={schema} />
       <Navbar />
       <main className="relative pt-24">
-        <Projects />
+        <Projects headingAs="h1" />
       </main>
       <Footer />
     </>

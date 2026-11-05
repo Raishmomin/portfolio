@@ -7,7 +7,7 @@ import { Tilt } from "./tilt-card";
 import { usePersonalStore } from "@/lib/zutand";
 import { SITE } from "@/lib/config";
 
-export function About() {
+export function About({ headingAs = "h2" }: { headingAs?: "h1" | "h2" } = {}) {
   const { value } = usePersonalStore();
   const reduce = useReducedMotion();
 
@@ -30,6 +30,7 @@ export function About() {
   return (
     <Section id="about" ariaLabel="About">
       <RevealHeading
+        as={headingAs}
         id="about"
         eyebrow="About"
         title="A developer obsessed with detail."

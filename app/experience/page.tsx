@@ -84,7 +84,7 @@ export default async function ExperiencePage() {
       <PageJsonLd data={schema} />
       <Navbar />
       <main className="relative pt-24">
-        <Experience />
+        <Experience headingAs="h1" />
       </main>
       <Footer />
     </>

@@ -80,7 +80,7 @@ export default async function SkillsPage() {
       <PageJsonLd data={schema} />
       <Navbar />
       <main className="relative pt-24">
-        <Skills />
+        <Skills headingAs="h1" />
       </main>
       <Footer />
     </>
