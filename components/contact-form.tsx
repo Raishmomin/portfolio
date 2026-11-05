@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Check } from "lucide-react";
-import { Magnetic } from "./magnetic-button";
+
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 /** Client island: the contact form and its sent state. */
 export function ContactForm() {
@@ -43,47 +44,49 @@ export function ContactForm() {
   return (
     <div className="lg:col-span-8">
       {sent ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="border border-border rounded-2xl p-12 text-center bg-card"
-        >
-          <div className="grid place-items-center w-12 h-12 mx-auto rounded-full border border-border mb-6">
-            <Check className="w-5 h-5" aria-hidden="true" />
-          </div>
-          <h3 className="text-xl font-semibold tracking-tight mb-2">Message sent.</h3>
-          <p className="text-sm text-muted-foreground">
+        <div role="status" className="rounded-lg border border-border bg-card p-8 md:p-12">
+          <p className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            <span aria-hidden="true" className="grid h-6 w-6 place-items-center rounded-full border border-border">
+              <Check className="h-3.5 w-3.5 text-ok" />
+            </span>
+            Delivered
+          </p>
+          <h3 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-foreground">Message sent.</h3>
+          <p className="mt-2 text-[15px] leading-7 text-muted-foreground">
             Thanks for reaching out — I&apos;ll reply within a couple of days.
           </p>
           <button
+            type="button"
             onClick={() => setSent(false)}
-            className="mt-8 text-sm underline-offset-4 hover:underline text-muted-foreground hover:text-foreground transition-colors"
+            className={`mt-6 inline-flex min-h-11 items-center rounded-sm text-sm text-muted-foreground underline underline-offset-4 transition-colors duration-150 hover:text-foreground ${FOCUS_RING}`}
           >
             Send another message
           </button>
-        </motion.div>
+        </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-8" noValidate>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <GhostField
+        <form onSubmit={handleSubmit} className="space-y-6" noValidate aria-busy={sending}>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <Field
               id="contact-name"
               name="name"
               label="Name"
+              autoComplete="name"
               value={form.name}
               onChange={update}
               required
             />
-            <GhostField
+            <Field
               id="contact-email"
               name="email"
               label="Email"
               type="email"
+              autoComplete="email"
               value={form.email}
               onChange={update}
               required
             />
           </div>
-          <GhostField
+          <Field
             id="contact-subject"
             name="subject"
             label="Subject"
@@ -91,7 +94,7 @@ export function ContactForm() {
             onChange={update}
             required
           />
-          <GhostField
+          <Field
             id="contact-message"
             name="message"
             label="Message"
@@ -101,40 +104,35 @@ export function ContactForm() {
             required
           />
 
-          <div className="flex items-center justify-between gap-6 pt-2">
-            {error && (
+          <div className="flex flex-col-reverse items-stretch gap-4 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            {error ? (
               <p role="alert" className="text-sm text-destructive">
                 {error}
               </p>
-            )}
-            <div className="ml-auto">
-              <Magnetic
-                as="button"
-                type="submit"
-                disabled={sending}
-                className="group h-12 px-7 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-60"
-              >
-                <span className="flex items-center gap-2">
-                  {sending ? (
-                    <>
-                      <span
-                        aria-hidden="true"
-                        className="w-3.5 h-3.5 border border-background/30 border-t-background rounded-full animate-spin"
-                      />
-                      Sending
-                    </>
-                  ) : (
-                    <>
-                      Send message
-                      <ArrowRight
-                        className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
-                        aria-hidden="true"
-                      />
-                    </>
-                  )}
-                </span>
-              </Magnetic>
-            </div>
+            ) : null}
+            <button
+              type="submit"
+              disabled={sending}
+              className={`group inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 disabled:opacity-60 sm:ml-auto ${FOCUS_RING}`}
+            >
+              {sending ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 animate-spin rounded-full border border-primary-foreground/30 border-t-primary-foreground"
+                  />
+                  Sending
+                </>
+              ) : (
+                <>
+                  Send message
+                  <ArrowRight
+                    className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
+                </>
+              )}
+            </button>
           </div>
         </form>
       )}
@@ -142,45 +140,33 @@ export function ContactForm() {
   );
 }
 
-type GhostFieldProps = {
+type FieldProps = {
   id: string;
   name: string;
   label: string;
   value: string;
   onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   type?: string;
+  autoComplete?: string;
   required?: boolean;
   multiline?: boolean;
 };
 
-function GhostField({
-  id,
-  name,
-  label,
-  value,
-  onChange,
-  type = "text",
-  required,
-  multiline,
-}: GhostFieldProps) {
-  const reduce = useReducedMotion();
-  const [focused, setFocused] = useState(false);
-  const filled = value.length > 0;
-
-  const labelClass = `pointer-events-none absolute left-0 transition-all duration-200 ${
-    focused || filled
-      ? "top-0 text-xs uppercase tracking-[0.2em] text-muted-foreground"
-      : "top-7 text-base text-muted-foreground"
-  }`;
-
-  const sharedInput =
-    "w-full bg-transparent border-0 border-b border-border focus:border-foreground outline-none pt-7 pb-3 text-base text-foreground placeholder:text-transparent transition-colors";
+/** Always-visible label above a bordered field (no floating-label animation). */
+function Field({ id, name, label, value, onChange, type = "text", autoComplete, required, multiline }: FieldProps) {
+  const input =
+    "mt-2 block w-full rounded-md border border-border bg-card px-4 py-3 text-base text-foreground transition-colors duration-150 hover:border-foreground/30 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/40";
 
   return (
-    <div className="relative">
-      <label htmlFor={id} className={labelClass}>
+    <div>
+      <label htmlFor={id} className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
         {label}
-        {required && <span aria-hidden="true"> *</span>}
+        {required && (
+          <span aria-hidden="true" className="text-primary">
+            {" "}
+            *
+          </span>
+        )}
       </label>
       {multiline ? (
         <textarea
@@ -189,36 +175,21 @@ function GhostField({
           value={value}
           onChange={onChange}
           required={required}
-          rows={5}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className={`${sharedInput} resize-none`}
-          placeholder={label}
+          rows={6}
+          className={`${input} min-h-36 resize-y`}
         />
       ) : (
         <input
           id={id}
           name={name}
           type={type}
+          autoComplete={autoComplete}
           value={value}
           onChange={onChange}
           required={required}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className={sharedInput}
-          placeholder={label}
+          className={`${input} min-h-12`}
         />
       )}
-      <motion.span
-        aria-hidden="true"
-        initial={false}
-        animate={{ scaleX: focused ? 1 : 0 }}
-        transition={
-          reduce ? { duration: 0 } : { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
-        }
-        style={{ transformOrigin: "left" }}
-        className="absolute left-0 right-0 -bottom-px h-px bg-foreground"
-      />
     </div>
   );
 }
