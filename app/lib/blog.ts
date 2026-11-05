@@ -20,6 +20,16 @@ export const LISTED_POSTS = {
 /** Display title (H1, headline, lists): generated titles sometimes end with a stray period. */
 export const postTitle = (title: string) => title.replace(/\s+/g, " ").trim().replace(/\.+$/, "");
 
+/**
+ * Display tags (visible chips, keywords, article:tag, RSS categories). Generated
+ * "TAGS: a, b, c." lines left a period on the last tag ("Istio."). DB queries that
+ * match tags ($in) keep using the stored strings.
+ */
+export function postTags(tags: readonly string[] | undefined): string[] {
+  const clean = (tags ?? []).map((t) => String(t).replace(/\s+/g, " ").replace(/[\s.]+$/, "").trim());
+  return [...new Set(clean.filter(Boolean))];
+}
+
 /** Fields a post listing renders (blog index, RSS): never the full `content`. */
 export const POST_SUMMARY_PROJECTION = {
   title: 1,

@@ -43,11 +43,14 @@ export function yearsOfExperience(now: Date = new Date()): number {
 /** "5+" style label used in copy and llms.txt. */
 export const experienceLabel = (now?: Date) => `${yearsOfExperience(now)}+`;
 
-/** Canonical sameAs list: clean URLs, no query strings. */
-export const SAME_AS = [
-  PROFILE.social.github,
-  PROFILE.social.linkedin,
-  PROFILE.social.x,
+/** Public profiles for visible link lists, so every sameAs URL is also linked on the page. */
+export const SOCIAL_PROFILES = [
+  { label: "GitHub", url: PROFILE.social.github },
+  { label: "LinkedIn", url: PROFILE.social.linkedin },
+  { label: "X", url: PROFILE.social.x },
 ] as const;
+
+/** Canonical sameAs list: clean URLs, no query strings. */
+export const SAME_AS = SOCIAL_PROFILES.map((p) => p.url);
 
 export const LOCATION_LABEL = `${PROFILE.location.locality}, ${PROFILE.location.region}, ${PROFILE.location.country}`;

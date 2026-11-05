@@ -3,7 +3,7 @@ import clientPromise from "@/lib/mongodb";
 import { SITE, SITE_URL } from "@/lib/config";
 import { TAGS } from "@/lib/cache-tags";
 import type { BlogPostSummary } from "@/lib/blog-types";
-import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTitle } from "@/lib/blog";
+import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTags, postTitle } from "@/lib/blog";
 
 export const revalidate = 3600;
 
@@ -46,7 +46,7 @@ export async function GET() {
     .map((p) => {
       const url = `${SITE_URL}/blog/${p.slug}`;
       const pubDate = toRFC822(p.publishedAt);
-      const categories = (p.tags || [])
+      const categories = postTags(p.tags)
         .map((t) => `      <category>${escapeXml(t)}</category>`)
         .join("\n");
       return `    <item>

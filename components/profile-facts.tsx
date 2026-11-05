@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { PROFILE, LOCATION_LABEL, experienceLabel } from "@/lib/profile";
+import { PROFILE, LOCATION_LABEL, SOCIAL_PROFILES, experienceLabel } from "@/lib/profile";
 import { SERVICES } from "@/lib/services";
 import { parsePeriod } from "@/lib/seo";
 import { careerStartLabel, periodLabel, sortRoles } from "@/lib/llms";
@@ -17,11 +17,6 @@ export function ProfileFacts({ experience }: { experience: ExperienceItem[] }) {
   const current = roles.find((e) => parsePeriod(e.period).current);
   const previous = roles.filter((e) => e !== current);
   const services = Object.values(SERVICES);
-  const profiles = [
-    ["GitHub", PROFILE.social.github],
-    ["LinkedIn", PROFILE.social.linkedin],
-    ["X", PROFILE.social.x],
-  ] as const;
 
   const rows: { label: string; value: ReactNode }[] = [
     { label: "Role", value: PROFILE.jobTitle },
@@ -83,7 +78,7 @@ export function ProfileFacts({ experience }: { experience: ExperienceItem[] }) {
             contact form
           </Link>
           . Profiles:{" "}
-          {profiles.map(([label, url], i) => (
+          {SOCIAL_PROFILES.map(({ label, url }, i) => (
             <span key={label}>
               {i > 0 && ", "}
               <a href={url} target="_blank" rel="noopener noreferrer" className={LINK}>

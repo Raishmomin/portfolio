@@ -109,9 +109,13 @@ const LIST_CLASS = "space-y-2 pl-5 my-4 text-muted-foreground";
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})\s*([\w+#.-]*)/;
+// Fences may be indented: generated posts nest them inside list items ("1. step\n   ```bash").
+const FENCE_RE = /^([ \t]*)(`{3,}|~{3,})\s*([\w+#.-]*)/;
 const closingFence = (marker: string) =>
-  new RegExp(`^ {0,3}${marker[0] === "`" ? "`" : "~"}{${marker.length},}\\s*$`);
+  new RegExp(`^[ \\t]*${marker[0] === "`" ? "`" : "~"}{${marker.length},}\\s*$`);
+/** Strips up to the opening fence's indentation from a code line (CommonMark 4.5). */
+const dedent = (line: string, indent: number) =>
+  line.replace(new RegExp(`^[ \\t]{0,${indent}}`), "");
 
 function parseHeading(line: string): { level: number; source: string; text: string } | null {
   // The text is optional: a bare "###" line is an empty heading (dropped by the
@@ -140,7 +144,7 @@ function outline(lines: string[], title?: string): { skip: number; shift: number
     }
     const open = line.match(FENCE_RE);
     if (open) {
-      fence = closingFence(open[1]);
+      fence = closingFence(open[2]);
       first = false;
       return;
     }
@@ -167,15 +171,19 @@ export function renderMarkdown(md: string, title?: string): { html: string; toc:
   const ids = new Map<string, number>();
 
   let para: string[] = [];
-  let list: { ordered: boolean; start: number; items: string[] } | null = null;
+  // A list item is inline text, plus any code blocks nested in it (kept as HTML).
+  type ItemPart = { text: string } | { html: string };
+  let list: { ordered: boolean; start: number; items: ItemPart[][] } | null = null;
 
   const flushPara = () => {
     if (para.length) out.push(`<p class="${P_CLASS}">${inline(para.join("\n"))}</p>`);
     para = [];
   };
+  const itemHtml = (parts: ItemPart[]) =>
+    parts.map((part) => ("html" in part ? part.html : inline(part.text))).join("\n");
   const flushList = () => {
     if (!list) return;
-    const items = list.items.map((item) => `<li class="blog-li">${inline(item)}</li>`).join("\n");
+    const items = list.items.map((item) => `<li class="blog-li">${itemHtml(item)}</li>`).join("\n");
     out.push(
       list.ordered
         ? `<ol${list.start !== 1 ? ` start="${list.start}"` : ""} class="${LIST_CLASS} list-decimal">${items}</ol>`
@@ -193,16 +201,22 @@ export function renderMarkdown(md: string, title?: string): { html: string; toc:
 
     const fence = line.match(FENCE_RE);
     if (fence) {
-      flush();
-      const [, marker, lang] = fence;
+      const [, indent, marker, lang] = fence;
       const closing = closingFence(marker);
       const code: string[] = [];
-      for (i++; i < lines.length && !closing.test(lines[i]); i++) code.push(lines[i]);
-      out.push(
-        `<pre class="blog-pre"><code class="language-${escapeHtml(lang || "text")}">${escapeHtml(
-          code.join("\n")
-        )}</code></pre>`
-      );
+      for (i++; i < lines.length && !closing.test(lines[i]); i++) {
+        code.push(dedent(lines[i], indent.length));
+      }
+      const pre = `<pre class="blog-pre"><code class="language-${escapeHtml(lang || "text")}">${escapeHtml(
+        code.join("\n")
+      )}</code></pre>`;
+      if (list && indent.length > 0) {
+        // Indented fence right under a list item: it belongs to that item.
+        list.items[list.items.length - 1].push({ html: pre });
+      } else {
+        flush();
+        out.push(pre);
+      }
       continue;
     }
 
@@ -238,13 +252,17 @@ export function renderMarkdown(md: string, title?: string): { html: string; toc:
       const ordered = item[2] !== undefined;
       if (list && list.ordered !== ordered) flushList();
       if (!list) list = { ordered, start: ordered ? Number(item[2]) : 1, items: [] };
-      list.items.push(item[3]);
+      list.items.push([{ text: item[3] }]);
       continue;
     }
 
     if (list && /^\s+\S/.test(line)) {
-      // Indented continuation of the previous list item.
-      list.items[list.items.length - 1] += `\n${line.trim()}`;
+      // Indented continuation of the previous list item (after a nested code block,
+      // it starts a new text run).
+      const parts = list.items[list.items.length - 1];
+      const last = parts[parts.length - 1];
+      if ("text" in last) last.text += `\n${line.trim()}`;
+      else parts.push({ text: line.trim() });
       continue;
     }
 

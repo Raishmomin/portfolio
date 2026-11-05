@@ -1,17 +1,34 @@
 "use client";
 
+import type { ComponentType } from "react";
 import { Github, Linkedin, Mail, ArrowUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SITE, PAGES } from "@/lib/config";
-import { PROFILE } from "@/lib/profile";
+import { PROFILE, SOCIAL_PROFILES } from "@/lib/profile";
 import { revealProps } from "./reveal";
+
+type IconProps = { className?: string; "aria-hidden"?: "true" };
+
+/** X wordmark (lucide has no X brand icon). */
+function XIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
+    </svg>
+  );
+}
+
+const SOCIAL_ICONS: Record<(typeof SOCIAL_PROFILES)[number]["label"], ComponentType<IconProps>> = {
+  GitHub: Github,
+  LinkedIn: Linkedin,
+  X: XIcon,
+};
 
 export function Footer() {
   const pathname = usePathname();
   const isHome = pathname === "/";
 
-  const { github, linkedin } = PROFILE.social;
   const email = PROFILE.email;
 
   return (
@@ -66,32 +83,23 @@ export function Footer() {
               Elsewhere
             </p>
             <ul className="space-y-3">
-              {github && (
-                <li>
-                  <a
-                    href={github}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <Github className="w-3.5 h-3.5" aria-hidden="true" />
-                    GitHub
-                  </a>
-                </li>
-              )}
-              {linkedin && (
-                <li>
-                  <a
-                    href={linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <Linkedin className="w-3.5 h-3.5" aria-hidden="true" />
-                    LinkedIn
-                  </a>
-                </li>
-              )}
+              {/* Every sameAs profile, so each one is corroborated by a visible link site-wide. */}
+              {SOCIAL_PROFILES.map(({ label, url }) => {
+                const Icon = SOCIAL_ICONS[label];
+                return (
+                  <li key={url}>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                      {label}
+                    </a>
+                  </li>
+                );
+              })}
               {email && (
                 <li>
                   <a

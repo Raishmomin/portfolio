@@ -10,7 +10,7 @@ import { TAGS } from "@/lib/cache-tags";
 import { Calendar, Clock, ArrowRight, Rss } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPostSummary } from "@/lib/blog-types";
-import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTitle } from "@/lib/blog";
+import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTags, postTitle } from "@/lib/blog";
 
 export const revalidate = 3600;
 
@@ -54,7 +54,7 @@ function formatDate(date: string | Date): string {
 }
 
 export default async function BlogPage() {
-    const posts = await getPosts();
+    const posts = (await getPosts()).map((p) => ({ ...p, tags: postTags(p.tags) }));
 
     const schema: object[] = [
         {

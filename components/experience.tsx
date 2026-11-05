@@ -68,16 +68,17 @@ export function Experience({ items, headingAs = "h2" }: ExperienceProps) {
               </ul>
             )}
 
-            <div className="flex flex-wrap gap-1.5 mt-auto pt-4 border-t border-border">
+            {/* A list, so text extractors keep the names apart. */}
+            <ul className="flex flex-wrap gap-1.5 mt-auto pt-4 border-t border-border">
               {exp.technologies.map((t, idx) => (
-                <span
+                <li
                   key={idx}
                   className="text-[11px] px-2.5 py-1 rounded-full border border-border text-muted-foreground"
                 >
                   {t}
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           </article>
         ))}
       </ExperienceCarousel>

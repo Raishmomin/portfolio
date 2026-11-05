@@ -38,12 +38,15 @@ Rule: borrow patterns, never clone any single portfolio's design, copy, or asset
 - [x] Synthesize findings -> `tasks/design-spec.md` — concept "Control Plane" (K8s scheduler pods from real data)
 - [x] User said "yes start" — build proceeds straight after foundation (no approval stop)
 
-## Phase 2 — Build (sequential, strict file ownership; see design-spec §5)
-- [ ] UI-1: design system + header/footer + home sections + monitor slot
-- [ ] 3D engineer: components/cluster/* (formations, SVG poster, store, island, R3F scene)
-- [ ] UI-2: all subpages on the new system
-- [ ] SEO/GEO guardrail engineer: re-run rulebook, fix regressions
-- [ ] 5-lens verification panel + fix loop
+## Phase 2 — Build (PARALLEL: 4 lanes in git worktrees, user-approved for speed)
+- [x] Foundation verified (3 rounds) + checkpoint commit 57c8d76 (local, not pushed)
+- [x] Lead pre-built shared pieces: palette tokens, Geist/Geist Mono/Instrument Serif, components/ui/primitives.tsx, cluster contract (types, toFormationData, stub API), slugify
+- [ ] lane-ui: header/footer shell + home page (wt-ui)
+- [ ] lane-3d: Cluster Monitor R3F module + SVG poster (wt-3d)
+- [ ] lane-pages-a: /about /skills /experience /contact (wt-pages-a)
+- [ ] lane-pages-b: /projects /services /blog /404 (wt-pages-b)
+- [ ] Lead merges lanes -> redesign-3d, build
+- [ ] Parallel verification (crawler/SEO, perf/CWV, a11y+no-JS+reduced-motion, visual vs spec, code health) + fixer
 
 ## Phase 3 — QA (1 agent + lead)
 - [ ] build, lint, typecheck clean

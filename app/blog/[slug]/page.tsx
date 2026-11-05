@@ -16,6 +16,7 @@ import {
     SEO_TITLE_MAX,
     metaDescription,
     plainExcerpt,
+    postTags,
     postTitle,
     shortPostTitle,
 } from "@/lib/blog";
@@ -70,7 +71,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
     const { slug } = await params;
     const post = await getPost(slug);
-    if (!post) return { title: "Post Not Found" };
+    // Same as the page: an unknown slug renders the not-found boundary on the server
+    // (returning a fallback title here left an empty client-only 404 shell).
+    if (!post) notFound();
+    const tags = postTags(post.tags);
 
     // Long generated titles get a phrase-boundary cut for <title>/og:title; the H1 keeps the full title.
     const shortTitle = shortPostTitle(post.title);
@@ -80,12 +84,12 @@ export async function generateMetadata({
         title: shortTitle ?? post.title,
         ogTitle: shortTitle,
         description: metaDescription(post.excerpt),
-        keywords: post.tags,
+        keywords: tags,
         ogType: "article",
         publishedTime: new Date(post.publishedAt).toISOString(),
         modifiedTime: new Date(post.updatedAt || post.publishedAt).toISOString(),
         authors: [SITE.name],
-        tags: post.tags,
+        tags,
     });
     // The cut title keeps the layout's " | Raish Momin" suffix when both fit in 60 chars;
     // otherwise `absolute` drops the suffix.
@@ -116,6 +120,7 @@ export default async function BlogPostPage({
     const modified = new Date(post.updatedAt || post.publishedAt).toISOString();
     const { html, toc } = renderMarkdown(post.content, post.title);
     const excerpt = plainExcerpt(post.excerpt);
+    const tags = postTags(post.tags);
     const wordCount = post.content?.split(/\s+/).filter(Boolean).length || 0;
 
     const schema: object[] = [
@@ -132,7 +137,7 @@ export default async function BlogPostPage({
             dateModified: modified,
             wordCount,
             timeRequired: `PT${post.readTime || 1}M`,
-            keywords: post.tags?.join(", "),
+            keywords: tags.join(", "),
             inLanguage: "en-US",
             image: [`${url}/opengraph-image`],
             author: { "@id": `${SITE_URL}#person` },
@@ -185,7 +190,7 @@ export default async function BlogPostPage({
 
                         {/* Tags */}
                         <div className="flex flex-wrap gap-2 mt-6">
-                            {post.tags.map((tag) => (
+                            {tags.map((tag) => (
                                 <span
                                     key={tag}
                                     className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border border-border text-muted-foreground"
@@ -212,7 +217,7 @@ export default async function BlogPostPage({
                     {/* Author bio */}
                     <AuthorBio />
 
-                    {/* Related posts */}
+                    {/* Related posts (matched on the raw DB tag strings) */}
                     <RelatedPosts currentSlug={post.slug} tags={post.tags || []} />
 
                     {/* Footer nav */}
