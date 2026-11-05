@@ -65,7 +65,17 @@
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-foreground selection:text-background;
+    font-size: 17px;
+    line-height: 28px;
     font-feature-settings: "ss01", "cv11";
+  }
+  /* Visible focus ring everywhere (components may refine it with ring utilities). */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -114,14 +124,6 @@
     );
   }
 
-  .noise {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.04;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  }
 
   .mask-edge-x {
     -webkit-mask-image: linear-gradient(
@@ -191,29 +193,30 @@
  * Reveal and entrance animations (components/reveal.tsx). Progressive enhancement:
  * server HTML is visible by default, without JS, for reduced motion and in print.
  * Only under html.js (set by the inline head script) is a [data-reveal] element
- * hidden until the script marks it data-in. The animations use the `translate`
+ * hidden until the script marks it data-in, and never when the header's 3D/motion
+ * toggle has set html[data-motion="off"]. The animations use the `translate`
  * property, so they never clobber an element's own `transform`.
  */
 @media screen and (prefers-reduced-motion: no-preference) {
-  html.js [data-reveal]:not([data-in]) {
+  html.js:not([data-motion="off"]) [data-reveal]:not([data-in]) {
     opacity: 0;
   }
-  html.js [data-reveal][data-in],
-  html.js [data-enter] {
-    animation: reveal-up var(--reveal-duration, 0.6s) cubic-bezier(0.22, 1, 0.36, 1)
+  html.js:not([data-motion="off"]) [data-reveal][data-in],
+  html.js:not([data-motion="off"]) [data-enter] {
+    animation: reveal-up var(--reveal-duration, 0.42s) cubic-bezier(0.22, 1, 0.36, 1)
       var(--reveal-delay, 0s) backwards;
   }
   /* "clip" wipes the children in; the observed element itself stays unclipped. */
-  html.js [data-reveal="clip"]:not([data-in]) {
+  html.js:not([data-motion="off"]) [data-reveal="clip"]:not([data-in]) {
     opacity: 1;
   }
-  html.js [data-reveal="clip"]:not([data-in]) > * {
+  html.js:not([data-motion="off"]) [data-reveal="clip"]:not([data-in]) > * {
     clip-path: inset(0 100% 0 0);
   }
-  html.js [data-reveal="clip"][data-in] {
+  html.js:not([data-motion="off"]) [data-reveal="clip"][data-in] {
     animation: none;
   }
-  html.js [data-reveal="clip"][data-in] > * {
+  html.js:not([data-motion="off"]) [data-reveal="clip"][data-in] > * {
     animation: reveal-clip var(--reveal-duration, 0.8s) cubic-bezier(0.77, 0, 0.175, 1)
       var(--reveal-delay, 0s) backwards;
   }
@@ -281,11 +284,45 @@
 
 /* Control Plane: status dot pulse — only when JS is on and motion is allowed. */
 @media (prefers-reduced-motion: no-preference) {
-  html.js .status-dot {
+  html.js:not([data-motion="off"]) .status-dot {
     animation: status-pulse 2s ease-in-out infinite;
   }
 }
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+/* Header nav: the active item (aria-current, set by pathname or the home scroll-spy)
+   gets a 1px orange rule that grows 16 -> 40px. */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.625rem;
+  height: 1px;
+  width: 16px;
+  background: hsl(var(--primary));
+  opacity: 0;
+  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms linear;
+}
+.nav-link[aria-current]:not([aria-current="false"])::after {
+  width: 40px;
+  opacity: 1;
+}
+
+/* Work archive: hovering or focusing a row dims its siblings and nudges the arrow. */
+.archive li {
+  transition: opacity 160ms linear;
+}
+.archive:has(a:hover) li:not(:has(a:hover)),
+.archive:has(a:focus-visible) li:not(:has(a:focus-visible)) {
+  opacity: 0.45;
+}
+.archive-arrow {
+  transition: translate 160ms ease-out;
+}
+.archive a:hover .archive-arrow,
+.archive a:focus-visible .archive-arrow {
+  translate: 2px -2px;
 }

@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "../components/theme-provider";
-import { ScrollProgress } from "../components/scroll-progress";
 import { JsonLd } from "../components/json-ld";
 import { REVEAL_SCRIPT } from "../components/reveal";
 import { SITE, SITE_URL } from "@/lib/config";
@@ -128,7 +127,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Sets html.js and drives the CSS reveal animations; content stays visible without it. */}
+        {/* Applies the saved 3D/motion choice, sets html.js and drives the CSS reveal animations; content stays visible without it. */}
         <script dangerouslySetInnerHTML={{ __html: REVEAL_SCRIPT }} />
       </head>
       <body
@@ -140,10 +139,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ScrollProgress />
           <a
             href="#main"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-md focus:bg-foreground focus:text-background"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-md focus:bg-foreground focus:text-background focus:min-h-11 focus:inline-flex focus:items-center"
           >
             Skip to content
           </a>

@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode, type MouseEvent } from "react";
-import { motion, useMotionValue, useSpring, useReducedMotion } from "framer-motion";
+import type { ReactNode, MouseEvent } from "react";
 import { cn } from "@/lib/utils";
 
 type MagneticProps = {
@@ -18,6 +17,29 @@ type MagneticProps = {
   rel?: string;
 };
 
+// Small magnetic CTA (design spec §2): a CSS `translate` driven by the pointer, no
+// animation library. Skipped for coarse pointers, prefers-reduced-motion and when the
+// header 3D/motion toggle is off (html[data-motion="off"]).
+function motionAllowed() {
+  return (
+    document.documentElement.dataset.motion !== "off" &&
+    matchMedia("(pointer: fine) and (prefers-reduced-motion: no-preference)").matches
+  );
+}
+
+function onMove(strength: number) {
+  return (e: MouseEvent<HTMLElement>) => {
+    if (!motionAllowed()) return;
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    el.style.translate = `${(e.clientX - r.left - r.width / 2) * strength}px ${(e.clientY - r.top - r.height / 2) * strength}px`;
+  };
+}
+
+function onLeave(e: MouseEvent<HTMLElement>) {
+  e.currentTarget.style.translate = "";
+}
+
 export function Magnetic({
   children,
   className,
@@ -31,85 +53,30 @@ export function Magnetic({
   target,
   rel,
 }: MagneticProps) {
-  const ref = useRef<HTMLElement | null>(null);
-  const reduce = useReducedMotion();
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const sx = useSpring(x, { stiffness: 220, damping: 20, mass: 0.4 });
-  const sy = useSpring(y, { stiffness: 220, damping: 20, mass: 0.4 });
-
-  function handleMove(e: MouseEvent) {
-    if (reduce || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    x.set((e.clientX - cx) * strength);
-    y.set((e.clientY - cy) * strength);
-  }
-
-  function handleLeave() {
-    x.set(0);
-    y.set(0);
-  }
-
-  const sharedClass = cn(
-    "relative inline-flex items-center justify-center select-none will-change-transform",
-    className
-  );
-  const sharedStyle = { x: sx, y: sy };
-  const tap = reduce ? undefined : { scale: 0.97 };
+  const shared = {
+    onClick,
+    onMouseMove: onMove(strength),
+    onMouseLeave: onLeave,
+    "aria-label": ariaLabel,
+    className: cn(
+      "relative inline-flex items-center justify-center select-none transition-[translate,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:active:scale-100",
+      className
+    ),
+  };
 
   if (as === "a") {
     return (
-      <motion.a
-        ref={ref as React.Ref<HTMLAnchorElement>}
-        href={href}
-        target={target}
-        rel={rel}
-        onClick={onClick}
-        onMouseMove={handleMove}
-        onMouseLeave={handleLeave}
-        style={sharedStyle}
-        whileTap={tap}
-        aria-label={ariaLabel}
-        className={sharedClass}
-      >
+      <a href={href} target={target} rel={rel} {...shared}>
         {children}
-      </motion.a>
+      </a>
     );
   }
-
   if (as === "div") {
-    return (
-      <motion.div
-        ref={ref as React.Ref<HTMLDivElement>}
-        onClick={onClick}
-        onMouseMove={handleMove}
-        onMouseLeave={handleLeave}
-        style={sharedStyle}
-        whileTap={tap}
-        aria-label={ariaLabel}
-        className={sharedClass}
-      >
-        {children}
-      </motion.div>
-    );
+    return <div {...shared}>{children}</div>;
   }
-
   return (
-    <motion.button
-      ref={ref as React.Ref<HTMLButtonElement>}
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      onMouseMove={handleMove}
-      onMouseLeave={handleLeave}
-      style={sharedStyle}
-      whileTap={tap}
-      aria-label={ariaLabel}
-      className={sharedClass}
-    >
+    <button type={type} disabled={disabled} {...shared}>
       {children}
-    </motion.button>
+    </button>
   );
 }

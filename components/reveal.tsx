@@ -45,13 +45,16 @@ export function enterProps(options: Omit<RevealOptions, "variant"> = {}) {
 }
 
 /**
- * Runs in <head> before first paint: flags `html.js` and reveals `[data-reveal]`
+ * Runs in <head> before first paint: applies the persisted 3D/motion preference
+ * (localStorage "cp:3d" = "off" sets html[data-motion="off"]; no attribute = on,
+ * see components/header/motion-toggle.tsx), flags `html.js` and reveals `[data-reveal]`
  * elements as they enter the viewport, including ones added later by client
  * navigation. An element counts as in view once 15% of it, or a fifth of the
  * viewport's height of it, is visible (so very tall sections and the last element
  * on the page both trigger). Without JS (or IntersectionObserver) nothing is ever hidden.
  */
 export const REVEAL_SCRIPT = `(function(){
+try{if(localStorage.getItem("cp:3d")==="off")document.documentElement.dataset.motion="off";}catch(e){}
 if(!("IntersectionObserver" in window))return;
 var d=document.documentElement;d.classList.add("js");
 var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){var e=es[i];if(e.isIntersecting&&(e.intersectionRatio>=0.15||e.intersectionRect.height>=window.innerHeight*0.2)){e.target.setAttribute("data-in","");io.unobserve(e.target);}}},{threshold:[0,0.01,0.02,0.05,0.1,0.15]});
