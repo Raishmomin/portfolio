@@ -15,9 +15,8 @@ export function About({ personal, projectCount, headingAs = "h2" }: AboutProps) 
   const stats = [
     { label: "Years experience", value: personal.years, suffix: "+" },
     { label: "Projects shipped", value: projectCount, suffix: "+" },
-    { label: "Happy clients", value: 10, suffix: "+" },
-    { label: "Coffee · ∞", value: 0, suffix: "", static: "∞" },
-  ];
+  ] as { label: string; value: number; suffix: string; static?: string }[];
+  // Only figures derived from real data (design spec §1.13): no client counts or jokes.
 
   return (
     <Section id="about" ariaLabel="About" reveal={headingAs !== "h1"}>

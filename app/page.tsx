@@ -1,23 +1,29 @@
 import type { Metadata } from "next";
 import { PageJsonLd } from "../components/page-json-ld";
 import { Navbar } from "../components/navbar";
-import { Hero } from "../components/hero";
-import { About } from "../components/about";
-import { Skills } from "../components/skills";
-import { Experience } from "../components/experience";
-import { Projects } from "../components/projects";
-import { Contact } from "../components/contact";
 import { Footer } from "../components/footer";
 import { VisitBeacon } from "../components/visit-beacon";
-import { buildMetadata, breadcrumbList, webPageSchema, PERSON_ID, PERSON_IMAGE } from "@/lib/seo";
+import { Container } from "../components/ui/primitives";
+import { ClusterMonitor, SectionSpy, toFormationData } from "../components/cluster";
+import { Hero } from "../components/home/hero";
+import { AboutSection, ExperienceSection, StackSection } from "../components/home/sections";
+import { WorkSection } from "../components/home/work";
+import { ContactSection, FaqSection, ServicesSection, WritingSection } from "../components/home/more";
+import { getLatestPosts } from "../components/home/latest-posts";
+import { byRecency, stackMap, technologyCount, tickerSkills } from "../components/home/derive";
+import { buildMetadata, breadcrumbList, faqPageSchema, webPageSchema, PERSON_ID, PERSON_IMAGE } from "@/lib/seo";
 import { SITE } from "@/lib/config";
-import { PROFILE, SAME_AS } from "@/lib/profile";
+import { PROFILE, SAME_AS, experienceLabel } from "@/lib/profile";
+import { FAQS } from "@/lib/faqs";
+import { SERVICES } from "@/lib/services";
 import { getExperience, getPersonal, getProjects, getSkills } from "@/lib/data";
 
 export const revalidate = 86400;
 
 // First portfolio commit — the ProfilePage's creation date.
 const SITE_CREATED = "2025-06-04T16:29:27+05:30";
+
+const FEATURED_COUNT = 6;
 
 // Per render (not a module constant): SITE.description carries the derived years figure.
 export function generateMetadata(): Metadata {
@@ -40,13 +46,40 @@ export function generateMetadata(): Metadata {
   });
 }
 
+/**
+ * Home FAQ: five existing entries from app/lib/faqs.ts (experience, stack,
+ * availability, time zone, response time). The same objects feed the visible
+ * <details> list and the FAQPage JSON-LD, so the two never drift.
+ */
+function homeFaqs() {
+  const about = FAQS["/about"] ?? [];
+  const contact = FAQS["/contact"] ?? [];
+  return [...about.slice(0, 4), ...contact.slice(0, 1)];
+}
+
 export default async function Home() {
-  const [personal, skills, experience, projects] = await Promise.all([
+  const [personal, skills, experience, projects, posts] = await Promise.all([
     getPersonal(),
     getSkills(),
     getExperience(),
     getProjects(),
+    getLatestPosts(4),
   ]);
+
+  const featured = projects.slice(0, FEATURED_COUNT);
+  const archive = projects.slice(FEATURED_COUNT);
+  const groups = stackMap(skills, projects);
+  const timeline = byRecency(experience);
+  const faqs = homeFaqs();
+  const formation = toFormationData({ skills, experience: timeline, featuredProjects: featured });
+
+  const years = experienceLabel();
+  const proof = [`${years} yrs`, `${projects.length} shipped projects`, ...tickerSkills(groups)];
+  const stats = [
+    { value: years, label: "years shipping" },
+    { value: String(projects.length), label: "projects shipped" },
+    { value: String(technologyCount(skills)), label: "technologies" },
+  ];
 
   // One ProfilePage node (keeps the home WebPage @id `${SITE_URL}/#webpage`).
   // mainEntity repeats the Person's required fields next to its @id, so the
@@ -77,15 +110,32 @@ export default async function Home() {
   return (
     <>
       <PageJsonLd data={schema} />
+      <PageJsonLd data={faqPageSchema(faqs, "/")} />
       <VisitBeacon />
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
-        <Hero intro={personal.intro} resumeUrl={personal.resumeUrl} />
-        <About personal={personal} projectCount={projects.length} />
-        <Skills groups={skills} />
-        <Experience items={experience} />
-        <Projects projects={projects} />
-        <Contact personal={personal} />
+        <SectionSpy />
+        <Container className="lg:grid lg:grid-cols-12 lg:gap-x-8">
+          <div className="min-w-0 lg:col-span-7">
+            <Hero intro={personal.intro} resumeUrl={personal.resumeUrl} proof={proof} />
+            <div className="pb-16 lg:hidden">
+              <ClusterMonitor variant="band" data={formation} />
+            </div>
+            <AboutSection bio={personal.about} stats={stats} />
+            <StackSection groups={groups} />
+            <ExperienceSection items={timeline} />
+            <WorkSection featured={featured} archive={archive} />
+            <ServicesSection services={Object.values(SERVICES)} />
+            <WritingSection posts={posts} />
+            <FaqSection faqs={faqs} />
+            <ContactSection />
+          </div>
+          <div className="hidden pt-8 lg:col-span-5 lg:block">
+            <div className="sticky top-24 h-[calc(100vh-128px)]">
+              <ClusterMonitor variant="sticky" data={formation} />
+            </div>
+          </div>
+        </Container>
       </main>
       <Footer />
     </>
