@@ -5,12 +5,11 @@ import { Footer } from "../components/footer";
 import { Container, Kicker } from "../components/ui/primitives";
 
 // 404s must not inherit the layout's robots (index,follow) or its canonical (the
-// home page). Next also adds its own <meta name="robots" content="noindex"> to
-// every 404 response, so two robots tags appear; both say noindex, which is
-// consistent. Dropping this one would leave "index, follow" next to Next's tag.
+// home page). `robots: null` drops the layout's tag; Next adds its own
+// <meta name="robots" content="noindex"> to every 404, so exactly one robots tag remains.
 export const metadata: Metadata = {
   title: "Page not found",
-  robots: { index: false, follow: true },
+  robots: null,
   alternates: { canonical: null },
 };
 

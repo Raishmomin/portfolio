@@ -125,7 +125,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         {/* Applies the saved 3D/motion choice, sets html.js and drives the CSS reveal animations; content stays visible without it. */}
         <script dangerouslySetInnerHTML={{ __html: REVEAL_SCRIPT }} />

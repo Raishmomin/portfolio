@@ -8,7 +8,7 @@ import { SITE, SITE_URL } from "@/lib/config";
 import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPostSummary } from "@/lib/blog-types";
-import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTitle } from "@/lib/blog";
+import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTags, postTitle } from "@/lib/blog";
 import { Accent, ButtonLink, Container } from "../../components/ui/primitives";
 import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/projects/subpage-header";
 import { PostList } from "../../components/pages/blog/post-list";
@@ -47,7 +47,7 @@ const getPosts = unstable_cache(
 );
 
 export default async function BlogPage() {
-    const posts = await getPosts();
+    const posts = (await getPosts()).map((p) => ({ ...p, tags: postTags(p.tags) }));
 
     const schema: object[] = [
         {

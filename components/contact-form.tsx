@@ -29,7 +29,9 @@ export function ContactForm() {
         setTimeout(() => setSent(false), 6000);
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error || "Something went wrong. Try again.");
+        // Validation failures (400) arrive as { errors: string[] }; other failures as { error }.
+        const messages = Array.isArray(data?.errors) ? data.errors.join(". ") : "";
+        setError(messages || data?.error || "Something went wrong. Try again.");
       }
     } catch {
       setError("Network error. Please try again.");

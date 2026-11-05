@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { Tilt } from "./tilt-card";
@@ -82,12 +82,15 @@ export function ProjectsGrid({ projects, pageSize, cardHeadingAs }: ProjectsGrid
           {visible.map((p, i) => {
             const isFeatured = i % 5 === 0;
             return (
+              // Keyed by title (unique, the JSON-LD identity): cards that stay across a
+              // filter change are kept, not remounted. Exits are short and unstaggered so
+              // removed cards never linger next to the new set.
               <motion.div
-                key={`${p.title}-${i}`}
+                key={p.title}
                 layout={!reduce}
                 initial={reduce ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
+                exit={{ opacity: 0, y: -12, transition: { duration: 0.2 } }}
                 transition={{ duration: 0.5, delay: i * 0.05 }}
                 className={cn(
                   isFeatured ? "md:col-span-4" : "md:col-span-2"
@@ -146,16 +149,17 @@ function ProjectCard({
       <div className="relative flex-1 p-7 md:p-8 flex flex-col">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex flex-wrap gap-1.5">
+            {/* The space between flex items is not rendered; it keeps "frontend· backend" apart for text extractors. */}
             {project.category.slice(0, 2).map((c, i) => (
-              <span
-                key={i}
-                className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
-              >
-                {c}
-                {i === 0 && project.category.length > 1 && (
-                  <span className="mx-2">·</span>
-                )}
-              </span>
+              <Fragment key={i}>
+                {i > 0 && " "}
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {c}
+                  {i === 0 && project.category.length > 1 && (
+                    <span className="mx-2">·</span>
+                  )}
+                </span>
+              </Fragment>
             ))}
           </div>
           <span
@@ -189,17 +193,18 @@ function ProjectCard({
           </ul>
         )}
 
-        {/* Every technology is listed: the /projects ItemList JSON-LD names them all. */}
-        <div className="flex flex-wrap gap-1.5 mt-auto pt-4 border-t border-border">
+        {/* Every technology is listed: the /projects ItemList JSON-LD names them all.
+            A list, so text extractors keep the names apart ("Next.js TypeScript"). */}
+        <ul className="flex flex-wrap gap-1.5 mt-auto pt-4 border-t border-border">
           {project.technologies.map((t, i) => (
-            <span
+            <li
               key={i}
               className="text-[11px] px-2.5 py-1 rounded-full border border-border text-muted-foreground"
             >
               {t}
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </article>
   );

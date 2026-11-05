@@ -4,3 +4,5 @@
 - After restarting a server for a comparison, confirm the NEW process is the one listening (check its log for "Ready" and that asset URLs return 200) before trusting any metric. A suspicious jump (perf 55 -> 100) means verify, not celebrate.
 - Don't benchmark (Lighthouse/CWV) while background browser jobs are running; check `uptime` load first and A/B both builds back-to-back on an idle machine.
 - In chrome-headless-shell, `--use-gl=swiftshader` DISABLES WebGL instead of enabling it (caught by the scout). For screenshotting 3D pages use the default GL or `--use-angle=swiftshader --enable-unsafe-swiftshader`, and assert `getContext('webgl2')` succeeds before trusting a blank capture.
+- `lsof -ti tcp:<port>` can miss processes started by other agents/sandboxes; fall back to `ss -ltnp | grep :<port>` for the PID before assuming a port is free.
+- tsconfig alias `@/*` maps to `app/*` only — `@/components/...` does NOT resolve. Import components by relative path (or add an alias deliberately, repo-wide).

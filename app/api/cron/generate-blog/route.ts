@@ -5,6 +5,7 @@ import clientPromise from "@/lib/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { TAGS } from "@/lib/cache-tags";
+import { postTags } from "@/lib/blog";
 
 const NVIDIA_API_URL =
     "https://integrate.api.nvidia.com/v1/chat/completions";
@@ -188,10 +189,7 @@ TAGS: 4–6 comma-separated tags. Use Title Case. Prefer specific tags (Next.js,
 
         const tagsMatch = raw.match(/TAGS:\s*(.+)/i);
         if (tagsMatch) {
-            tags = tagsMatch[1]
-                .split(",")
-                .map((t) => t.trim())
-                .filter(Boolean);
+            tags = postTags(tagsMatch[1].split(","));
             content = content.replace(/TAGS:\s*.+/i, "").trim();
         }
 

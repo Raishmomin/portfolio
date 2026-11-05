@@ -79,7 +79,8 @@ function SkillChip({ name, level, hidden }: { name: string; level: number; hidde
       aria-hidden={hidden || undefined}
       className="group/chip flex items-center gap-3 px-5 py-3 rounded-full border border-border bg-background hover:bg-foreground hover:text-background hover:border-foreground transition-colors duration-300 whitespace-nowrap"
     >
-      <span className="text-sm font-medium tracking-tight">{name}</span>
+      {/* The space is not rendered between flex items, but keeps "React 95" apart for text extractors. */}
+      <span className="text-sm font-medium tracking-tight">{name}</span>{" "}
       <span className="text-[10px] tabular-nums text-muted-foreground group-hover/chip:text-background/70">
         {level}
       </span>
