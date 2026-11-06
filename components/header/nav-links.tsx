@@ -48,6 +48,8 @@ export function NavLinks() {
             item={item}
             className={cx(
               "nav-link relative inline-flex min-h-11 items-center px-3 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground",
+              // Hover: the active rule's 1px orange line grows in at half strength (the active item keeps 40px).
+              "hover:after:w-6 hover:after:opacity-60 focus-visible:after:w-6 focus-visible:after:opacity-60",
               "aria-[current=page]:text-foreground aria-[current=true]:text-foreground",
             )}
           />

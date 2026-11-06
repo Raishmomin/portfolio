@@ -2,17 +2,15 @@ import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { Accent, ButtonLink, Container, Section } from "../../components/ui/primitives";
-import {
-  AvailabilityLine,
-  RelatedPages,
-  SubpageIntro,
-  SubsectionHeading,
-} from "../../components/pages/about/subpage";
+import { Accent, ButtonLink } from "../../components/ui/primitives";
+import { AvailabilityLine, RelatedPages } from "../../components/pages/about/subpage";
+import { PageIntro, StatTiles, reveal } from "../../components/pages/ui";
+import { pageNeuralData } from "../../components/pages/neural";
+import { CareerJourney } from "../../components/pages/about/journey";
 import { skillCount } from "@/lib/derive";
 import { AboutBio } from "../../components/pages/about/bio";
 import { QuickFacts } from "../../components/pages/about/quick-facts";
-import { FaqList } from "../../components/pages/about/faq-list";
+import { FaqSection } from "../../components/pages/about/faq-list";
 import {
   buildMetadata,
   breadcrumbList,
@@ -23,7 +21,7 @@ import {
 import { FAQS } from "@/lib/faqs";
 import { experienceLabel } from "@/lib/profile";
 import { getExperience, getPersonal, getProjects, getSkills } from "@/lib/data";
-import { isAiProject } from "../../components/neural";
+import { NeuralStage, isAiProject } from "../../components/neural";
 
 export const revalidate = 86400;
 
@@ -47,11 +45,12 @@ export function generateMetadata(): Metadata {
 }
 
 export default async function AboutPage() {
-  const [personal, projects, experience, skills] = await Promise.all([
+  const [personal, projects, experience, skills, neural] = await Promise.all([
     getPersonal(),
     getProjects(),
     getExperience(),
     getSkills(),
+    pageNeuralData(),
   ]);
   const faqs = FAQS["/about"] ?? [];
   const schema = [
@@ -70,51 +69,59 @@ export default async function AboutPage() {
   ];
   const technologies = skillCount(skills);
   const aiCount = projects.filter(isAiProject).length;
-  const motif = { label: "neural · about", value: `AI in ${aiCount} of ${projects.length} projects` };
+  const stats = [
+    { value: personal.years, suffix: "+", label: "years shipping" },
+    { value: projects.length, label: "projects shipped" },
+    { value: aiCount, label: "AI projects", ai: true },
+    { value: technologies, label: "technologies" },
+  ];
 
   return (
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
-        <SubpageIntro
-          crumb="About"
+      <main id="main" tabIndex={-1} className="relative outline-none">
+        <NeuralStage data={neural} />
+        <PageIntro
+          crumbs={[{ name: "Home", href: "/" }, { name: "About" }]}
+          kicker="~/about · full stack · devops · ai"
+          scene="hero"
+          note="Behind this page is a neural network: signals travel layer by layer from input to output, and it leans toward your cursor."
           title={
             <>
               About {personal.name} — <Accent>obsessed with detail.</Accent>
             </>
           }
           lead="Curious by default, methodical by training. I care about how things feel as much as how they ship."
-          motif={motif}
         >
-          <AvailabilityLine className="mt-6" />
-          <div className="mt-8 flex flex-wrap gap-3">
-            <ButtonLink href={`mailto:${personal.email}`}>Email me</ButtonLink>
+          <StatTiles stats={stats} className="mt-8 max-w-[36rem]" />
+          <div className="mt-9 flex flex-wrap gap-3" {...reveal(480)}>
+            <ButtonLink href={`mailto:${personal.email}`} data-magnetic="">
+              Email me
+            </ButtonLink>
             {personal.resumeUrl ? (
               <ButtonLink href={personal.resumeUrl} variant="ghost">
                 Résumé ↗<span className="sr-only"> (opens in a new tab)</span>
               </ButtonLink>
             ) : null}
           </div>
-        </SubpageIntro>
+          <AvailabilityLine className="mt-7 text-[15px]" />
+        </PageIntro>
 
         <AboutBio personal={personal} projectCount={projects.length} skillCount={technologies} />
+        <CareerJourney experience={experience} />
         <QuickFacts experience={experience} />
-
-        {faqs.length ? (
-          <Section id="faq" aria-labelledby="faq-heading">
-            <Container className="grid gap-10 lg:grid-cols-12 lg:gap-16">
-              <SubsectionHeading kicker="03 · faq" id="faq-heading" className="lg:col-span-4">
-                Frequently asked questions
-              </SubsectionHeading>
-              <div className="min-w-0 lg:col-span-8">
-                <FaqList faqs={faqs} />
-              </div>
-            </Container>
-          </Section>
-        ) : null}
-
-        <RelatedPages kicker="04 · next" keys={["projects", "experience", "services", "contact"]} />
+        <FaqSection
+          faqs={faqs}
+          index="04"
+          stage="left"
+          title={
+            <>
+              Frequently asked, <Accent>plainly answered.</Accent>
+            </>
+          }
+        />
+        <RelatedPages index="05" stage="full" scene="contact" keys={["projects", "experience", "services", "contact"]} />
       </main>
       <Footer />
     </>

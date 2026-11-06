@@ -1,0 +1,63 @@
+// /projects "AI" band: every AI project (isAiProject, the same rule as the home AI scene)
+// as a card with its real pipeline stages, input → output. Each card focuses its 3D
+// pipeline (data-focus-id = slug) and links to the project's full card below. On desktop
+// the cards stack as a deck while you scroll (data-deck), like the home AI section.
+import type { NeuralData } from "../../neural";
+import { Accent } from "../../ui/primitives";
+import { NeuralGlyph } from "../ai-badge";
+import { PageSection, SectionHead, aiText, card, column, part, pop } from "../ui";
+import { cn } from "@/lib/utils";
+
+export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number }) {
+  if (!ai.length) return null;
+  return (
+    <PageSection id="ai" section="ai" scene="ai" stage="left" labelledBy="ai-heading">
+      <div className={column.left}>
+        <div {...card()} className="panel p-6 md:p-8">
+          <SectionHead
+            id="ai-heading"
+            index="01"
+            kicker="ai"
+            title={
+              <>
+                {ai.length} of {total} projects <Accent>use AI.</Accent>
+              </>
+            }
+            scene="On the right, each AI project is drawn as a pipeline: data flows from input through its real stages to the output. Hover a project to rebuild its pipeline."
+          />
+        </div>
+        <ol aria-label="AI projects" data-deck="" data-card-group="" className="mt-4 flex flex-col gap-4">
+          {ai.map((p, i) => (
+            <li key={p.slug} {...card()} className="relative">
+              {/* Spotlight only: in the deck the card's inner surface carries the CSS scale. */}
+              <a
+                href={`#${p.slug}`}
+                data-focus-id={p.slug}
+                data-spotlight=""
+                className="panel group block p-5 transition-colors duration-150 hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span {...part} className="flex items-center justify-between gap-4">
+                  <span className="text-lg font-semibold leading-6 tracking-[-0.015em] text-foreground group-hover:text-primary">
+                    {p.title}
+                  </span>
+                  <span className={cn("inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em]", aiText)}>
+                    <NeuralGlyph />
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </span>
+                <ul {...pop} aria-label={`${p.title} pipeline`} className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {p.stages.map((s, k) => (
+                    <li key={s} className="flex items-center gap-1.5">
+                      {k > 0 ? <span aria-hidden="true" className="text-muted-foreground">→</span> : null}
+                      <span className="pill normal-case tracking-normal">{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </PageSection>
+  );
+}

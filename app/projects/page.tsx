@@ -4,14 +4,16 @@ import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
 import { getProjects } from "@/lib/data";
-import { projectTechCount } from "@/lib/derive";
-import { Accent, ButtonLink, Container } from "../../components/ui/primitives";
-import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/projects/subpage-header";
+import { Accent, ButtonLink } from "../../components/ui/primitives";
 import { ProjectIndex } from "../../components/pages/projects/project-index";
 import { ProjectFilter } from "../../components/pages/projects/project-filter";
+import { AiPipelines } from "../../components/pages/projects/ai-pipelines";
 import { categoryChips } from "../../components/pages/projects/categories";
-import { isAiProject } from "../../components/neural";
-import { count } from "../../components/pages/motion";
+import { CtaSection } from "../../components/pages/cta";
+import { PageIntro, PageSection, SectionHead, StatTiles, reveal } from "../../components/pages/ui";
+import { pageNeuralData } from "../../components/pages/neural";
+import { NeuralStage, isAiProject } from "../../components/neural";
+import { projectTechCount, topTechnologies } from "@/lib/derive";
 
 export const revalidate = 86400;
 
@@ -31,7 +33,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function ProjectsPage() {
-  const projects = await getProjects();
+  const [projects, neural] = await Promise.all([getProjects(), pageNeuralData()]);
 
   const schema: object[] = [
     webPageSchema({
@@ -70,70 +72,90 @@ export default async function ProjectsPage() {
   const techCount = projectTechCount(projects);
   const aiCount = projects.filter(isAiProject).length;
 
+  // The ticker: the most used technologies (2+ projects), with their real project counts.
+  const stack = topTechnologies(projects, { min: 2, limit: 20 });
+  const stats = [
+    { value: projects.length, label: "projects" },
+    { value: live, label: "live" },
+    { value: techCount, label: "technologies" },
+    { value: aiCount, label: "use AI", ai: true },
+  ];
+
   return (
     <>
       <PageJsonLd data={schema} />
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
-        <SubpageHeader
+        <NeuralStage data={neural} />
+        <PageIntro
+          crumbs={[{ name: "Home", href: "/" }, { name: "Projects" }]}
           kicker={`~/projects · ${projects.length} shipped`}
+          scene="work"
+          side="right"
+          note="The floating cards on the left are my featured projects; hover a project below to bring its 3D twin forward."
           title={
             <>
               Projects with <Accent>sharp edges.</Accent>
             </>
           }
           lead="A small set of things I've built and shipped — each one had a real constraint or stakeholder. Every project is listed here with its stack, features and links."
-          aside={<PageMotif label="neural · projects" value={`${aiCount} / ${projects.length} use AI`} />}
         >
-          <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
-            <div className="flex gap-2">
-              <dt>Projects</dt>
-              <dd className="text-foreground" {...count(projects.length)}>
-                {projects.length}
-              </dd>
-            </div>
-            <div className="flex gap-2">
-              <dt>Live</dt>
-              <dd className="text-foreground" {...count(live)}>
-                {live}
-              </dd>
-            </div>
-            <div className="flex gap-2">
-              <dt>Technologies used</dt>
-              <dd className="text-foreground" {...count(techCount)}>
-                {techCount}
-              </dd>
-            </div>
-            <div className="flex gap-2">
-              <dt>Use AI</dt>
-              <dd className="text-foreground" {...count(aiCount)}>
-                {aiCount}
-              </dd>
-            </div>
-          </dl>
-        </SubpageHeader>
+          <StatTiles stats={stats} className="mt-8 max-w-[36rem]" />
+          <div className="mt-9 flex flex-wrap gap-3" {...reveal(480)}>
+            <ButtonLink href="#archive" data-magnetic="">
+              Browse all {projects.length} <span aria-hidden="true">↓</span>
+            </ButtonLink>
+            {aiCount ? (
+              <ButtonLink href="#ai" variant="ghost">
+                The AI work
+              </ButtonLink>
+            ) : null}
+          </div>
+        </PageIntro>
 
-        <section aria-label="All projects" className="border-t border-border">
-          <Container className="pb-8 pt-8">
+        <AiPipelines ai={neural.ai} total={projects.length} />
+
+        <PageSection id="archive" section="archive" scene="work" stage="full" labelledBy="archive-heading">
+          <SectionHead
+            id="archive-heading"
+            index={neural.ai.length ? "02" : "01"}
+            kicker="archive"
+            center
+            title={
+              <>
+                Every project, <Accent>end to end.</Accent>
+              </>
+            }
+            lead="Filter by domain; every card lists the problem, the features I shipped and the stack."
+          />
+          <div data-marquee="" className="mt-10" aria-label={`The ${stack.length} most used technologies across the projects`} role="group">
+            <ul className="flex flex-wrap justify-center">
+              {stack.map((t) => (
+                <li key={t.name} className="px-1 py-1">
+                  <span className="pill whitespace-nowrap">
+                    {t.name} <span className="ml-1 text-foreground tabular-nums">×{t.count}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="mb-6 mt-10">
             <ProjectFilter chips={categoryChips(projects)} total={projects.length} />
-          </Container>
-          <Container className="pb-16 md:pb-24">
-            <ProjectIndex projects={projects} />
-          </Container>
-        </section>
+          </div>
+          <ProjectIndex projects={projects} />
+        </PageSection>
 
-        <ContactBand
+        <CtaSection
+          stage="band"
+          index={neural.ai.length ? "03" : "02"}
           title={
             <>
               Have a product to ship? <Accent>Let&apos;s talk.</Accent>
             </>
           }
-        >
-          <ButtonLink href="/contact">Start a project</ButtonLink>
-          <ButtonLink href="/services" variant="ghost">
-            See services
-          </ButtonLink>
-        </ContactBand>
+          primary={{ href: "/contact", label: "Start a project" }}
+          secondary={{ href: "/services", label: "See services" }}
+        />
       </main>
       <Footer />
     </>

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { StatusDot } from "../../ui/primitives";
-import { SubsectionHeading, TEXT_LINK } from "../about/subpage";
+import { Accent, StatusDot } from "../../ui/primitives";
+import { TEXT_LINK } from "../about/subpage";
 import { CopyEmail } from "../../copy-email";
-import { reveal } from "../motion";
+import { SectionHead, card, lit, part } from "../ui";
 import { PROFILE } from "@/lib/profile";
 import type { Personal } from "@/lib/data";
 
@@ -61,28 +61,37 @@ export function ContactChannels({ personal }: { personal: Personal }) {
   ];
 
   return (
-    <div className="min-w-0">
-      <SubsectionHeading kicker="01 · direct" id="channels-heading">
-        Reach me directly
-      </SubsectionHeading>
-      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <a
-          href={`mailto:${email}`}
-          className="inline-flex min-h-11 items-center break-all text-[clamp(1.25rem,2.4vw,1.75rem)] font-medium tracking-[-0.02em] text-foreground underline decoration-foreground/30 decoration-1 underline-offset-[6px] transition-colors duration-150 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          {email}
-        </a>
-        <CopyEmail email={email} icon />
-      </div>
+    <article {...card()} className="flex min-w-0">
+      <div {...lit} className="panel w-full p-6 md:p-8">
+        <SectionHead
+          id="channels-heading"
+          index="01"
+          kicker="direct"
+          title={
+            <>
+              Reach me <Accent>directly.</Accent>
+            </>
+          }
+        />
+        <div {...part} className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <a
+            href={`mailto:${email}`}
+            className="inline-flex min-h-11 items-center break-all text-[clamp(1.25rem,2.4vw,1.75rem)] font-medium tracking-[-0.02em] text-foreground underline decoration-foreground/30 decoration-1 underline-offset-[6px] transition-colors duration-150 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            {email}
+          </a>
+          <CopyEmail email={email} icon />
+        </div>
 
-      <dl className="mt-10 divide-y divide-border border-y border-border">
-        {rows.map((r, i) => (
-          <div key={r.label} className="grid grid-cols-1 gap-1 py-4 sm:grid-cols-[8.5rem_1fr] sm:gap-4" {...reveal(i, 40)}>
-            <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground sm:pt-1">{r.label}</dt>
-            <dd className="min-w-0 text-[15px] leading-7 text-foreground">{r.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+        <dl className="mt-8 divide-y divide-border border-y border-border">
+          {rows.map((r) => (
+            <div key={r.label} {...part} className="grid grid-cols-1 gap-1 py-4 sm:grid-cols-[8.5rem_1fr] sm:gap-4">
+              <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground sm:pt-1">{r.label}</dt>
+              <dd className="min-w-0 text-[15px] leading-7 text-foreground">{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </article>
   );
 }

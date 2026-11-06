@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { Crumbs, PageMotif } from "./pages/projects/subpage-header";
-import { FaqList } from "./pages/about/faq-list";
-import { Accent, ButtonLink, Container, Kicker, PillList } from "./ui/primitives";
-import { reveal, split } from "./pages/motion";
+import { FaqSection } from "./pages/about/faq-list";
+import { Accent, ButtonLink, Kicker } from "./ui/primitives";
 import { TEXT_LINK } from "./pages/about/subpage";
+import { CtaSection } from "./pages/cta";
+import { PageIntro, PageSection, PopPills, SectionHead, card, column, lit, nn, part } from "./pages/ui";
 import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import { SERVICE_SLUGS, type ServiceConfig } from "@/lib/services";
@@ -39,61 +39,100 @@ function splitHeadline(text: string): [string, string] {
   return [`${words.slice(0, -2).join(" ")} `, words.slice(-2).join(" ")];
 }
 
-const SECTION_H2 = "mt-3 text-balance text-[clamp(1.875rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-foreground";
-
+/**
+ * One service page in the home design language: intro (left, the stack network), the brief
+ * as three floating cards (full), the approach as steps on a drawn line (right),
+ * deliverables under a band of shipped projects (band, the work wall), related writing
+ * (left), FAQ (right) and the closing call to action (full).
+ */
 export async function ServicePage({ config }: { config: ServiceConfig }) {
   const relatedPosts = await getRelatedPosts(config.relatedBlogTags);
   const position = SERVICE_SLUGS.indexOf(config.slug) + 1;
-  const nn = (n: number) => String(n).padStart(2, "0");
   const [headLead, headAccent] = splitHeadline(config.h1);
+  let n = 0;
+  const next = () => nn(++n);
 
   return (
     <article>
-      {/* Hero */}
-      <Container className="pb-14 pt-28 md:pb-20 md:pt-36">
-        <Crumbs
-          items={[
-            { name: "Home", href: "/" },
-            { name: "Services", href: "/services" },
-            { name: config.h1 },
-          ]}
-        />
-        <div className="mt-10 grid gap-12 md:mt-14 lg:grid-cols-12 lg:gap-8">
-          <header className="lg:col-span-7">
-            <Kicker>
-              service · {nn(position)} / {nn(SERVICE_SLUGS.length)}
-            </Kicker>
-            <h1 className="mt-4 text-balance text-[clamp(2.25rem,5vw,4rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-foreground">
-              {headLead}
-              <Accent>{headAccent}</Accent>
-            </h1>
-            <p className="mt-6 max-w-[56ch] text-lg leading-8 text-muted-foreground">{config.tagline}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <ButtonLink href="/contact">
-                {config.ctaText}
-                <span aria-hidden="true">→</span>
-              </ButtonLink>
-              <ButtonLink href="/services" variant="ghost">
-                All services
-              </ButtonLink>
-            </div>
-          </header>
+      <PageIntro
+        crumbs={[{ name: "Home", href: "/" }, { name: "Services", href: "/services" }, { name: config.h1 }]}
+        kicker={`service · ${nn(position)} / ${nn(SERVICE_SLUGS.length)}`}
+        scene="stack"
+        note="The network on the right is the stack I build with: one node per skill, one ring per layer, linked wherever two tools shipped together."
+        wide
+        title={
+          <>
+            {headLead}
+            <Accent>{headAccent}</Accent>
+          </>
+        }
+        lead={config.tagline}
+      >
+        <div className="mt-8 flex flex-wrap gap-3">
+          <ButtonLink href="/contact" data-magnetic="">
+            {config.ctaText}
+            <span aria-hidden="true">→</span>
+          </ButtonLink>
+          <ButtonLink href="/services" variant="ghost">
+            All services
+          </ButtonLink>
+        </div>
+        <p className="mt-7 flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-ok" />
+          From {config.pricing.from} · Worldwide · remote
+        </p>
+      </PageIntro>
 
-          <div className="flex flex-col gap-8 self-start lg:col-span-4 lg:col-start-9">
-            <PageMotif label="neural · service" value={config.serviceType} motifClassName="ml-auto max-w-[220px]" />
-            <aside aria-labelledby="engagement" className="rounded-lg border border-border bg-card">
+      {/* The brief: problem, approach, engagement model */}
+      <PageSection id="brief" section="brief" scene="ambient" stage="full" labelledBy="brief-heading">
+        <SectionHead
+          id="brief-heading"
+          index={next()}
+          kicker="brief"
+          center
+          title={
+            <>
+              The problem, <Accent>and the fix.</Accent>
+            </>
+          }
+        />
+        <div data-card-group="" className="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
+          <div {...card()} className="flex">
+            <section aria-labelledby="problem" {...lit} className="panel w-full p-6 md:p-8">
+              <h3 {...part} id="problem" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                The problem
+              </h3>
+              <p {...part} className="mt-4 text-lg leading-8 text-foreground/90">
+                {config.hero.problem}
+              </p>
+            </section>
+          </div>
+          <div {...card()} className="flex">
+            <section aria-labelledby="solution" {...lit} className="panel w-full p-6 md:p-8">
+              <h3 {...part} id="solution" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                How I solve it
+              </h3>
+              <p {...part} className="mt-4 text-lg leading-8 text-foreground/90">
+                {config.hero.solution}
+              </p>
+            </section>
+          </div>
+          <div {...card("zoom")} className="flex">
+            <aside aria-labelledby="engagement" {...lit} className="panel w-full">
               <p className="border-b border-border px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                 spec · engagement
               </p>
               <div className="p-5 md:p-6">
-                <h2 id="engagement" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                <h3 {...part} id="engagement" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   Engagement model
-                </h2>
-                <p className="mt-3 text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-foreground tabular-nums">
+                </h3>
+                <p {...part} className="mt-3 text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-foreground tabular-nums">
                   From {config.pricing.from}
                 </p>
-                <p className="mt-2 text-[15px] leading-6 text-muted-foreground">{config.pricing.model}</p>
-                <dl className="mt-6 divide-y divide-border border-t border-border text-sm">
+                <p {...part} className="mt-2 text-[15px] leading-6 text-muted-foreground">
+                  {config.pricing.model}
+                </p>
+                <dl {...part} className="mt-6 divide-y divide-border border-t border-border text-sm">
                   <div className="flex justify-between gap-4 py-3">
                     <dt className="font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">Type</dt>
                     <dd className="text-right text-foreground">{config.serviceType}</dd>
@@ -114,64 +153,83 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
             </aside>
           </div>
         </div>
-      </Container>
+      </PageSection>
 
-      {/* Problem / solution */}
-      <section aria-label="Problem and approach" className="border-t border-border">
-        <Container className="grid md:grid-cols-2">
-          <div className="border-b border-border py-10 md:border-b-0 md:border-r md:py-14 md:pr-10" {...reveal()}>
-            <h2 className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">The problem</h2>
-            <p className="mt-4 text-lg leading-8 text-foreground/90">{config.hero.problem}</p>
+      {/* Approach, process, trade-offs: steps on one drawn line */}
+      <PageSection id="approach" section="approach" scene="ambient" stage="right" labelledBy="approach-heading">
+        <div className={column.right}>
+          <div {...card()} className="panel p-6 md:p-8">
+            <SectionHead
+              id="approach-heading"
+              index={next()}
+              kicker="approach"
+              title={
+                <>
+                  How the engagement <Accent>works.</Accent>
+                </>
+              }
+            />
           </div>
-          <div className="py-10 md:py-14 md:pl-10" {...reveal(1)}>
-            <h2 className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">How I solve it</h2>
-            <p className="mt-4 text-lg leading-8 text-foreground/90">{config.hero.solution}</p>
-          </div>
-        </Container>
-      </section>
-
-      {/* Content sections (approach, process, trade-offs) */}
-      <section aria-label="How the engagement works" className="border-t border-border">
-        <Container className="space-y-14 py-16 md:space-y-20 md:py-24">
-          {config.sections.map((s, i) => (
-            <div key={s.heading} className="grid gap-4 md:grid-cols-12 md:gap-8" {...reveal()}>
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums md:col-span-3 md:pt-3">
-                <span className="text-foreground">{nn(i + 1)}</span> / {nn(config.sections.length)}
-              </p>
-              <div className="min-w-0 md:col-span-9 lg:col-span-7">
-                <h2 {...split} className="text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
-                  {s.heading}
-                </h2>
-                <p className="mt-5 text-[17px] leading-7 text-muted-foreground">{s.body}</p>
-                {s.bullets && s.bullets.length > 0 ? (
-                  <ol className="mt-6 divide-y divide-border border-y border-border">
-                    {s.bullets.map((b, j) => (
-                      <li key={b} className="flex gap-4 py-3 text-[15px] leading-6 text-foreground/90">
-                        <span className="w-6 shrink-0 font-mono text-xs leading-6 text-muted-foreground tabular-nums" aria-hidden="true">
-                          {nn(j + 1)}
-                        </span>
-                        <span className="min-w-0">{b}</span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </Container>
-      </section>
+          <ol data-card-group="" className="relative mt-4 space-y-4 pl-8">
+            <svg
+              aria-hidden="true"
+              data-draw=""
+              viewBox="0 0 2 100"
+              preserveAspectRatio="none"
+              className="absolute bottom-6 left-[5px] top-6 h-[calc(100%-3rem)] w-[2px] text-primary/60"
+            >
+              <line x1="1" y1="0" x2="1" y2="100" stroke="currentColor" strokeWidth="2" />
+            </svg>
+            {config.sections.map((sec, i) => (
+              <li key={sec.heading} {...card()} className="relative">
+                <span aria-hidden="true" className="absolute -left-8 top-7 h-3 w-3 rounded-full border border-primary bg-background shadow-[0_0_0_5px_hsl(var(--primary)/0.12)]" />
+                <div {...lit} className="panel p-6 md:p-7">
+                  <p {...part} className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
+                    <span className="text-foreground">{nn(i + 1)}</span> / {nn(config.sections.length)}
+                  </p>
+                  <h3 {...part} className="mt-3 text-balance text-[clamp(1.375rem,2.4vw,1.875rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
+                    {sec.heading}
+                  </h3>
+                  <p {...part} className="mt-4 text-[17px] leading-7 text-muted-foreground">
+                    {sec.body}
+                  </p>
+                  {sec.bullets && sec.bullets.length > 0 ? (
+                    <ol {...part} className="mt-5 divide-y divide-border border-y border-border">
+                      {sec.bullets.map((b, j) => (
+                        <li key={b} className="flex gap-4 py-3 text-[15px] leading-6 text-foreground/90">
+                          <span className="w-6 shrink-0 font-mono text-xs leading-6 text-muted-foreground tabular-nums" aria-hidden="true">
+                            {nn(j + 1)}
+                          </span>
+                          <span className="min-w-0">{b}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </PageSection>
 
       {/* Deliverables + stack */}
-      <section aria-labelledby="deliverables" className="border-t border-border">
-        <Container className="grid gap-14 py-16 md:grid-cols-12 md:gap-8 md:py-24">
-          <div className="md:col-span-7" {...reveal()}>
-            <Kicker>deliverables</Kicker>
-            <h2 {...split} id="deliverables" className={SECTION_H2}>
-              What you get
-            </h2>
+      <PageSection id="deliverables-section" section="deliverables" scene="work" stage="band" labelledBy="deliverables">
+        <div data-card-group="" className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+          <div {...card()} className="panel p-6 md:p-8 lg:col-span-7">
+            <SectionHead
+              id="deliverables"
+              index={next()}
+              kicker="deliverables"
+              title={
+                <>
+                  What you <Accent>get.</Accent>
+                </>
+              }
+              scene="The floating windows above are projects I have shipped end to end: the same kind of work you get."
+            />
             <ul className="mt-8 divide-y divide-border border-y border-border">
               {config.deliverables.map((d) => (
-                <li key={d} className="flex gap-4 py-3.5 text-base leading-7 text-foreground/90">
+                <li key={d} {...part} className="flex gap-4 py-3.5 text-base leading-7 text-foreground/90">
                   <span aria-hidden="true" className="shrink-0 font-mono text-sm leading-7 text-ok">
                     ✓
                   </span>
@@ -180,34 +238,45 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
               ))}
             </ul>
           </div>
-          <div className="md:col-span-4 md:col-start-9" {...reveal(1)}>
+          <div {...card("flip")} className="panel self-start p-6 md:p-8 lg:col-span-5">
             <Kicker>stack</Kicker>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">Tech stack</h2>
-            <PillList items={config.techStack} className="mt-6 gap-2" pillClassName="normal-case tracking-normal text-xs" />
+            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">Tech stack</h3>
+            <PopPills items={config.techStack} className="mt-6 gap-2" pillClassName="normal-case tracking-normal text-xs" />
           </div>
-        </Container>
-      </section>
+        </div>
+      </PageSection>
 
       {/* Related blog posts */}
       {relatedPosts.length > 0 && (
-        <section aria-labelledby="service-writing" className="border-t border-border">
-          <Container className="py-16 md:py-24">
-            <Kicker>writing</Kicker>
-            <h2 {...split} id="service-writing" className={SECTION_H2}>
-              Recent writing on this stack
-            </h2>
-            <ul className="mt-10 grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2">
-              {relatedPosts.map((p, i) => (
-                <li key={p.slug} className="bg-background" {...reveal(i)}>
+        <PageSection id="writing" section="writing" scene="ambient" stage="left" labelledBy="service-writing">
+          <div className={column.left}>
+            <div {...card()} className="panel p-6 md:p-8">
+              <SectionHead
+                id="service-writing"
+                index={next()}
+                kicker="writing"
+                title={
+                  <>
+                    Recent writing <Accent>on this stack.</Accent>
+                  </>
+                }
+              />
+            </div>
+            <ul data-card-group="" className="mt-4 grid grid-cols-1 gap-4">
+              {relatedPosts.map((p) => (
+                <li key={p.slug} {...card("zoom")}>
                   <Link
                     href={`/blog/${p.slug}`}
-                    className="group flex h-full flex-col p-6 transition-colors duration-150 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    {...lit}
+                    className="panel group flex h-full flex-col p-6 transition-colors duration-150 hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <h3 className="text-base font-semibold leading-snug tracking-tight text-foreground">
+                    <h3 {...part} className="text-base font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary">
                       {postTitle(p.title)}
                     </h3>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{plainExcerpt(p.excerpt)}</p>
-                    <span className="mt-4 font-mono text-xs uppercase tracking-[0.14em] text-foreground">
+                    <p {...part} className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                      {plainExcerpt(p.excerpt)}
+                    </p>
+                    <span {...part} className="mt-4 font-mono text-xs uppercase tracking-[0.14em] text-foreground">
                       Read post{" "}
                       <span aria-hidden="true" className="inline-block text-muted-foreground transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-primary">
                         →
@@ -217,56 +286,41 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
                 </li>
               ))}
             </ul>
-          </Container>
-        </section>
+          </div>
+        </PageSection>
       )}
 
       {/* FAQ (the same array feeds the FAQPage JSON-LD) */}
-      {config.faqs.length > 0 && (
-        <section aria-labelledby="service-faq" className="border-t border-border">
-          <Container className="grid gap-10 py-16 md:py-24 lg:grid-cols-12 lg:gap-16">
-            <div className="lg:col-span-4">
-              <Kicker>faq</Kicker>
-              <h2 {...split} id="service-faq" className="mt-3 text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
-                {config.h1} — FAQ
-              </h2>
-            </div>
-            <div className="min-w-0 lg:col-span-8">
-              <FaqList faqs={config.faqs} />
-            </div>
-          </Container>
-        </section>
-      )}
+      <FaqSection
+        faqs={config.faqs}
+        id="service-faq"
+        index={config.faqs.length ? next() : ""}
+        stage="right"
+        title={<>{config.h1} — FAQ</>}
+      />
 
-      {/* CTA */}
-      <section aria-labelledby="service-cta" className="border-t border-border">
-        <Container className="grid gap-8 py-20 md:grid-cols-12 md:items-end md:py-28">
-          <div className="md:col-span-8" {...reveal()}>
-            <Kicker>next step</Kicker>
-            <h2 {...split} id="service-cta" className={SECTION_H2}>
-              Ready to start?
-            </h2>
-            <p className="mt-4 max-w-[56ch] text-[17px] leading-7 text-muted-foreground">
-              Tell me about your project and timeline. I&apos;ll reply within one business day with a proposed scope,
-              milestones, and a fixed price.
-            </p>
-            <p className="mt-4 max-w-[56ch] text-[15px] leading-7 text-muted-foreground">
-              I also build interactive, 3D web experiences with React Three Fiber and WebGL. This site is one: its
-              home page is an animated 3D neural network.{" "}
-              <Link href="/contact" className={`whitespace-nowrap ${TEXT_LINK}`}>
-                Ask about a 3D site
-              </Link>
-              .
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3 md:col-span-4 md:justify-end">
-            <ButtonLink href="/contact">
-              {config.ctaText}
-              <span aria-hidden="true">→</span>
-            </ButtonLink>
-          </div>
-        </Container>
-      </section>
+      <CtaSection
+        id="service-cta"
+        stage="full"
+        index={next()}
+        title={
+          <>
+            Ready to <Accent>start?</Accent>
+          </>
+        }
+        lead="Tell me about your project and timeline. I'll reply within one business day with a proposed scope, milestones, and a fixed price."
+        primary={{ href: "/contact", label: config.ctaText }}
+        secondary={{ href: "/services", label: "All services" }}
+      >
+        <p className="mx-auto mt-4 max-w-[56ch] text-[15px] leading-7 text-muted-foreground">
+          I also build interactive, 3D web experiences with React Three Fiber and WebGL. This site is one: its home page is
+          an animated 3D neural network.{" "}
+          <Link href="/contact" className={`whitespace-nowrap ${TEXT_LINK}`}>
+            Ask about a 3D site
+          </Link>
+          .
+        </p>
+      </CtaSection>
     </article>
   );
 }

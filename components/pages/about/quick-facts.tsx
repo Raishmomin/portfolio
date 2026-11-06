@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Container, PillList, Section, StatusDot } from "../../ui/primitives";
-import { SubsectionHeading, TEXT_LINK } from "./subpage";
-import { reveal } from "../motion";
+import { Accent, PillList, StatusDot } from "../../ui/primitives";
+import { TEXT_LINK } from "./subpage";
+import { PageSection, SectionHead, card, column, part } from "../ui";
 import { PROFILE, LOCATION_LABEL, experienceLabel } from "@/lib/profile";
 import { SERVICES } from "@/lib/services";
 import { parsePeriod } from "@/lib/seo";
@@ -118,20 +118,27 @@ export function QuickFacts({ experience }: { experience: ExperienceItem[] }) {
   ];
 
   return (
-    <Section id="profile" aria-labelledby="profile-heading">
-      <Container className="grid gap-10 lg:grid-cols-12 lg:gap-16">
-        <SubsectionHeading kicker="02 · profile" id="profile-heading" className="lg:col-span-4">
-          {PROFILE.name} at a glance
-        </SubsectionHeading>
-        <dl className="min-w-0 divide-y divide-border border-y border-border lg:col-span-8">
-          {rows.map((r, i) => (
-            <div key={r.label} className="grid grid-cols-1 gap-1.5 py-4 md:grid-cols-[11rem_1fr] md:gap-6 md:py-5" {...reveal(i, 40)}>
+    <PageSection id="profile" section="profile" scene="ambient" stage="right" labelledBy="profile-heading">
+      <div {...card()} className={`panel p-6 md:p-8 ${column.right}`}>
+        <SectionHead
+          id="profile-heading"
+          index="03"
+          kicker="profile"
+          title={
+            <>
+              {PROFILE.name} <Accent>at a glance.</Accent>
+            </>
+          }
+        />
+        <dl className="mt-8 min-w-0 divide-y divide-border border-y border-border">
+          {rows.map((r) => (
+            <div key={r.label} {...part} className="grid grid-cols-1 gap-1.5 py-4 md:grid-cols-[9.5rem_1fr] md:gap-6">
               <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground md:pt-1">{r.label}</dt>
-              <dd className="min-w-0 text-[15px] leading-7 text-foreground md:text-base">{r.value}</dd>
+              <dd className="min-w-0 text-[15px] leading-7 text-foreground">{r.value}</dd>
             </div>
           ))}
         </dl>
-      </Container>
-    </Section>
+      </div>
+    </PageSection>
   );
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Portrait } from "./ui/portrait";
 import { SITE } from "@/lib/config";
 import { LOCATION_LABEL, experienceLabel } from "@/lib/profile";
-import { reveal } from "./pages/motion";
+import { card, part } from "./pages/ui";
 
 // Identity facts come only from profile.ts (via SITE/PROFILE); nothing here is typed by hand.
 
@@ -13,7 +13,7 @@ const chip =
 
 export function AuthorBio() {
   return (
-    <aside className="mt-16 rounded-lg border border-border bg-card" aria-labelledby="author-bio" {...reveal()}>
+    <aside className="mt-16 rounded-lg border border-border bg-card" aria-labelledby="author-bio" {...card()} data-spotlight="">
       <p className="flex items-center justify-between gap-4 border-b border-border px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         <span>author</span>
         <span className="truncate">{LOCATION_LABEL}</span>
@@ -21,11 +21,11 @@ export function AuthorBio() {
       <div className="flex items-start gap-5 p-5 md:p-6">
         <Portrait size={56} decorative className="rounded-full ring-1 ring-border" />
         <div className="min-w-0 flex-1">
-          <h2 id="author-bio" className="text-lg font-semibold tracking-tight text-foreground">
+          <h2 {...part} id="author-bio" className="text-lg font-semibold tracking-tight text-foreground">
             Written by {SITE.name}
           </h2>
           <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">{SITE.jobTitle}</p>
-          <p className="mt-3 text-[15px] leading-6 text-muted-foreground">
+          <p {...part} className="mt-3 text-[15px] leading-6 text-muted-foreground">
             {experienceLabel()} years shipping production Next.js, Node.js, and AWS infrastructure for SaaS,
             e-commerce, and internal platforms. Available for freelance{" "}
             <Link href="/services/nextjs-development" className={serviceLink}>
@@ -45,7 +45,7 @@ export function AuthorBio() {
             </Link>{" "}
             engagements.
           </p>
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div {...part} className="mt-5 flex flex-wrap gap-2">
             <Link
               href="/contact"
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
