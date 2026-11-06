@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Portrait } from "./ui/portrait";
 import { SITE } from "@/lib/config";
-import { LOCATION_LABEL, PROFILE, experienceLabel } from "@/lib/profile";
+import { LOCATION_LABEL, experienceLabel } from "@/lib/profile";
+import { reveal } from "./pages/motion";
 
 // Identity facts come only from profile.ts (via SITE/PROFILE); nothing here is typed by hand.
 
@@ -11,19 +13,13 @@ const chip =
 
 export function AuthorBio() {
   return (
-    <aside className="mt-16 rounded-lg border border-border bg-card" aria-labelledby="author-bio">
+    <aside className="mt-16 rounded-lg border border-border bg-card" aria-labelledby="author-bio" {...reveal()}>
       <p className="flex items-center justify-between gap-4 border-b border-border px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         <span>author</span>
         <span className="truncate">{LOCATION_LABEL}</span>
       </p>
       <div className="flex items-start gap-5 p-5 md:p-6">
-        <div
-          aria-hidden="true"
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-border bg-background font-mono text-sm font-semibold text-foreground"
-        >
-          {PROFILE.givenName.charAt(0)}
-          {PROFILE.familyName.charAt(0)}
-        </div>
+        <Portrait size={56} decorative className="rounded-full ring-1 ring-border" />
         <div className="min-w-0 flex-1">
           <h2 id="author-bio" className="text-lg font-semibold tracking-tight text-foreground">
             Written by {SITE.name}

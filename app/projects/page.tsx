@@ -10,6 +10,8 @@ import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/pr
 import { ProjectIndex } from "../../components/pages/projects/project-index";
 import { ProjectFilter } from "../../components/pages/projects/project-filter";
 import { categoryChips } from "../../components/pages/projects/categories";
+import { isAiProject } from "../../components/neural";
+import { count } from "../../components/pages/motion";
 
 export const revalidate = 86400;
 
@@ -66,6 +68,7 @@ export default async function ProjectsPage() {
   const live = projects.filter((p) => p.liveUrl).length;
   // Distinct technologies across the projects (same matching rule as every stack count).
   const techCount = projectTechCount(projects);
+  const aiCount = projects.filter(isAiProject).length;
 
   return (
     <>
@@ -80,20 +83,32 @@ export default async function ProjectsPage() {
             </>
           }
           lead="A small set of things I've built and shipped — each one had a real constraint or stakeholder. Every project is listed here with its stack, features and links."
-          aside={<PageMotif />}
+          aside={<PageMotif label="neural · projects" value={`${aiCount} / ${projects.length} use AI`} />}
         >
           <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
             <div className="flex gap-2">
               <dt>Projects</dt>
-              <dd className="text-foreground">{projects.length}</dd>
+              <dd className="text-foreground" {...count(projects.length)}>
+                {projects.length}
+              </dd>
             </div>
             <div className="flex gap-2">
               <dt>Live</dt>
-              <dd className="text-foreground">{live}</dd>
+              <dd className="text-foreground" {...count(live)}>
+                {live}
+              </dd>
             </div>
             <div className="flex gap-2">
               <dt>Technologies used</dt>
-              <dd className="text-foreground">{techCount}</dd>
+              <dd className="text-foreground" {...count(techCount)}>
+                {techCount}
+              </dd>
+            </div>
+            <div className="flex gap-2">
+              <dt>Use AI</dt>
+              <dd className="text-foreground" {...count(aiCount)}>
+                {aiCount}
+              </dd>
             </div>
           </dl>
         </SubpageHeader>
@@ -102,7 +117,7 @@ export default async function ProjectsPage() {
           <Container className="pb-8 pt-8">
             <ProjectFilter chips={categoryChips(projects)} total={projects.length} />
           </Container>
-          <Container>
+          <Container className="pb-16 md:pb-24">
             <ProjectIndex projects={projects} />
           </Container>
         </section>

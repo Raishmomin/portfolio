@@ -2,9 +2,11 @@
 
 // Filter chips for /projects. Leaf island: every project stays in the server HTML;
 // filtering only toggles the `hidden` attribute on [data-categories] items inside
-// #project-index. Without JS the chips are inert and every project is shown.
+// #project-index. Without JS the chips are inert and every project is shown. The "ai"
+// chip matches isAiProject (data-categories is built by projectCategories).
 import { useCallback, useEffect, useState } from "react";
 import { cx } from "@/lib/cx";
+import { AI_TEXT, NeuralGlyph } from "../ai-badge";
 import type { Chip } from "./categories";
 
 const ITEM_SELECTOR = "#project-index [data-categories]";
@@ -47,6 +49,7 @@ export function ProjectFilter({ chips, total }: { chips: Chip[]; total: number }
       <div role="group" aria-label="Filter projects by category" className="flex flex-wrap gap-2">
         {chips.map((chip) => {
           const active = filter === chip.id;
+          const ai = chip.id === "ai";
           return (
             <button
               key={chip.id}
@@ -58,9 +61,12 @@ export function ProjectFilter({ chips, total }: { chips: Chip[]; total: number }
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 active
                   ? "border-foreground bg-foreground text-background"
-                  : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+                  : ai
+                    ? cx("border-[#3F5BD9]/40 hover:border-[#3F5BD9] dark:border-[#7C9CFF]/40 dark:hover:border-[#7C9CFF]", AI_TEXT)
+                    : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
               )}
             >
+              {ai ? <NeuralGlyph /> : null}
               {chip.label}
               <span className="tabular-nums">{chip.count}</span>
             </button>

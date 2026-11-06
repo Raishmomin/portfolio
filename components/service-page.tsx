@@ -3,6 +3,8 @@ import { unstable_cache } from "next/cache";
 import { Crumbs, PageMotif } from "./pages/projects/subpage-header";
 import { FaqList } from "./pages/about/faq-list";
 import { Accent, ButtonLink, Container, Kicker, PillList } from "./ui/primitives";
+import { reveal, split } from "./pages/motion";
+import { TEXT_LINK } from "./pages/about/subpage";
 import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import { SERVICE_SLUGS, type ServiceConfig } from "@/lib/services";
@@ -78,7 +80,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
           </header>
 
           <div className="flex flex-col gap-8 self-start lg:col-span-4 lg:col-start-9">
-            <PageMotif motifClassName="ml-auto max-w-[200px]" />
+            <PageMotif label="neural · service" value={config.serviceType} motifClassName="ml-auto max-w-[220px]" />
             <aside aria-labelledby="engagement" className="rounded-lg border border-border bg-card">
               <p className="border-b border-border px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                 spec · engagement
@@ -117,11 +119,11 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
       {/* Problem / solution */}
       <section aria-label="Problem and approach" className="border-t border-border">
         <Container className="grid md:grid-cols-2">
-          <div className="border-b border-border py-10 md:border-b-0 md:border-r md:py-14 md:pr-10">
+          <div className="border-b border-border py-10 md:border-b-0 md:border-r md:py-14 md:pr-10" {...reveal()}>
             <h2 className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">The problem</h2>
             <p className="mt-4 text-lg leading-8 text-foreground/90">{config.hero.problem}</p>
           </div>
-          <div className="py-10 md:py-14 md:pl-10">
+          <div className="py-10 md:py-14 md:pl-10" {...reveal(1)}>
             <h2 className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">How I solve it</h2>
             <p className="mt-4 text-lg leading-8 text-foreground/90">{config.hero.solution}</p>
           </div>
@@ -132,12 +134,12 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
       <section aria-label="How the engagement works" className="border-t border-border">
         <Container className="space-y-14 py-16 md:space-y-20 md:py-24">
           {config.sections.map((s, i) => (
-            <div key={s.heading} className="grid gap-4 md:grid-cols-12 md:gap-8">
+            <div key={s.heading} className="grid gap-4 md:grid-cols-12 md:gap-8" {...reveal()}>
               <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums md:col-span-3 md:pt-3">
                 <span className="text-foreground">{nn(i + 1)}</span> / {nn(config.sections.length)}
               </p>
               <div className="min-w-0 md:col-span-9 lg:col-span-7">
-                <h2 className="text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
+                <h2 {...split} className="text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
                   {s.heading}
                 </h2>
                 <p className="mt-5 text-[17px] leading-7 text-muted-foreground">{s.body}</p>
@@ -162,9 +164,9 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
       {/* Deliverables + stack */}
       <section aria-labelledby="deliverables" className="border-t border-border">
         <Container className="grid gap-14 py-16 md:grid-cols-12 md:gap-8 md:py-24">
-          <div className="md:col-span-7">
+          <div className="md:col-span-7" {...reveal()}>
             <Kicker>deliverables</Kicker>
-            <h2 id="deliverables" className={SECTION_H2}>
+            <h2 {...split} id="deliverables" className={SECTION_H2}>
               What you get
             </h2>
             <ul className="mt-8 divide-y divide-border border-y border-border">
@@ -178,7 +180,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
               ))}
             </ul>
           </div>
-          <div className="md:col-span-4 md:col-start-9">
+          <div className="md:col-span-4 md:col-start-9" {...reveal(1)}>
             <Kicker>stack</Kicker>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">Tech stack</h2>
             <PillList items={config.techStack} className="mt-6 gap-2" pillClassName="normal-case tracking-normal text-xs" />
@@ -191,12 +193,12 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
         <section aria-labelledby="service-writing" className="border-t border-border">
           <Container className="py-16 md:py-24">
             <Kicker>writing</Kicker>
-            <h2 id="service-writing" className={SECTION_H2}>
+            <h2 {...split} id="service-writing" className={SECTION_H2}>
               Recent writing on this stack
             </h2>
             <ul className="mt-10 grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2">
-              {relatedPosts.map((p) => (
-                <li key={p.slug} className="bg-background">
+              {relatedPosts.map((p, i) => (
+                <li key={p.slug} className="bg-background" {...reveal(i)}>
                   <Link
                     href={`/blog/${p.slug}`}
                     className="group flex h-full flex-col p-6 transition-colors duration-150 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
@@ -225,7 +227,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
           <Container className="grid gap-10 py-16 md:py-24 lg:grid-cols-12 lg:gap-16">
             <div className="lg:col-span-4">
               <Kicker>faq</Kicker>
-              <h2 id="service-faq" className="mt-3 text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
+              <h2 {...split} id="service-faq" className="mt-3 text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
                 {config.h1} — FAQ
               </h2>
             </div>
@@ -239,14 +241,22 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
       {/* CTA */}
       <section aria-labelledby="service-cta" className="border-t border-border">
         <Container className="grid gap-8 py-20 md:grid-cols-12 md:items-end md:py-28">
-          <div className="md:col-span-8">
+          <div className="md:col-span-8" {...reveal()}>
             <Kicker>next step</Kicker>
-            <h2 id="service-cta" className={SECTION_H2}>
+            <h2 {...split} id="service-cta" className={SECTION_H2}>
               Ready to start?
             </h2>
             <p className="mt-4 max-w-[56ch] text-[17px] leading-7 text-muted-foreground">
               Tell me about your project and timeline. I&apos;ll reply within one business day with a proposed scope,
               milestones, and a fixed price.
+            </p>
+            <p className="mt-4 max-w-[56ch] text-[15px] leading-7 text-muted-foreground">
+              I also build interactive, 3D web experiences with React Three Fiber and WebGL. This site is one: its
+              home page is an animated 3D neural network.{" "}
+              <Link href="/contact" className={`whitespace-nowrap ${TEXT_LINK}`}>
+                Ask about a 3D site
+              </Link>
+              .
             </p>
           </div>
           <div className="flex flex-wrap gap-3 md:col-span-4 md:justify-end">

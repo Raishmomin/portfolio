@@ -27,6 +27,7 @@
     --brand: 17 90% 38%;
     --brand-foreground: 0 0% 100%;
     --ok: 154 63% 33%;             /* #1F8A5B */
+    --ai: 229 66.5% 54.9%;         /* AI accent #3F5BD9 — 5.1:1 on paper, 5.7:1 on white */
     --radius: 0.5rem;
   }
 
@@ -53,6 +54,7 @@
     --brand: 16 100% 56%;
     --brand-foreground: 220 10% 6%;
     --ok: 153 65% 54%;             /* #3BD68F */
+    --ai: 225 100% 74.3%;          /* AI accent #7C9CFF — 7.4:1 on ink, 6.8:1 on panel */
   }
 }
 
@@ -105,6 +107,39 @@
   .dash-item {
     position: relative;
     padding-left: 1.5rem;
+  }
+  /* Neural design utilities (documented in components/motion/index.ts). */
+  .panel {
+    @apply rounded-xl border border-border bg-background/80;
+  }
+  .panel-ai {
+    @apply rounded-xl border bg-background/80;
+    border-color: hsl(var(--ai) / 0.3);
+    box-shadow: 0 0 0 1px hsl(var(--ai) / 0.06), 0 18px 60px -24px hsl(var(--ai) / 0.45);
+  }
+  .glow-ai {
+    box-shadow: 0 0 0 1px hsl(var(--ai) / 0.18), 0 0 32px -6px hsl(var(--ai) / 0.5);
+  }
+  .border-glow {
+    position: relative;
+  }
+  .border-glow::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, hsl(var(--ai) / 0.75), hsl(var(--ai) / 0.1) 45%, hsl(var(--primary) / 0.6));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .scrim-l {
+    background: linear-gradient(90deg, hsl(var(--background) / 0.92) 0%, hsl(var(--background) / 0.7) 45%, hsl(var(--background) / 0) 100%);
+  }
+  .scrim-b {
+    background: linear-gradient(0deg, hsl(var(--background) / 0.95) 0%, hsl(var(--background) / 0.6) 50%, hsl(var(--background) / 0) 100%);
   }
   .dash-item::before {
     content: "";
@@ -217,6 +252,82 @@ html.js[data-motion="on"] .status-dot {
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+/* AI indicator glow pulse — motion-gated exactly like .status-dot. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js:not([data-motion="off"]) .ai-pulse {
+    animation: ai-pulse 2.6s ease-in-out infinite;
+  }
+}
+html.js[data-motion="on"] .ai-pulse {
+  animation: ai-pulse 2.6s ease-in-out infinite;
+}
+@keyframes ai-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--ai) / 0.45); }
+  50% { box-shadow: 0 0 0 6px hsl(var(--ai) / 0); }
+}
+
+/*
+ * Motion runtime (components/motion). Every rule below only matters while the lazy
+ * GSAP runtime is active (html.motion-live, motion allowed) or targets nodes it creates.
+ */
+.split-word {
+  display: inline-block;
+}
+.count-box {
+  display: inline-block;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.motion-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 70;
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, hsl(var(--ai)), hsl(var(--primary)));
+  pointer-events: none;
+}
+.motion-glow {
+  position: fixed;
+  left: -260px;
+  top: -260px;
+  z-index: -1;
+  width: 520px;
+  height: 520px;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, hsl(var(--ai) / 0.16), hsl(var(--ai) / 0.06) 50%, transparent);
+  opacity: 0;
+  transition: opacity 400ms ease;
+  pointer-events: none;
+  will-change: transform;
+}
+.light .motion-glow {
+  background: radial-gradient(closest-side, hsl(var(--ai) / 0.12), hsl(var(--ai) / 0.04) 50%, transparent);
+}
+.motion-glow[data-on] {
+  opacity: 1;
+}
+.tilt-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), hsl(var(--ai) / 0.2), transparent 55%);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+}
+[data-tilting] > .tilt-glare {
+  opacity: 1;
+}
+.pin-dim[data-pinned] [data-step] {
+  transition: opacity 300ms ease;
+}
+.pin-dim[data-pinned] [data-step]:not([data-active]) {
+  opacity: 0.4;
 }
 
 /* Header nav: the active item (aria-current, set by pathname or the home scroll-spy)

@@ -194,7 +194,7 @@ export default async function BlogPostPage({
                             under it, about 68 characters per line) resolves at the 18px body size. */}
                         <Container className="grid gap-10 py-12 text-[18px] md:py-16 lg:grid-cols-[minmax(0,34em)_minmax(0,1fr)] lg:gap-16 xl:gap-24">
                             {/* Right rail: the table of contents (a block above the post on mobile, sticky
-                                on desktop), or, for short posts without one, the decorative cluster motif. */}
+                                on desktop), or, for short posts without one, the decorative neural motif. */}
                             {showToc ? (
                                 <div className="lg:col-start-2 lg:row-start-1">
                                     <TableOfContents
@@ -204,7 +204,12 @@ export default async function BlogPostPage({
                                 </div>
                             ) : (
                                 <div className="hidden lg:col-start-2 lg:row-start-1 lg:block">
-                                    <PageMotif className="sticky top-28" motifClassName="ml-auto max-w-[240px]" />
+                                    <PageMotif
+                                        label="neural · post"
+                                        value={`${post.readTime} min read`}
+                                        className="sticky top-28"
+                                        motifClassName="ml-auto max-w-[240px]"
+                                    />
                                 </div>
                             )}
 

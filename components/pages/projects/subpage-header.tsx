@@ -2,10 +2,9 @@
 // Server Components only. The h1 is plain, never animated (LCP).
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ClusterMotif } from "../../cluster/motif";
-import { toFormationData } from "../../cluster/formation-data";
+import { NeuralMotif } from "../../neural";
 import { Container, Kicker } from "../../ui/primitives";
-import { getExperience, getProjects, getSkills } from "@/lib/data";
+import { parallax, reveal, split } from "../motion";
 import { cn } from "@/lib/utils";
 
 /** Visible breadcrumb trail; mirrors the page's BreadcrumbList JSON-LD. Links are 44px touch targets (padding offset by negative margins). */
@@ -35,19 +34,38 @@ export function Crumbs({ items }: { items: { name: string; href?: string }[] }) 
   );
 }
 
-/** Decorative static cluster motif (desktop only). Data is real: skills, experience, featured projects. */
-export async function PageMotif({
+/**
+ * Decorative neural-network motif in a hairline frame, with a mono caption that says what
+ * the network stands for on this page (real figures only). aria-hidden: the page's text
+ * carries every fact.
+ */
+export function PageMotif({
+  label,
+  value,
   className,
-  motifClassName = "ml-auto max-w-[240px]",
+  motifClassName = "ml-auto max-w-[260px]",
 }: {
+  /** Left part of the caption, e.g. "neural · projects". */
+  label: string;
+  /** Right part, e.g. "9 / 21 use AI". */
+  value: string;
   className?: string;
   motifClassName?: string;
 }) {
-  const [skills, experience, projects] = await Promise.all([getSkills(), getExperience(), getProjects()]);
-  const data = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
   return (
     <div aria-hidden="true" className={cn("hidden lg:block", className)}>
-      <ClusterMotif data={data} className={motifClassName} />
+      <div
+        {...parallax(0.25)}
+        className={cn("w-full overflow-hidden rounded-lg border border-border bg-card", motifClassName)}
+      >
+        <div className="px-4 pb-2 pt-5">
+          <NeuralMotif className="h-auto w-full" />
+        </div>
+        <p className="border-t border-border px-3 py-2.5 font-mono text-[11px] uppercase leading-5 tracking-[0.12em] text-muted-foreground">
+          <span className="block">{label}</span>
+          <span className="block text-foreground tabular-nums">{value}</span>
+        </p>
+      </div>
     </div>
   );
 }
@@ -91,16 +109,19 @@ export function ContactBand({ title, children }: { title: ReactNode; children?: 
   return (
     <section aria-labelledby="contact-band" className="border-t border-border">
       <Container className="grid gap-8 py-20 md:grid-cols-12 md:items-end md:py-28">
-        <div className="md:col-span-8">
+        <div className="md:col-span-8" {...reveal()}>
           <Kicker>next step</Kicker>
           <h2
+            {...split}
             id="contact-band"
             className="mt-3 text-[clamp(1.875rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-foreground"
           >
             {title}
           </h2>
         </div>
-        <div className="flex flex-wrap gap-3 md:col-span-4 md:justify-end">{children}</div>
+        <div className="flex flex-wrap gap-3 md:col-span-4 md:justify-end" {...reveal(1)}>
+          {children}
+        </div>
       </Container>
     </section>
   );

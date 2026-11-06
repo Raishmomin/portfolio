@@ -1,5 +1,5 @@
 import { Container, Section } from "../../ui/primitives";
-import { revealProps } from "../../reveal";
+import { count, reveal } from "../motion";
 import { SubsectionHeading } from "../about/subpage";
 import type { Project, SkillGroup } from "@/lib/data";
 import { projectUsage, topTechnologies } from "@/lib/derive";
@@ -48,7 +48,7 @@ export function StackMap({ groups, projects }: { groups: SkillGroup[]; projects:
                 aria-labelledby={headingId}
                 data-skill-group={HOOK_GROUPS.has(g.category) ? g.category : undefined}
                 className="min-w-0 bg-background p-5 md:p-6"
-                {...revealProps({ delay: i * 0.06, y: 12 })}
+                {...reveal(i)}
               >
                 <header className="flex items-baseline justify-between gap-4">
                   <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
@@ -104,7 +104,7 @@ export function TopTechnologies({ projects, limit = 12 }: { projects: Project[];
         </div>
         <ol className="min-w-0 divide-y divide-border border-y border-border lg:col-span-8">
           {top.map((t, i) => (
-            <li key={t.name} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 py-3 sm:grid-cols-[2.5rem_12rem_minmax(0,1fr)_auto] sm:gap-x-4">
+            <li key={t.name} {...reveal(i, 40)} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 py-3 sm:grid-cols-[2.5rem_12rem_minmax(0,1fr)_auto] sm:gap-x-4">
               <span className="font-mono text-xs text-muted-foreground tabular-nums">{pad2(i + 1)}</span>
               <span className="truncate text-[15px] text-foreground">{t.name}</span>
               <span aria-hidden="true" className="hidden h-2 sm:block">
@@ -114,7 +114,7 @@ export function TopTechnologies({ projects, limit = 12 }: { projects: Project[];
                 />
               </span>
               <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground tabular-nums">
-                {t.count} projects
+                <span {...count(t.count)}>{t.count}</span> projects
               </span>
             </li>
           ))}

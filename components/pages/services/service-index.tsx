@@ -2,6 +2,7 @@
 import Link from "next/link";
 import type { ServiceConfig } from "@/lib/services";
 import { Container, PillList } from "../../ui/primitives";
+import { reveal } from "../motion";
 
 const lastWord = (text: string) => text.slice(text.lastIndexOf(" ") + 1);
 const lead = (text: string) => text.slice(0, text.lastIndexOf(" ") + 1);
@@ -15,6 +16,7 @@ export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
             <li
               key={s.slug}
               className="relative grid gap-5 border-b border-border py-10 md:grid-cols-12 md:gap-8 md:py-12"
+              {...reveal(i)}
             >
               <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums md:col-span-1">
                 {String(i + 1).padStart(2, "0")}

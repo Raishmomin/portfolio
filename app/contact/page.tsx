@@ -3,7 +3,6 @@ import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { ContactForm } from "../../components/contact-form";
-import { toFormationData } from "../../components/cluster/formation-data";
 import { Accent, Container, Section } from "../../components/ui/primitives";
 import {
   RelatedPages,
@@ -19,7 +18,7 @@ import {
   faqPageSchema,
 } from "@/lib/seo";
 import { FAQS } from "@/lib/faqs";
-import { getExperience, getPersonal, getProjects, getSkills } from "@/lib/data";
+import { getPersonal } from "@/lib/data";
 
 export const revalidate = 86400;
 
@@ -38,12 +37,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function ContactPage() {
-  const [personal, skills, experience, projects] = await Promise.all([
-    getPersonal(),
-    getSkills(),
-    getExperience(),
-    getProjects(),
-  ]);
+  const personal = await getPersonal();
   const faqs = FAQS["/contact"] ?? [];
   const schema = [
     webPageSchema({
@@ -58,7 +52,7 @@ export default async function ContactPage() {
       { name: "Contact", path: "/contact" },
     ]),
   ];
-  const motif = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
+  const motif = { label: "neural · contact", value: "IST (UTC+5:30)" };
 
   return (
     <>

@@ -89,7 +89,7 @@ export default async function BlogPage() {
                         </>
                     }
                     lead="Writing about AI, full-stack development, DevOps, and things I've learned shipping production apps."
-                    aside={<PageMotif />}
+                    aside={<PageMotif label="neural · writing" value={`${posts.length} posts`} />}
                 >
                     <p className="mt-8 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
                         <a

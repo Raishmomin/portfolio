@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { StatusDot } from "../../ui/primitives";
 import { SubsectionHeading, TEXT_LINK } from "../about/subpage";
 import { CopyEmail } from "../../copy-email";
+import { reveal } from "../motion";
 import { PROFILE } from "@/lib/profile";
 import type { Personal } from "@/lib/data";
 
@@ -75,8 +76,8 @@ export function ContactChannels({ personal }: { personal: Personal }) {
       </div>
 
       <dl className="mt-10 divide-y divide-border border-y border-border">
-        {rows.map((r) => (
-          <div key={r.label} className="grid grid-cols-1 gap-1 py-4 sm:grid-cols-[8.5rem_1fr] sm:gap-4">
+        {rows.map((r, i) => (
+          <div key={r.label} className="grid grid-cols-1 gap-1 py-4 sm:grid-cols-[8.5rem_1fr] sm:gap-4" {...reveal(i, 40)}>
             <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground sm:pt-1">{r.label}</dt>
             <dd className="min-w-0 text-[15px] leading-7 text-foreground">{r.value}</dd>
           </div>
