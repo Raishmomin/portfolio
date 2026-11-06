@@ -2,14 +2,16 @@ import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { Accent, Kicker } from "../../components/ui/primitives";
-import { RelatedPages, SubpageIntro } from "../../components/pages/about/subpage";
+import { Accent } from "../../components/ui/primitives";
+import { RelatedPages } from "../../components/pages/about/subpage";
+import { PageIntro, StatTiles } from "../../components/pages/ui";
+import { pageNeuralData } from "../../components/pages/neural";
+import { NeuralStage } from "../../components/neural";
 import { ExperienceTimeline } from "../../components/pages/experience/timeline";
 import { buildMetadata, breadcrumbList, employeeRoles, webPageSchema } from "@/lib/seo";
 import { careerStartLabel, sortRoles } from "@/lib/llms";
-import { experienceLabel } from "@/lib/profile";
+import { experienceLabel, yearsOfExperience } from "@/lib/profile";
 import { getExperience } from "@/lib/data";
-import { count } from "../../components/pages/motion";
 
 export const revalidate = 86400;
 
@@ -28,7 +30,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function ExperiencePage() {
-  const experience = await getExperience();
+  const [experience, neural] = await Promise.all([getExperience(), pageNeuralData()]);
   // Newest first, and the ItemList positions follow the same visible order.
   const roles = sortRoles(experience);
 
@@ -56,32 +58,37 @@ export default async function ExperiencePage() {
     ]),
   ];
   const companies = new Set(roles.map((r) => r.company)).size;
-  const motif = { label: "neural · career", value: `since ${careerStartLabel}` };
+  const stats = [
+    { value: yearsOfExperience(), suffix: "+", label: "years" },
+    { value: roles.length, label: "roles" },
+    { value: companies, label: "companies" },
+    { value: new Set(roles.flatMap((r) => r.technologies.map((t) => t.toLowerCase()))).size, label: "technologies" },
+  ];
 
   return (
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
-        <SubpageIntro
-          crumb="Experience"
+      <main id="main" tabIndex={-1} className="relative outline-none">
+        <NeuralStage data={neural} />
+        <PageIntro
+          crumbs={[{ name: "Home", href: "/" }, { name: "Experience" }]}
+          kicker={`~/experience · since ${careerStartLabel}`}
+          scene="experience"
+          note="The glowing path on the right is my career, oldest to newest: one milestone per company, the current role pulsing at the end."
           title={
             <>
               Experience — <Accent>a working timeline.</Accent>
             </>
           }
-          lead="Roles, projects, and the through-line that connects them."
-          motif={motif}
+          lead={`Roles, projects, and the through-line that connects them: ${experienceLabel()} years across ${companies} companies.`}
         >
-          <Kicker className="mt-6">
-            {experienceLabel()} years · <span {...count(roles.length)}>{roles.length}</span> roles ·{" "}
-            <span {...count(companies)}>{companies}</span> companies · since {careerStartLabel}
-          </Kicker>
-        </SubpageIntro>
+          <StatTiles stats={stats} className="mt-8 max-w-[36rem]" />
+        </PageIntro>
 
         <ExperienceTimeline roles={roles} />
 
-        <RelatedPages kicker="02 · next" keys={["projects", "skills", "about", "contact"]} />
+        <RelatedPages index="02" stage="right" keys={["projects", "skills", "about", "contact"]} />
       </main>
       <Footer />
     </>

@@ -9,9 +9,12 @@ import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPostSummary } from "@/lib/blog-types";
 import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTags, postTitle } from "@/lib/blog";
-import { Accent, ButtonLink, Container } from "../../components/ui/primitives";
-import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/projects/subpage-header";
-import { PostList } from "../../components/pages/blog/post-list";
+import { Accent, ButtonLink } from "../../components/ui/primitives";
+import { PostList, TopicTicker } from "../../components/pages/blog/post-list";
+import { CtaSection } from "../../components/pages/cta";
+import { PageIntro, PageSection, SectionHead } from "../../components/pages/ui";
+import { pageNeuralData } from "../../components/pages/neural";
+import { NeuralStage } from "../../components/neural";
 
 export const revalidate = 3600;
 
@@ -47,7 +50,8 @@ const getPosts = unstable_cache(
 );
 
 export default async function BlogPage() {
-    const posts = (await getPosts()).map((p) => ({ ...p, tags: postTags(p.tags) }));
+    const [rows, neural] = await Promise.all([getPosts(), pageNeuralData()]);
+    const posts = rows.map((p) => ({ ...p, tags: postTags(p.tags) }));
 
     const schema: object[] = [
         {
@@ -81,33 +85,48 @@ export default async function BlogPage() {
             <PageJsonLd data={schema} />
             <Navbar />
             <main id="main" tabIndex={-1} className="relative outline-none">
-                <SubpageHeader
+                <NeuralStage data={neural} />
+                <PageIntro
+                    crumbs={[{ name: "Home", href: "/" }, { name: "Blog" }]}
                     kicker={`~/blog · ${posts.length} posts`}
+                    scene="ambient"
                     title={
                         <>
                             Thoughts &amp; <Accent>tutorials.</Accent>
                         </>
                     }
                     lead="Writing about AI, full-stack development, DevOps, and things I've learned shipping production apps."
-                    aside={<PageMotif label="neural · writing" value={`${posts.length} posts`} />}
                 >
-                    <p className="mt-8 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                        <a
-                            href={RSS_URL}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
+                    <div className="mt-9 flex flex-wrap gap-3">
+                        <ButtonLink href="#posts" data-magnetic="">
+                            Read the latest <span aria-hidden="true">↓</span>
+                        </ButtonLink>
+                        <ButtonLink href={RSS_URL} variant="ghost">
                             <span aria-hidden="true">◉</span>
                             Subscribe via RSS
-                        </a>
-                    </p>
-                </SubpageHeader>
+                        </ButtonLink>
+                    </div>
+                </PageIntro>
 
-                <section aria-label="All posts" className="border-t border-border">
-                    <Container className="pb-8">
+                <PageSection id="posts" section="posts" scene="ambient" stage="full" labelledBy="posts-heading">
+                    <SectionHead
+                        id="posts-heading"
+                        index="01"
+                        kicker="posts"
+                        center
+                        title={
+                            <>
+                                Notes from <Accent>the build.</Accent>
+                            </>
+                        }
+                        lead="Newest first. Each post is a short, practical write-up of something I shipped or debugged."
+                    />
+                    <TopicTicker posts={posts} />
+                    <div className="mt-10">
                         {posts.length === 0 ? (
-                            <div className="py-20">
-                                <h2 className="text-xl font-semibold tracking-tight text-foreground">Coming soon.</h2>
-                                <p className="mt-3 max-w-md text-sm text-muted-foreground">
+                            <div className="panel mx-auto max-w-xl p-8 text-center">
+                                <h3 className="text-xl font-semibold tracking-tight text-foreground">Coming soon.</h3>
+                                <p className="mt-3 text-sm text-muted-foreground">
                                     I&apos;m working on some posts. New articles are published
                                     daily — check back soon!
                                 </p>
@@ -115,21 +134,20 @@ export default async function BlogPage() {
                         ) : (
                             <PostList posts={posts} />
                         )}
-                    </Container>
-                </section>
+                    </div>
+                </PageSection>
 
-                <ContactBand
+                <CtaSection
+                    stage="band"
+                    index="02"
                     title={
                         <>
                             Need this built, <Accent>not just written up?</Accent>
                         </>
                     }
-                >
-                    <ButtonLink href="/services">See services</ButtonLink>
-                    <ButtonLink href="/contact" variant="ghost">
-                        Get in touch
-                    </ButtonLink>
-                </ContactBand>
+                    primary={{ href: "/services", label: "See services" }}
+                    secondary={{ href: "/contact", label: "Get in touch" }}
+                />
             </main>
             <Footer />
         </>

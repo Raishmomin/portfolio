@@ -13,6 +13,8 @@ import {
 } from "@/lib/seo";
 import { SERVICES, SERVICE_SLUGS } from "@/lib/services";
 import { SITE_URL } from "@/lib/config";
+import { NeuralStage } from "../../../components/neural";
+import { pageNeuralData } from "../../../components/pages/neural";
 
 export const revalidate = 86400;
 // The services are fixed at build time: any other slug 404s at routing, which serves
@@ -52,6 +54,7 @@ export default async function ServiceRoute({
   const config = SERVICES[slug];
   if (!config) notFound();
 
+  const neural = await pageNeuralData();
   const path = `/services/${config.slug}`;
   const schema: object[] = [
     webPageSchema({
@@ -82,6 +85,7 @@ export default async function ServiceRoute({
       <PageJsonLd data={schema} />
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
+        <NeuralStage data={neural} />
         <ServicePage config={config} />
       </main>
       <Footer />

@@ -5,11 +5,12 @@ import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
 import { SERVICES } from "@/lib/services";
 import { SITE_URL } from "@/lib/config";
-import { Accent, ButtonLink, Container, Kicker } from "../../components/ui/primitives";
-import { NeuralMotif } from "../../components/neural";
-import { parallax, reveal, split } from "../../components/pages/motion";
-import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/projects/subpage-header";
+import { Accent, ButtonLink } from "../../components/ui/primitives";
+import { NeuralStage } from "../../components/neural";
 import { ServiceIndex } from "../../components/pages/services/service-index";
+import { CtaSection } from "../../components/pages/cta";
+import { PageIntro, PageSection, SectionHead, card, part } from "../../components/pages/ui";
+import { pageNeuralData } from "../../components/pages/neural";
 
 export const revalidate = 86400;
 
@@ -28,8 +29,9 @@ export const metadata: Metadata = buildMetadata({
   ],
 });
 
-export default function ServicesIndex() {
+export default async function ServicesIndex() {
   const services = Object.values(SERVICES);
+  const neural = await pageNeuralData();
 
   const schema: object[] = [
     webPageSchema({
@@ -68,60 +70,71 @@ export default function ServicesIndex() {
       <PageJsonLd data={schema} />
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
-        <SubpageHeader
+        <NeuralStage data={neural} />
+        <PageIntro
+          crumbs={[{ name: "Home", href: "/" }, { name: "Services" }]}
           kicker={`~/services · ${services.length} engagements`}
+          scene="ambient"
           title={
             <>
               How I help <Accent>teams ship.</Accent>
             </>
           }
           lead="Four focused engagements — pick the one that matches the work. All remote, all async-first, all priced before we start."
-          aside={<PageMotif label="neural · services" value={`${services.length} engagements`} />}
-        />
+        >
+          <div className="mt-9 flex flex-wrap gap-3">
+            <ButtonLink href="#engagements" data-magnetic="">
+              See the engagements <span aria-hidden="true">↓</span>
+            </ButtonLink>
+            <ButtonLink href="/contact" variant="ghost">
+              Ask a question
+            </ButtonLink>
+          </div>
+        </PageIntro>
+
         <ServiceIndex services={services} />
+
         {/* Not a fifth engagement: no price and no Service node, so the ItemList above stays the four. */}
-        <section aria-labelledby="interactive-heading" className="border-t border-border">
-          <Container className="grid gap-10 py-16 md:grid-cols-12 md:items-center md:gap-8 md:py-24">
-            <div className="min-w-0 md:col-span-7" {...reveal()}>
-              <Kicker>also · interactive &amp; 3D</Kicker>
-              <h2
-                {...split}
-                id="interactive-heading"
-                className="mt-3 text-balance text-[clamp(1.75rem,4vw,2.75rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground"
-              >
-                Interactive and <Accent>3D web experiences.</Accent>
-              </h2>
-              <p className="mt-5 max-w-[60ch] text-[17px] leading-7 text-muted-foreground">
-                I also build animated, interactive sites: 3D scenes with React Three Fiber and WebGL, scroll-driven
-                animation, and visuals that stay fast and readable. This site is one of them. Its home page is a 3D
-                neural network that changes with each section.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <ButtonLink href="/contact">
-                  Ask about a 3D site <span aria-hidden="true">→</span>
-                </ButtonLink>
-                <ButtonLink href="/" variant="ghost">
-                  See the home page
-                </ButtonLink>
-              </div>
+        <PageSection id="interactive" section="interactive" scene="hero" stage="right" labelledBy="interactive-heading">
+          <div {...card()} className="panel p-6 md:p-10 lg:ml-auto lg:max-w-[40rem]">
+            <SectionHead
+              id="interactive-heading"
+              index="02"
+              kicker="also · interactive & 3D"
+              title={
+                <>
+                  Interactive and <Accent>3D web experiences.</Accent>
+                </>
+              }
+              scene="The network on the left is drawn live in your browser with WebGL; every word on this page stays server-rendered HTML."
+            />
+            <p {...part} className="mt-5 text-[17px] leading-7 text-muted-foreground">
+              I also build animated, interactive sites: 3D scenes with React Three Fiber and WebGL, scroll-driven
+              animation, and visuals that stay fast and readable. This site is one of them. Its home page is a 3D
+              neural network that changes with each section.
+            </p>
+            <div {...part} className="mt-8 flex flex-wrap gap-3">
+              <ButtonLink href="/contact" data-magnetic="">
+                Ask about a 3D site <span aria-hidden="true">→</span>
+              </ButtonLink>
+              <ButtonLink href="/" variant="ghost">
+                See the home page
+              </ButtonLink>
             </div>
-            <div aria-hidden="true" className="hidden md:col-span-4 md:col-start-9 md:block" {...parallax(0.35)}>
-              <NeuralMotif className="ml-auto h-auto w-full max-w-[340px]" />
-            </div>
-          </Container>
-        </section>
-        <ContactBand
+          </div>
+        </PageSection>
+
+        <CtaSection
+          stage="band"
+          index="03"
           title={
             <>
               Not sure which fits? <Accent>Ask me.</Accent>
             </>
           }
-        >
-          <ButtonLink href="/contact">Get in touch</ButtonLink>
-          <ButtonLink href="/projects" variant="ghost">
-            See projects
-          </ButtonLink>
-        </ContactBand>
+          primary={{ href: "/contact", label: "Get in touch" }}
+          secondary={{ href: "/projects", label: "See projects" }}
+        />
       </main>
       <Footer />
     </>

@@ -23,7 +23,9 @@ import { renderMarkdown } from "@/lib/markdown";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPost } from "@/lib/blog-types";
 import { ButtonLink, Container, Kicker } from "../../../components/ui/primitives";
-import { Crumbs, PageMotif } from "../../../components/pages/projects/subpage-header";
+import { Crumbs } from "../../../components/pages/ui";
+import { pageNeuralData } from "../../../components/pages/neural";
+import { NeuralStage } from "../../../components/neural";
 import { BlogProse } from "../../../components/pages/blog/prose";
 import { cleanTag } from "../../../components/pages/blog/post-list";
 import { shortDate } from "@/lib/derive";
@@ -106,7 +108,7 @@ export default async function BlogPostPage({
     params: Promise<{ slug: string }>;
 }) {
     const { slug } = await params;
-    const post = await getPost(slug);
+    const [post, neural] = await Promise.all([getPost(slug), pageNeuralData()]);
     if (!post) notFound();
 
     const url = `${SITE_URL}/blog/${post.slug}`;
@@ -152,49 +154,64 @@ export default async function BlogPostPage({
             <PageJsonLd data={schema} />
             <Navbar />
             <main id="main" tabIndex={-1} className="relative outline-none">
+                <NeuralStage data={neural} />
                 <article>
-                    <Container className="pb-12 pt-28 md:pb-16 md:pt-36">
-                        <Crumbs
-                            items={[
-                                { name: "Home", href: "/" },
-                                { name: "Blog", href: "/blog" },
-                                { name: title },
-                            ]}
-                        />
-                        <header className="mt-10 max-w-4xl md:mt-14">
-                            <Kicker>
-                                <time dateTime={published}>{shortDate(post.publishedAt)}</time>
-                                <span aria-hidden="true"> · </span>
-                                <span className="sr-only">, </span>
-                                {post.readTime} min read
-                            </Kicker>
-                            <h1 className="mt-4 text-balance text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground">
-                                {title}
-                            </h1>
-                            <p className="mt-6 max-w-[34em] text-lg leading-8 text-muted-foreground">
-                                {excerpt}
-                            </p>
-                            {tags.length ? (
-                                <ul aria-label="Tags" className="mt-6 flex flex-wrap gap-1.5">
-                                    {tags.map((tag) => (
-                                        <li
-                                            key={tag}
-                                            className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground"
-                                        >
-                                            {cleanTag(tag)}
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : null}
-                        </header>
-                    </Container>
+                    {/* "band" composition: the ambient scene owns the top of the viewport, the
+                        header sits below it on a panel (the h1 is plain text, never animated). */}
+                    <section
+                        data-section="intro"
+                        data-scene="ambient"
+                        data-stage="band"
+                        aria-labelledby="post-title"
+                        className="relative pb-12 pt-[22svh] md:pb-16 lg:pt-[30vh]"
+                    >
+                        <Container>
+                            <header className="panel max-w-4xl p-6 md:p-10">
+                                <Crumbs
+                                    items={[
+                                        { name: "Home", href: "/" },
+                                        { name: "Blog", href: "/blog" },
+                                        { name: title },
+                                    ]}
+                                />
+                                <Kicker className="mt-8">
+                                    <time dateTime={published}>{shortDate(post.publishedAt)}</time>
+                                    <span aria-hidden="true"> · </span>
+                                    <span className="sr-only">, </span>
+                                    {post.readTime} min read
+                                </Kicker>
+                                <h1
+                                    id="post-title"
+                                    className="mt-4 text-balance text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground"
+                                >
+                                    {title}
+                                </h1>
+                                <p className="mt-6 max-w-[34em] text-lg leading-8 text-muted-foreground">
+                                    {excerpt}
+                                </p>
+                                {tags.length ? (
+                                    <ul aria-label="Tags" className="mt-6 flex flex-wrap gap-1.5">
+                                        {tags.map((tag) => (
+                                            <li
+                                                key={tag}
+                                                className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground"
+                                            >
+                                                {cleanTag(tag)}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : null}
+                            </header>
+                        </Container>
+                    </section>
 
-                    <div className="border-t border-border">
+                    {/* The article body is calm: an opaque surface over the stage. */}
+                    <div className="relative border-t border-border bg-background">
                         {/* text-[18px] on the grid, so every 34em measure in it (prose and the blocks
                             under it, about 68 characters per line) resolves at the 18px body size. */}
                         <Container className="grid gap-10 py-12 text-[18px] md:py-16 lg:grid-cols-[minmax(0,34em)_minmax(0,1fr)] lg:gap-16 xl:gap-24">
                             {/* Right rail: the table of contents (a block above the post on mobile, sticky
-                                on desktop), or, for short posts without one, the decorative neural motif. */}
+                                on desktop). */}
                             {showToc ? (
                                 <div className="lg:col-start-2 lg:row-start-1">
                                     <TableOfContents
@@ -202,18 +219,19 @@ export default async function BlogPostPage({
                                         className="rounded-lg border border-border bg-card p-5 lg:sticky lg:max-w-xs lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0"
                                     />
                                 </div>
-                            ) : (
-                                <div className="hidden lg:col-start-2 lg:row-start-1 lg:block">
-                                    <PageMotif
-                                        label="neural · post"
-                                        value={`${post.readTime} min read`}
-                                        className="sticky top-28"
-                                        motifClassName="ml-auto max-w-[240px]"
-                                    />
-                                </div>
-                            )}
+                            ) : null}
 
-                            <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+                            <div className="relative min-w-0 lg:col-start-1 lg:row-start-1">
+                                {/* Reading line: draws down the left edge as you read (desktop). */}
+                                <svg
+                                    aria-hidden="true"
+                                    data-draw=""
+                                    viewBox="0 0 2 100"
+                                    preserveAspectRatio="none"
+                                    className="absolute -left-8 top-1 hidden h-[calc(100%-0.5rem)] w-[2px] text-primary/50 xl:block"
+                                >
+                                    <line x1="1" y1="0" x2="1" y2="100" stroke="currentColor" strokeWidth="2" />
+                                </svg>
                                 <BlogProse html={html} />
 
                                 <div className="max-w-[34em]">
