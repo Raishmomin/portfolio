@@ -5,9 +5,16 @@ import type { ClusterVariant } from "./types";
 /** "portrait" suits the tall sticky panel and motifs; "landscape" the 16:10 band. */
 export type Layout = "portrait" | "landscape";
 
-/** Instance budget and layout the poster draws per variant (the scene matches the layout). */
-export const POSTER_PRESETS: Record<ClusterVariant, { count: number; layout: Layout }> = {
-  sticky: { count: 200, layout: "portrait" },
+/** Tailwind's `xl` breakpoint: the sticky panel's instance budget steps up here. */
+export const XL_QUERY = "(min-width: 1280px)";
+
+/**
+ * Instance budget and layout per variant. The sticky poster is rendered once per
+ * budget (`xl:hidden` / `hidden xl:block`) and the scene picks the budget with the
+ * same media query, so the canvas always fades in over an identical formation.
+ */
+export const POSTER_PRESETS: Record<ClusterVariant, { count: number; wideCount?: number; layout: Layout }> = {
+  sticky: { count: 120, wideCount: 200, layout: "portrait" },
   band: { count: 120, layout: "landscape" },
   motif: { count: 40, layout: "portrait" },
 };

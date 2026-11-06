@@ -17,11 +17,13 @@ const TOP = face([[-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]]);
 const LEFT = face([[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]]);
 const RIGHT = face([[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]]);
 
-// Three tones per status colour. Neutral pods mix bone/ink into the panel per theme;
-// that colour sits on the <svg> (in the document tree, so `.dark` matches) and is
-// inherited into the <use> shadow trees, where ancestor selectors would not match.
+// Three tones per status colour. Neutral pods: bone over the dark panel; in light, ink
+// over the warm hairline tone (paper-warm, not concrete grey). The scene mixes the same
+// ratios in sRGB (scene.tsx readTheme). That colour sits on the <svg> (in the document
+// tree, so `.dark` matches) and is inherited into the <use> shadow trees, where
+// ancestor selectors would not match.
 const STYLE =
-  ".cp-svg{color:color-mix(in srgb,hsl(var(--foreground)) 35%,hsl(var(--card)))}" +
+  ".cp-svg{color:color-mix(in srgb,hsl(var(--foreground)) 30%,hsl(var(--border)))}" +
   ".dark .cp-svg{color:color-mix(in srgb,hsl(var(--foreground)) 88%,hsl(var(--card)))}" +
   ".cp-o{color:hsl(var(--ok))}.cp-p{color:hsl(var(--primary))}" +
   ".cp-t{fill:currentColor}.cp-l{fill:color-mix(in srgb,currentColor 74%,#000)}" +
@@ -34,10 +36,10 @@ const STATUS_CLASS: Record<number, string> = {
   [STATUS.pending]: "p",
 };
 
-function posterMarkup(data: FormationData, variant: ClusterVariant) {
-  const { count, layout } = POSTER_PRESETS[variant];
+function posterMarkup(data: FormationData, variant: ClusterVariant, count: number) {
+  const { layout } = POSTER_PRESETS[variant];
   const f = buildFormations(data, count, { layout }).hero;
-  const id = `cp${variant[0]}`;
+  const id = `cp${variant[0]}${count}`; // unique per poster: the sticky panel ships two
 
   const defs = Object.values(STATUS_CLASS)
     .map((c) => `<g id="${id}-${c}"${c === "n" ? "" : ` class="cp-${c}"`}><path class="cp-t" d="${TOP}"/><path class="cp-l" d="${LEFT}"/><path class="cp-r" d="${RIGHT}"/></g>`)
@@ -68,13 +70,16 @@ function posterMarkup(data: FormationData, variant: ClusterVariant) {
 export function ClusterPoster({
   data,
   variant,
+  count = POSTER_PRESETS[variant].count,
   className,
 }: {
   data: FormationData;
   variant: ClusterVariant;
+  /** Instance budget; must equal the scene's for the variant at this width. */
+  count?: number;
   className?: string;
 }) {
-  const { viewBox, html } = posterMarkup(data, variant);
+  const { viewBox, html } = posterMarkup(data, variant, count);
   return (
     <svg
       viewBox={viewBox}
