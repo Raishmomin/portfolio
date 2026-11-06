@@ -11,10 +11,13 @@ const LAYER: [SkillLayer, RegExp][] = [
   ["database", /data|db/i],
   ["devops", /devops|cloud|infra|ops/i],
 ];
-const AI_TERMS = /\b(ai|llm|gpt|openai|anthropic|claude|gemini|rag|agent|agentic|embedding|vector|langchain|chatbot|ml|machine learning|speech|voice|tts|stt|whisper)\b/i;
+/** Real AI technology in a project's stack (names alone like "Matrix AI" never count). */
+const AI_TECH =
+  /\b(openai|gpt|anthropic|claude|gemini|llm|llama|mistral|langchain|llamaindex|hugging ?face|qdrant|pinecone|weaviate|chroma|pgvector|vector|rag|embeddings?|whisper|tts|text-to-speech|speech-to-text|speech|elevenlabs|deepgram|tensorflow|pytorch|scikit|machine learning|ai sdk)\b/i;
 
-export const isAiProject = (p: Pick<Project, "title" | "description" | "technologies" | "category">) =>
-  p.category.some((c) => /\bai\b/i.test(c)) || AI_TERMS.test(`${p.title} ${p.description} ${p.technologies.join(" ")}`);
+/** Factual AI flag: tagged "ai" in the DB category, or built with real AI technology. */
+export const isAiProject = (p: Pick<Project, "technologies" | "category">) =>
+  p.category.some((c) => /\bai\b/i.test(c)) || p.technologies.some((t) => AI_TECH.test(t));
 
 /** Readable pipeline stages for an AI project, derived from its real technologies/description. */
 function aiStages(p: Project): string[] {
