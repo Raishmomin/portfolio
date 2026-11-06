@@ -1,41 +1,13 @@
-import type { ReactNode } from "react";
-import { Container, Pill, Section, StatusDot } from "../../ui/primitives";
+import { Container, PillList, Section, StatusDot, WithFigures } from "../../ui/primitives";
 import { revealProps } from "../../reveal";
-import { parsePeriod } from "@/lib/seo";
+import { periodMonths, periodParts } from "@/lib/derive";
 import type { ExperienceItem } from "@/lib/data";
-
-/** "Sept 2021 - Dec 2022" -> ["SEPT 2021", "DEC 2022"]. */
-const periodParts = (period: string) =>
-  period.split(/\s*[-–—]\s*/).map((p) => p.trim().toUpperCase());
-
-/** Whole months between two ISO "YYYY-MM" values (end defaults to now). */
-function monthsBetween(start?: string, end?: string, now: Date = new Date()): number | null {
-  if (!start) return null;
-  const [sy, sm] = start.split("-").map(Number);
-  const [ey, em] = end ? end.split("-").map(Number) : [now.getUTCFullYear(), now.getUTCMonth() + 1];
-  if (!sy || !sm || !ey || !em) return null;
-  const months = (ey - sy) * 12 + (em - sm);
-  return months > 0 ? months : null;
-}
 
 function durationLabel(months: number | null): string | null {
   if (!months) return null;
   const y = Math.floor(months / 12);
   const m = months % 12;
   return [y ? `${y} yr${y > 1 ? "s" : ""}` : "", m ? `${m} mo${m > 1 ? "s" : ""}` : ""].filter(Boolean).join(" ");
-}
-
-/** Bold the real figures already in the DB copy ("20%", "3x", "10+"); never adds any. */
-function emphasizeNumbers(text: string): ReactNode[] {
-  return text.split(/(\d+(?:\.\d+)?(?:\s?%|x\b|\+)?)/g).map((part, i) =>
-    i % 2 ? (
-      <strong key={i} className="font-semibold text-foreground">
-        {part}
-      </strong>
-    ) : (
-      part
-    )
-  );
 }
 
 /** Timeline rows: mono date column, Role · Company, description, achievements, tech pills. */
@@ -45,9 +17,8 @@ export function ExperienceTimeline({ roles }: { roles: ExperienceItem[] }) {
       <Container>
         <ol>
           {roles.map((role, i) => {
-            const { startDate, endDate, current } = parsePeriod(role.period);
-            const [from, to] = periodParts(role.period);
-            const duration = durationLabel(monthsBetween(startDate, endDate));
+            const { from, to, startDate, endDate, current } = periodParts(role.period);
+            const duration = durationLabel(periodMonths(role.period));
             return (
               <li
                 key={`${role.company}-${role.period}`}
@@ -59,7 +30,7 @@ export function ExperienceTimeline({ roles }: { roles: ExperienceItem[] }) {
                     {startDate ? <time dateTime={startDate}>{from}</time> : from}
                     {to ? (
                       <>
-                        {" — "}
+                        {" \u2013 "}
                         {endDate ? <time dateTime={endDate}>{to}</time> : to}
                       </>
                     ) : null}
@@ -85,21 +56,14 @@ export function ExperienceTimeline({ roles }: { roles: ExperienceItem[] }) {
                   {role.achievements.length ? (
                     <ul className="mt-6 max-w-[68ch] space-y-2.5 text-[15px] leading-7 text-foreground/90 md:text-base">
                       {role.achievements.map((a) => (
-                        <li key={a} className="flex gap-3">
-                          <span aria-hidden="true" className="mt-[13px] block h-0.5 w-2.5 shrink-0 bg-primary" />
-                          <span>{emphasizeNumbers(a)}</span>
+                        <li key={a} className="dash-item">
+                          <WithFigures text={a} />
                         </li>
                       ))}
                     </ul>
                   ) : null}
                   {role.technologies.length ? (
-                    <ul className="mt-6 flex flex-wrap gap-1.5" aria-label={`${role.company} stack`}>
-                      {role.technologies.map((t) => (
-                        <li key={t}>
-                          <Pill>{t}</Pill>
-                        </li>
-                      ))}
-                    </ul>
+                    <PillList items={role.technologies} label={`${role.company} stack`} className="mt-6" />
                   ) : null}
                 </article>
               </li>

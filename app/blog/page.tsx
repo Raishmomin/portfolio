@@ -96,7 +96,7 @@ export default async function BlogPage() {
                             href={RSS_URL}
                             className="inline-flex min-h-11 items-center gap-2 rounded-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                            <span aria-hidden="true" className="text-primary">◉</span>
+                            <span aria-hidden="true">◉</span>
                             Subscribe via RSS
                         </a>
                     </p>

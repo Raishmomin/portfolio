@@ -56,7 +56,7 @@ export async function RelatedPosts({
               <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{plainExcerpt(p.excerpt)}</p>
               <span className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-foreground">
                 Read post
-                <span aria-hidden="true" className="inline-block text-primary transition-transform duration-150 group-hover:translate-x-0.5">
+                <span aria-hidden="true" className="inline-block text-muted-foreground transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-primary">
                   →
                 </span>
               </span>

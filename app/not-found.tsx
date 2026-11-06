@@ -63,7 +63,7 @@ export default function NotFound() {
                       <span className="text-[15px] font-medium text-foreground">{l.label}</span>
                       <span className="font-mono text-xs text-muted-foreground">
                         {l.cmd}{" "}
-                        <span aria-hidden="true" className="inline-block text-primary transition-transform duration-150 group-hover:translate-x-0.5">
+                        <span aria-hidden="true" className="inline-block transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-primary">
                           →
                         </span>
                       </span>

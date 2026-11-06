@@ -10,7 +10,7 @@ const SOCIALS = [
 ] as const;
 
 const linkClass =
-  "inline-flex min-h-11 items-center text-[15px] text-muted-foreground transition-colors duration-150 hover:text-foreground";
+  "inline-flex min-h-11 min-w-11 items-center text-[15px] text-muted-foreground transition-colors duration-150 hover:text-foreground";
 const headingClass = "font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground";
 
 /** Site footer (every page; no props). Server Component: wordmark, every page, socials, RSS. */

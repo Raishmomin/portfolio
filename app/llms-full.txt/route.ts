@@ -1,3 +1,4 @@
+import { formatPeriod } from "@/lib/derive";
 import { SITE, SITE_URL } from "@/lib/config";
 import { PROFILE } from "@/lib/profile";
 import { SERVICES } from "@/lib/services";
@@ -8,7 +9,6 @@ import {
   contactLines,
   faqLines,
   keyFacts,
-  periodLabel,
   resourceLines,
   sortRoles,
 } from "@/lib/llms";
@@ -41,7 +41,7 @@ export async function GET() {
   lines.push("## Experience", "");
   for (const e of sortRoles(experience)) {
     lines.push(`### ${e.title}, ${e.company}`, "");
-    lines.push(`- Period: ${periodLabel(e.period)}`);
+    lines.push(`- Period: ${formatPeriod(e.period)}`);
     if (e.location) lines.push(`- Work mode: ${e.location}`);
     if (e.technologies.length) lines.push(`- Technologies: ${e.technologies.join(", ")}`);
     lines.push("");

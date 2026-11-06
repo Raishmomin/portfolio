@@ -2,6 +2,7 @@ import { Container, Section } from "../../ui/primitives";
 import { revealProps } from "../../reveal";
 import { SubsectionHeading } from "../about/subpage";
 import type { Project, SkillGroup } from "@/lib/data";
+import { projectUsage, topTechnologies } from "@/lib/derive";
 
 const GROUP_LABELS: Record<string, string> = {
   frontend: "Frontend",
@@ -14,28 +15,13 @@ const HOOK_GROUPS = new Set(["frontend", "backend", "database", "devops"]);
 const groupLabel = (category: string) =>
   GROUP_LABELS[category] ?? category.charAt(0).toUpperCase() + category.slice(1);
 
-/** Case-insensitive key that also treats "React" / "React.js" and "Express" / "Express.js" as one. */
-const techKey = (name: string) =>
-  name
-    .toLowerCase()
-    .trim()
-    .replace(/\.js$/, "")
-    .replace(/[^a-z0-9]+/g, "");
-
-/** Number of projects whose technologies list names each skill (each project counted once). */
-export function projectUsage(projects: Pick<Project, "technologies">[]): (skill: string) => number {
-  const counts = new Map<string, number>();
-  for (const p of projects) {
-    for (const key of new Set(p.technologies.map(techKey))) {
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-  }
-  return (skill) => counts.get(techKey(skill)) ?? 0;
-}
-
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** Stack map: groups Frontend / Backend / Data / DevOps with "used in N projects" (omitted at 0). */
+/**
+ * Stack map: groups Frontend / Backend / Data / DevOps with "used in N projects"
+ * (omitted at 0). The count is the shared projectUsage from @/lib/derive, the same
+ * counter as the home stack map.
+ */
 export function StackMap({ groups, projects }: { groups: SkillGroup[]; projects: Project[] }) {
   const usage = projectUsage(projects);
 
@@ -79,8 +65,8 @@ export function StackMap({ groups, projects }: { groups: SkillGroup[]; projects:
                   {g.skills.map((s) => {
                     const n = usage(s.name);
                     return (
-                      <li key={s.name} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-3">
-                        <span className="text-[15px] text-foreground">{s.name}</span>
+                      <li key={s.name} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-3 text-[15px] text-foreground">
+                        {s.name}{" "}
                         {n > 0 ? (
                           <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground tabular-nums">
                             used in {n} project{n === 1 ? "" : "s"}
@@ -101,22 +87,7 @@ export function StackMap({ groups, projects }: { groups: SkillGroup[]; projects:
 
 /** The technologies named by the most projects (real counts from projects[].technologies). */
 export function TopTechnologies({ projects, limit = 12 }: { projects: Project[]; limit?: number }) {
-  const tally = new Map<string, { name: string; count: number }>();
-  for (const p of projects) {
-    const seen = new Set<string>();
-    for (const name of p.technologies) {
-      const key = techKey(name);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      const entry = tally.get(key);
-      if (entry) entry.count += 1;
-      else tally.set(key, { name, count: 1 });
-    }
-  }
-  const top = [...tally.values()]
-    .filter((t) => t.count > 1)
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-    .slice(0, limit);
+  const top = topTechnologies(projects, { min: 2, limit });
   if (!top.length) return null;
   const max = top[0].count;
 

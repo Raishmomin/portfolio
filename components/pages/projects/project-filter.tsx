@@ -4,7 +4,7 @@
 // filtering only toggles the `hidden` attribute on [data-categories] items inside
 // #project-index. Without JS the chips are inert and every project is shown.
 import { useCallback, useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cx } from "@/lib/cx";
 import type { Chip } from "./categories";
 
 const ITEM_SELECTOR = "#project-index [data-categories]";
@@ -43,7 +43,7 @@ export function ProjectFilter({ chips, total }: { chips: Chip[]; total: number }
   }, [select]);
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="js-only flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div role="group" aria-label="Filter projects by category" className="flex flex-wrap gap-2">
         {chips.map((chip) => {
           const active = filter === chip.id;
@@ -53,7 +53,7 @@ export function ProjectFilter({ chips, total }: { chips: Chip[]; total: number }
               type="button"
               aria-pressed={active}
               onClick={() => select(chip.id)}
-              className={cn(
+              className={cx(
                 "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 font-mono text-xs uppercase tracking-[0.12em] transition-colors duration-150",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 active

@@ -3,11 +3,7 @@
 import Link from "next/link";
 import type { BlogPostSummary } from "@/lib/blog-types";
 import { plainExcerpt, postTitle } from "@/lib/blog";
-
-/** "2026-11-04T…" -> "Nov 4, 2026". UTC, so server and client agree. */
-export function shortDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
-}
+import { shortDate } from "@/lib/derive";
 
 /** Generated tags sometimes end with a stray period ("Edge Runtime."). */
 export const cleanTag = (tag: string) => tag.trim().replace(/\.+$/, "");
@@ -43,7 +39,7 @@ export function PostList({ posts }: { posts: BlogPostSummary[] }) {
             </div>
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums md:col-span-2 md:pt-1.5 md:text-right">
               {post.readTime} min read
-              <span aria-hidden="true" className="ml-2 inline-block text-primary transition-transform duration-150 group-hover:translate-x-0.5">
+              <span aria-hidden="true" className="ml-2 inline-block transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-primary">
                 →
               </span>
             </p>

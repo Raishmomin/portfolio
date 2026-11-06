@@ -47,7 +47,8 @@ export default function ServicesIndex() {
           "@type": "Service",
           "@id": `${SITE_URL}/services/${s.slug}#service`,
           name: s.h1,
-          description: s.metaDescription,
+          // The tagline is the description visible in each /services row (structured data mirrors the page).
+          description: s.tagline,
           url: `${SITE_URL}/services/${s.slug}`,
           serviceType: s.serviceType,
           provider: { "@id": `${SITE_URL}#person` },
