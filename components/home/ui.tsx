@@ -2,54 +2,76 @@
 // "Layout and readability" + "Motion"). Content scrolls over the fixed 3D stage, so
 // every block of copy sits on a Panel; motion is opt-in through data-* hooks that the
 // motion lane enhances (nothing here hides content without JS).
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Container, Kicker } from "../ui/primitives";
 import { revealProps } from "../reveal";
 
 /**
- * Readable surface over the canvas: opaque enough for 4.5:1 text contrast over any
- * glow (no backdrop-filter, which is too expensive over WebGL).
+ * Readable surface over the canvas (app/globals.css `.panel`): rounded-xl, 1px border,
+ * bg-background/85 for 4.5:1 text contrast over any glow, no backdrop-filter.
  */
-export const panel = "rounded-xl border border-border bg-background/85";
+export const panel = "panel";
+
+/** Where a section's content sits; the 3D stage frames its scene around it (tasks/fullmotion-spec.md). */
+export type StageLayout = "left" | "right" | "full" | "band";
+
+/** Content column per composition (desktop). */
+export const column: Record<StageLayout, string> = {
+  left: "lg:max-w-[38rem]",
+  right: "lg:ml-auto lg:max-w-[40rem]",
+  full: "",
+  band: "",
+};
 
 /**
  * Full-bleed home section (transparent, so the fixed stage shows through) with the
- * content in the site container. `scene` sections own a 3D scene: at least a viewport
- * tall on desktop (content on the left, the scene on the right), and on phones they
- * open with a window onto the scene before their panel scrolls over it.
+ * content in the site container. `stage` declares the composition (data-stage) the 3D
+ * stage frames its scene around; consecutive sections never share one. `scene` sections
+ * own a 3D scene: on phones they open with a window onto it before their content
+ * scrolls over. `full` sections get a centred scrim under their floating cards; `band`
+ * sections leave the top of the viewport to the scene.
  */
 export function HomeSection({
   id,
   section,
   labelledBy,
+  stage,
   scene = false,
   className,
   innerClassName,
+  bleed,
   children,
   ...rest
 }: {
   id: string;
   section: string;
   labelledBy: string;
+  stage: StageLayout;
   scene?: boolean;
   className?: string;
   innerClassName?: string;
+  /** Full-width content after the container (e.g. a ticker). */
+  bleed?: ReactNode;
   children: ReactNode;
 } & Record<`data-${string}`, string>) {
   return (
     <section
       id={id}
       data-section={section}
+      data-stage={stage}
       aria-labelledby={labelledBy}
       className={cn(
         "relative",
-        scene ? "pb-20 pt-[38svh] lg:flex lg:min-h-[100svh] lg:items-center lg:py-28" : "py-20 md:py-24",
+        scene ? "pb-20 pt-[38svh]" : "py-20 md:py-24",
+        stage === "band" ? "lg:pb-28 lg:pt-[34vh]" : "lg:flex lg:min-h-[100svh] lg:flex-col lg:justify-center lg:py-28",
         className,
       )}
       {...rest}
     >
-      <Container className={innerClassName}>{children}</Container>
+      {stage === "full" ? <div aria-hidden="true" className="scrim-c pointer-events-none absolute inset-0" /> : null}
+      <Container className={cn("relative", innerClassName)}>{children}</Container>
+      {bleed}
     </section>
   );
 }
@@ -75,6 +97,7 @@ export function SectionHead({
   title,
   scene,
   lead,
+  center = false,
   className,
 }: {
   id: string;
@@ -84,10 +107,12 @@ export function SectionHead({
   /** What the 3D scene of this section shows, in plain words. */
   scene?: string;
   lead?: ReactNode;
+  /** Centred head for "full" compositions. */
+  center?: boolean;
   className?: string;
 }) {
   return (
-    <header className={className}>
+    <header className={cn(center && "mx-auto max-w-3xl text-center", className)}>
       <Kicker>{index ? `${index} · ${kicker}` : kicker}</Kicker>
       <h2
         id={id}
@@ -96,16 +121,16 @@ export function SectionHead({
       >
         {title}
       </h2>
-      {scene ? <SceneNote>{scene}</SceneNote> : null}
-      {lead ? <p className="mt-4 text-[17px] leading-7 text-muted-foreground">{lead}</p> : null}
+      {scene ? <SceneNote className={cn(center && "mx-auto max-w-[40rem] justify-center text-left")}>{scene}</SceneNote> : null}
+      {lead ? <p className={cn("mt-4 text-[17px] leading-7 text-muted-foreground", center && "mx-auto max-w-[60ch]")}>{lead}</p> : null}
     </header>
   );
 }
 
 /** "What you're looking at" line for the 3D stage behind a section. */
-export function SceneNote({ children, className }: { children: ReactNode; className?: string }) {
+export function SceneNote({ children, className, ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn("mt-4 flex gap-3 text-[15px] leading-6 text-foreground/85", className)}>
+    <p className={cn("mt-4 flex gap-3 text-[15px] leading-6 text-foreground/85", className)} {...rest}>
       <span
         aria-hidden="true"
         className={cn(
