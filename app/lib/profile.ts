@@ -20,7 +20,15 @@ export const PROFILE = {
   // Last human edit of these facts (ISO 8601 DateTime with offset, as ProfilePage
   // expects). Bump it when anything here changes; feeds ProfilePage.dateModified
   // and the sitemap lastmod of profile pages.
-  updatedAt: "2026-11-05T00:00:00+05:30",
+  updatedAt: "2026-11-06T00:00:00+05:30",
+  // Studio-retouched headshot (crop, light, colour, background only — no generative edits).
+  photo: {
+    src: "/images/raish-momin.jpg",
+    webp: "/images/raish-momin.webp",
+    width: 400,
+    height: 400,
+    alt: "Raish Momin, Full Stack Developer & DevOps Engineer",
+  },
   // The one availability statement (rulebook 8.4), quoted as "open to …" by the
   // site description, llms.txt key facts and the availability FAQ.
   availability: "senior engineering roles and freelance projects",

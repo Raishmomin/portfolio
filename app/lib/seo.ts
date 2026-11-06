@@ -87,7 +87,15 @@ export const PERSON_ID = `${SITE_URL}#person`;
 
 // TODO(owner): replace with a real square headshot (ImageObject, >= 400x400,
 // served from /public) once one is provided; the OG card is a stand-in.
-export const PERSON_IMAGE = `${SITE_URL}/opengraph-image`;
+export const PERSON_IMAGE = {
+  "@type": "ImageObject",
+  "@id": `${SITE_URL}/#headshot`,
+  url: `${SITE_URL}${PROFILE.photo.src}`,
+  contentUrl: `${SITE_URL}${PROFILE.photo.src}`,
+  width: PROFILE.photo.width,
+  height: PROFILE.photo.height,
+  caption: PROFILE.photo.alt,
+};
 
 export function webPageSchema(input: {
   name: string;
