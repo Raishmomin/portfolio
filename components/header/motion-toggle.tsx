@@ -4,9 +4,10 @@ import { useSyncExternalStore } from "react";
 
 /*
  * 3D/motion toggle — SHARED CONTRACT with the cluster (3D) lane:
- *  - persisted as localStorage "cp:3d" = "on" | "off" (default "on"), read/written in try/catch;
- *  - the head script (components/reveal.tsx) applies a saved "off" before first paint;
- *    no data-motion attribute means on;
+ *  - persisted as localStorage "cp:3d" = "on" | "off", read/written in try/catch;
+ *  - the head script (components/reveal.tsx) applies a saved choice before first paint;
+ *    no data-motion attribute = "auto": follow the OS prefers-reduced-motion setting;
+ *  - an explicit "on" (a visitor's click) overrides the OS setting;
  *  - on change: html[data-motion] = "on" | "off" and
  *    window.dispatchEvent(new CustomEvent("cp:3d", { detail: { enabled } })).
  * CSS reveal animations and the status pulse are disabled under html[data-motion="off"].
@@ -14,11 +15,24 @@ import { useSyncExternalStore } from "react";
 export const MOTION_KEY = "cp:3d";
 export const MOTION_EVENT = "cp:3d";
 
+const REDUCED = "(prefers-reduced-motion: reduce)";
+
 function subscribe(onChange: () => void) {
+  const mq = matchMedia(REDUCED);
   window.addEventListener(MOTION_EVENT, onChange);
-  return () => window.removeEventListener(MOTION_EVENT, onChange);
+  mq.addEventListener("change", onChange);
+  return () => {
+    window.removeEventListener(MOTION_EVENT, onChange);
+    mq.removeEventListener("change", onChange);
+  };
 }
-const getSnapshot = () => document.documentElement.dataset.motion !== "off";
+/** Effective state: an explicit choice wins, otherwise the OS reduced-motion setting decides. */
+function getSnapshot() {
+  const m = document.documentElement.dataset.motion;
+  if (m === "on") return true;
+  if (m === "off") return false;
+  return !matchMedia(REDUCED).matches;
+}
 const getServerSnapshot = () => true;
 
 export function MotionToggle() {

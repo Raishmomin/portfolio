@@ -40,7 +40,8 @@ export function revealProps(options: RevealOptions = {}) {
  * Runs in <head> before first paint: applies the color theme (localStorage "theme" =
  * "light" | "dark" | "system", default dark; html class + color-scheme, see
  * components/header/theme-toggle.tsx), applies the persisted 3D/motion preference
- * (localStorage "cp:3d" = "off" sets html[data-motion="off"]; no attribute = on,
+ * (localStorage "cp:3d" = "off" | "on" sets html[data-motion]; no attribute = follow the OS
+ * reduced-motion setting; an explicit "on" overrides it,
  * see components/header/motion-toggle.tsx), flags `html.js` and reveals `[data-reveal]`
  * elements as they enter the viewport, including ones added later by client
  * navigation. An element counts as in view once 15% of it, or a fifth of the
@@ -52,7 +53,7 @@ var d=document.documentElement,t;
 try{t=localStorage.getItem("theme");}catch(e){}
 if(t!=="light"&&t!=="dark")t=t==="system"&&!matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark";
 d.classList.add(t);d.style.colorScheme=t;
-try{if(localStorage.getItem("cp:3d")==="off")d.dataset.motion="off";}catch(e){}
+try{var m=localStorage.getItem("cp:3d");if(m==="off"||m==="on")d.dataset.motion=m;}catch(e){}
 if(!("IntersectionObserver" in window))return;
 d.classList.add("js");
 var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){var e=es[i];if(e.isIntersecting&&(e.intersectionRatio>=0.15||e.intersectionRect.height>=window.innerHeight*0.2)){e.target.setAttribute("data-in","");io.unobserve(e.target);}}},{threshold:[0,0.01,0.02,0.05,0.1,0.15]});

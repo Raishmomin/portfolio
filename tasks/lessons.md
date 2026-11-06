@@ -7,3 +7,5 @@
 - `lsof -ti tcp:<port>` can miss processes started by other agents/sandboxes; fall back to `ss -ltnp | grep :<port>` for the PID before assuming a port is free.
 - tsconfig alias `@/*` maps to `app/*` only — `@/components/...` does NOT resolve. Import components by relative path (or add an alias deliberately, repo-wide).
 - /tmp (scratchpad) is wiped on reboot. Anything a later phase depends on (rulebooks, checkers, specs) must live in the repo (tasks/), and every agent's work must be committed to a branch before the session can end. Commits in git worktrees survive because they live in the main repo's .git.
+- Test capability gates on the OWNER's real hardware before calling a feature done. If verifiers must spoof navigator.hardwareConcurrency to see a feature, the gate is too strict for real users (a 4-thread laptop lost the whole 3D experience). Gate only genuinely weak devices and rely on a runtime frame monitor.
+- Respect prefers-reduced-motion by default, but give visitors an explicit opt-in that overrides it, and make toggles show the EFFECTIVE state (a toggle that looks "on" while nothing animates reads as broken).

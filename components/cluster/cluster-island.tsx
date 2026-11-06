@@ -56,21 +56,32 @@ function hasWebGL2(): boolean {
   return webgl2;
 }
 
-/** The header's 3D toggle: html[data-motion] wins; no attribute falls back to localStorage, default on. */
-function toggleOn(): boolean {
+type MotionPref = "on" | "off" | "auto";
+
+/** The header's 3D toggle: html[data-motion] wins, then localStorage; nothing saved = "auto". */
+function motionPref(): MotionPref {
   const attr = document.documentElement.dataset.motion;
-  if (attr) return attr !== "off";
+  if (attr === "on" || attr === "off") return attr;
   try {
-    return localStorage.getItem("cp:3d") !== "off";
+    const saved = localStorage.getItem("cp:3d");
+    if (saved === "on" || saved === "off") return saved;
   } catch {
-    return true;
+    // storage blocked: fall through to auto
   }
+  return "auto";
 }
 
-function capable(toggle = toggleOn()): boolean {
+function capable(pref: MotionPref = motionPref()): boolean {
+  if (pref === "off") return false;
   const nav = navigator as Nav;
-  if (!toggle || matchMedia(REDUCED).matches || nav.connection?.saveData) return false;
-  if ((nav.deviceMemory ?? 8) <= 4 || (nav.hardwareConcurrency ?? 8) <= 4) return false;
+  if (pref === "auto") {
+    // Respect the OS reduced-motion / data-saver preference unless the visitor explicitly opted in.
+    if (matchMedia(REDUCED).matches || nav.connection?.saveData) return false;
+    // Only genuinely weak devices skip the scene up front (a 4-thread laptop is fine);
+    // the scene's runtime frame monitor still falls back to the poster if a device struggles.
+    if ((nav.deviceMemory ?? 8) < 4 || (nav.hardwareConcurrency ?? 8) < 4) return false;
+  }
+  // Software-rendered WebGL (no GPU) is never worth it, even when opted in.
   return hasWebGL2();
 }
 
@@ -137,7 +148,8 @@ export function ClusterIsland({
 
     const mq = matchMedia(REDUCED);
     const reevaluate = () => setAllowed(capable());
-    const onToggle = (e: Event) => setAllowed(capable((e as CustomEvent<{ enabled?: boolean }>).detail?.enabled !== false));
+    const onToggle = (e: Event) =>
+      setAllowed(capable((e as CustomEvent<{ enabled?: boolean }>).detail?.enabled === false ? "off" : "on"));
     const onVisibility = () => setHidden(document.hidden);
     mq.addEventListener("change", reevaluate);
     window.addEventListener("cp:3d", onToggle);

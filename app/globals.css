@@ -142,6 +142,15 @@ html:not(.js) .js-only {
   }
 }
 
+/* Explicit opt-in from the 3D/motion toggle (html[data-motion="on"]) overrides the OS setting. */
+html.js[data-motion="on"] [data-reveal]:not([data-in]) {
+  opacity: 0;
+}
+html.js[data-motion="on"] [data-reveal][data-in] {
+  animation: reveal-up var(--reveal-duration, 0.42s) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--reveal-delay, 0s) backwards;
+}
+
 @keyframes reveal-up {
   from {
     opacity: 0;
@@ -150,9 +159,9 @@ html:not(.js) .js-only {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not([data-motion="on"]) *,
+  html:not([data-motion="on"]) *::before,
+  html:not([data-motion="on"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -201,6 +210,9 @@ html:not(.js) .js-only {
   html.js:not([data-motion="off"]) .status-dot {
     animation: status-pulse 2s ease-in-out infinite;
   }
+}
+html.js[data-motion="on"] .status-dot {
+  animation: status-pulse 2s ease-in-out infinite;
 }
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
