@@ -2,8 +2,6 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "../components/theme-provider";
-import { ScrollProgress } from "../components/scroll-progress";
 import { JsonLd } from "../components/json-ld";
 import { REVEAL_SCRIPT } from "../components/reveal";
 import { SITE, SITE_URL } from "@/lib/config";
@@ -16,9 +14,11 @@ const geist = Geist({
   variable: "--font-geist",
 });
 
+// Kickers, captions and dates only — never LCP text, so it is not preloaded.
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   display: "swap",
+  preload: false,
   variable: "--font-geist-mono",
 });
 
@@ -128,28 +128,20 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
-        {/* Sets html.js and drives the CSS reveal animations; content stays visible without it. */}
+        {/* Applies the saved theme and 3D/motion choice, sets html.js and drives the CSS reveal animations; content stays visible without it. */}
         <script dangerouslySetInnerHTML={{ __html: REVEAL_SCRIPT }} />
       </head>
       <body
         className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} font-sans relative`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-md focus:bg-foreground focus:text-background focus:min-h-11 focus:inline-flex focus:items-center"
         >
-          <ScrollProgress />
-          <a
-            href="#main"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-md focus:bg-foreground focus:text-background"
-          >
-            Skip to content
-          </a>
-          {children}
-          <JsonLd />
-        </ThemeProvider>
+          Skip to content
+        </a>
+        {children}
+        <JsonLd />
       </body>
     </html>
   );

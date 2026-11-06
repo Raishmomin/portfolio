@@ -62,10 +62,23 @@
   }
   html {
     scroll-behavior: smooth;
+    /* The sticky header is 64px (h-16) + 1px hairline: focus scrolling and #anchor
+       jumps stop below it, never under it (WCAG 2.4.11 Focus Not Obscured). */
+    scroll-padding-top: 5rem;
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-foreground selection:text-background;
+    font-size: 17px;
+    line-height: 28px;
     font-feature-settings: "ss01", "cv11";
+  }
+  /* Visible focus ring everywhere (components may refine it with ring utilities). */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -83,138 +96,48 @@
   }
 }
 
-@layer utilities {
-  .glass {
-    @apply bg-background/70 backdrop-blur-xl border border-border;
+@layer components {
+  /* Tech pill: the <li> itself (components/ui/primitives.tsx PillList). */
+  .pill {
+    @apply inline-flex items-center rounded-full border border-border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground;
   }
-
-  .glass-card {
-    @apply bg-card/60 backdrop-blur-md border border-border shadow-sm;
+  /* List item with a neutral 12px dash centred on its first line (no extra elements). */
+  .dash-item {
+    position: relative;
+    padding-left: 1.5rem;
   }
-
-  .text-shimmer {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--muted-foreground)) 0%,
-      hsl(var(--foreground)) 50%,
-      hsl(var(--muted-foreground)) 100%
-    );
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: shimmer 6s linear infinite;
-  }
-
-  .scrim-radial {
-    background: radial-gradient(
-      ellipse at center,
-      hsl(var(--foreground) / 0.04) 0%,
-      transparent 70%
-    );
-  }
-
-  .noise {
+  .dash-item::before {
+    content: "";
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.04;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  }
-
-  .mask-edge-x {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 10%,
-      black 90%,
-      transparent
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 10%,
-      black 90%,
-      transparent
-    );
-  }
-
-  .display-fluid {
-    font-size: clamp(2.5rem, 8vw, 6rem);
-    line-height: 1;
-    letter-spacing: -0.04em;
-  }
-
-  .heading-fluid {
-    font-size: clamp(1.875rem, 4.5vw, 3.25rem);
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-  }
-
-  .ink-link {
-    @apply text-muted-foreground transition-colors duration-200 hover:text-foreground;
+    left: 0;
+    top: 0.75em;
+    top: calc(0.5lh - 0.5px);
+    width: 0.75rem;
+    height: 1px;
+    background: hsl(var(--muted-foreground) / 0.5);
   }
 }
 
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes mask-reveal {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-@keyframes draw {
-  to {
-    stroke-dashoffset: 0;
-  }
+/* Controls that only work with JS (copy, theme, 3D, filters) are hidden when the
+   head script has not flagged html.js, instead of rendering as dead buttons. */
+html:not(.js) .js-only {
+  display: none;
 }
 
 /*
- * Reveal and entrance animations (components/reveal.tsx). Progressive enhancement:
+ * Reveal animations (components/reveal.tsx). Progressive enhancement:
  * server HTML is visible by default, without JS, for reduced motion and in print.
  * Only under html.js (set by the inline head script) is a [data-reveal] element
- * hidden until the script marks it data-in. The animations use the `translate`
+ * hidden until the script marks it data-in, and never when the header's 3D/motion
+ * toggle has set html[data-motion="off"]. The animations use the `translate`
  * property, so they never clobber an element's own `transform`.
  */
 @media screen and (prefers-reduced-motion: no-preference) {
-  html.js [data-reveal]:not([data-in]) {
+  html.js:not([data-motion="off"]) [data-reveal]:not([data-in]) {
     opacity: 0;
   }
-  html.js [data-reveal][data-in],
-  html.js [data-enter] {
-    animation: reveal-up var(--reveal-duration, 0.6s) cubic-bezier(0.22, 1, 0.36, 1)
-      var(--reveal-delay, 0s) backwards;
-  }
-  /* "clip" wipes the children in; the observed element itself stays unclipped. */
-  html.js [data-reveal="clip"]:not([data-in]) {
-    opacity: 1;
-  }
-  html.js [data-reveal="clip"]:not([data-in]) > * {
-    clip-path: inset(0 100% 0 0);
-  }
-  html.js [data-reveal="clip"][data-in] {
-    animation: none;
-  }
-  html.js [data-reveal="clip"][data-in] > * {
-    animation: reveal-clip var(--reveal-duration, 0.8s) cubic-bezier(0.77, 0, 0.175, 1)
+  html.js:not([data-motion="off"]) [data-reveal][data-in] {
+    animation: reveal-up var(--reveal-duration, 0.42s) cubic-bezier(0.22, 1, 0.36, 1)
       var(--reveal-delay, 0s) backwards;
   }
 }
@@ -223,12 +146,6 @@
   from {
     opacity: 0;
     translate: 0 var(--reveal-y, 16px);
-  }
-}
-
-@keyframes reveal-clip {
-  from {
-    clip-path: inset(0 100% 0 0);
   }
 }
 
@@ -281,11 +198,45 @@
 
 /* Control Plane: status dot pulse — only when JS is on and motion is allowed. */
 @media (prefers-reduced-motion: no-preference) {
-  html.js .status-dot {
+  html.js:not([data-motion="off"]) .status-dot {
     animation: status-pulse 2s ease-in-out infinite;
   }
 }
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+/* Header nav: the active item (aria-current, set by pathname or the home scroll-spy)
+   gets a 1px orange rule that grows 16 -> 40px. */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.625rem;
+  height: 1px;
+  width: 16px;
+  background: hsl(var(--primary));
+  opacity: 0;
+  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms linear;
+}
+.nav-link[aria-current]:not([aria-current="false"])::after {
+  width: 40px;
+  opacity: 1;
+}
+
+/* Work archive: hovering or focusing a row dims its siblings and nudges the arrow. */
+.archive li {
+  transition: opacity 160ms linear;
+}
+.archive:has(a:hover) li:not(:has(a:hover)),
+.archive:has(a:focus-visible) li:not(:has(a:focus-visible)) {
+  opacity: 0.45;
+}
+.archive-arrow {
+  transition: translate 160ms ease-out;
+}
+.archive a:hover .archive-arrow,
+.archive a:focus-visible .archive-arrow {
+  translate: 2px -2px;
 }

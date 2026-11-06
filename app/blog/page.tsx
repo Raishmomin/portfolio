@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { buildMetadata, breadcrumbList } from "@/lib/seo";
+import { RSS_URL, buildMetadata, breadcrumbList } from "@/lib/seo";
 import { SITE, SITE_URL } from "@/lib/config";
 import { TAGS } from "@/lib/cache-tags";
-import { Calendar, Clock, ArrowRight, Rss } from "lucide-react";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPostSummary } from "@/lib/blog-types";
 import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTags, postTitle } from "@/lib/blog";
+import { Accent, ButtonLink, Container } from "../../components/ui/primitives";
+import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/projects/subpage-header";
+import { PostList } from "../../components/pages/blog/post-list";
 
 export const revalidate = 3600;
 
@@ -44,14 +45,6 @@ const getPosts = unstable_cache(
     ["blog-posts-list"],
     { tags: [TAGS.blogs], revalidate: 3600 }
 );
-
-function formatDate(date: string | Date): string {
-    return new Date(date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    });
-}
 
 export default async function BlogPage() {
     const posts = (await getPosts()).map((p) => ({ ...p, tags: postTags(p.tags) }));
@@ -87,94 +80,56 @@ export default async function BlogPage() {
         <>
             <PageJsonLd data={schema} />
             <Navbar />
-            <main id="main" tabIndex={-1} className="relative pt-24 outline-none">
-                <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-                    {/* Header */}
-                    <div className="text-center mb-16 md:mb-24">
-                        <span className="inline-flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-muted-foreground mb-8">
-                            <span className="h-px w-8 bg-muted-foreground/40" />
-                            Blog
-                            <span className="h-px w-8 bg-muted-foreground/40" />
-                        </span>
-                        <h1 className="heading-fluid font-semibold text-foreground mb-6">
-                            Thoughts &amp; tutorials.
-                        </h1>
-                        <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                            Writing about AI, full-stack development, DevOps, and things
-                            I&apos;ve learned shipping production apps.
-                        </p>
-                    </div>
+            <main id="main" tabIndex={-1} className="relative outline-none">
+                <SubpageHeader
+                    kicker={`~/blog · ${posts.length} posts`}
+                    title={
+                        <>
+                            Thoughts &amp; <Accent>tutorials.</Accent>
+                        </>
+                    }
+                    lead="Writing about AI, full-stack development, DevOps, and things I've learned shipping production apps."
+                    aside={<PageMotif />}
+                >
+                    <p className="mt-8 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                        <a
+                            href={RSS_URL}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <span aria-hidden="true">◉</span>
+                            Subscribe via RSS
+                        </a>
+                    </p>
+                </SubpageHeader>
 
-                    {posts.length === 0 ? (
-                        /* Empty state */
-                        <div className="text-center py-20">
-                            <div className="grid place-items-center w-16 h-16 mx-auto mb-8 rounded-2xl border border-border bg-card">
-                                <Rss className="w-6 h-6 text-muted-foreground" />
+                <section aria-label="All posts" className="border-t border-border">
+                    <Container className="pb-8">
+                        {posts.length === 0 ? (
+                            <div className="py-20">
+                                <h2 className="text-xl font-semibold tracking-tight text-foreground">Coming soon.</h2>
+                                <p className="mt-3 max-w-md text-sm text-muted-foreground">
+                                    I&apos;m working on some posts. New articles are published
+                                    daily — check back soon!
+                                </p>
                             </div>
-                            <h2 className="text-xl font-semibold tracking-tight mb-3">
-                                Coming soon.
-                            </h2>
-                            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                                I&apos;m working on some posts. New articles are published
-                                daily — check back soon!
-                            </p>
-                        </div>
-                    ) : (
-                        /* Blog grid */
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {posts.map((post) => (
-                                <Link
-                                    key={post.slug}
-                                    href={`/blog/${post.slug}`}
-                                    className="group block focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background rounded-2xl"
-                                >
-                                    <article className="relative h-full overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-foreground/40 flex flex-col p-7 md:p-8">
-                                        {/* Tags */}
-                                        <div className="flex flex-wrap gap-1.5 mb-6">
-                                            {post.tags.slice(0, 3).map((tag) => (
-                                                <span
-                                                    key={tag}
-                                                    className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
-                                                >
-                                                    {tag}
-                                                    {post.tags.indexOf(tag) <
-                                                        Math.min(post.tags.length, 3) - 1 && (
-                                                            <span className="mx-2">·</span>
-                                                        )}
-                                                </span>
-                                            ))}
-                                        </div>
-
-                                        {/* Title */}
-                                        <h2 className="text-xl font-semibold tracking-tight text-foreground mb-3 group-hover:text-foreground/80 transition-colors">
-                                            {postTitle(post.title)}
-                                        </h2>
-
-                                        {/* Excerpt */}
-                                        <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-1">
-                                            {plainExcerpt(post.excerpt)}
-                                        </p>
-
-                                        {/* Meta */}
-                                        <div className="flex items-center justify-between pt-4 border-t border-border text-xs text-muted-foreground">
-                                            <div className="flex items-center gap-4">
-                                                <span className="inline-flex items-center gap-1.5">
-                                                    <Calendar className="w-3 h-3" />
-                                                    {formatDate(post.publishedAt)}
-                                                </span>
-                                                <span className="inline-flex items-center gap-1.5">
-                                                    <Clock className="w-3 h-3" />
-                                                    {post.readTime} min read
-                                                </span>
-                                            </div>
-                                            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                                        </div>
-                                    </article>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
+                        ) : (
+                            <PostList posts={posts} />
+                        )}
+                    </Container>
                 </section>
+
+                <ContactBand
+                    title={
+                        <>
+                            Need this built, <Accent>not just written up?</Accent>
+                        </>
+                    }
+                >
+                    <ButtonLink href="/services">See services</ButtonLink>
+                    <ButtonLink href="/contact" variant="ghost">
+                        Get in touch
+                    </ButtonLink>
+                </ContactBand>
             </main>
             <Footer />
         </>

@@ -7,6 +7,7 @@ import { PROFILE, LOCATION_LABEL, experienceLabel } from "./profile";
 import { SERVICES } from "./services";
 import { parsePeriod, type FAQ } from "./seo";
 import type { ExperienceItem } from "./data";
+import { formatPeriod, monthLabel, periodParts } from "./derive";
 
 export const LLMS_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
@@ -19,16 +20,10 @@ const PROFILE_LINKS = [
   ["X", PROFILE.social.x],
 ] as const;
 
-export const careerStartLabel = new Date(PROFILE.careerStart).toLocaleDateString("en-US", {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
+/** "Sep 2021": the same month format as every role period (shared formatter in ./derive). */
+export const careerStartLabel = monthLabel(PROFILE.careerStart);
 
 export const faqLines = (faqs: FAQ[]) => faqs.flatMap((f) => [`Q: ${f.q}`, `A: ${f.a}`, ""]);
-
-/** "Sept 2021 - Dec 2022" -> "Sept 2021 – Dec 2022". */
-export const periodLabel = (period: string) => period.split(/\s*[-–—]\s*/).join(" – ");
 
 /** Most recent role first. */
 export function sortRoles(items: ExperienceItem[]): ExperienceItem[] {
@@ -54,13 +49,13 @@ export function keyFacts(experience: ExperienceItem[]): string[] {
     `${PROFILE.name} has ${experienceLabel()} years of professional software development experience, starting in ${careerStartLabel}.`,
     ...(current
       ? [
-          `${PROFILE.name} currently works as ${current.title} at ${current.company} (since ${periodLabel(current.period).split(" – ")[0]}).`,
+          `${PROFILE.name} currently works as ${current.title} at ${current.company} (since ${periodParts(current.period).from}).`,
         ]
       : []),
     ...(previous.length
       ? [
           `Previous roles: ${previous
-            .map((e) => `${e.title} at ${e.company} (${periodLabel(e.period)})`)
+            .map((e) => `${e.title} at ${e.company} (${formatPeriod(e.period)})`)
             .join("; ")}.`,
         ]
       : []),
