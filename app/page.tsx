@@ -12,6 +12,7 @@ import { ContactSection, FaqSection, ServicesSection, ThreeDCtaSection, WritingS
 import { getLatestPosts } from "../components/home/latest-posts";
 import { skillLayers } from "../components/home/derive";
 import { NavSpy } from "../components/home/nav-spy";
+import { ErrorBoundary } from "../components/ui/error-boundary";
 import { skillCount } from "@/lib/derive";
 import { sortRoles } from "@/lib/llms";
 import { slugify } from "@/lib/utils";
@@ -125,15 +126,18 @@ export default async function Home() {
       <VisitBeacon />
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
-        <NeuralStage data={neural} />
+        {/* A 3D failure (WebGL loss, a scene bug) must never take the page with it. */}
+        <ErrorBoundary>
+          <NeuralStage data={neural} />
+        </ErrorBoundary>
         <NavSpy />
         <Hero intro={personal.intro} resumeUrl={personal.resumeUrl} stats={stats} />
         <StackSection layers={skillLayers(neural.skills)} linkCount={neural.links.length} />
-        <ExperienceSection items={career} />
+        <ExperienceSection items={career} years={yearsOfExperience()} />
         <AiSection steps={aiSteps} total={projects.length} />
         <WorkSection featured={featured} archive={archive} />
         <ServicesSection services={Object.values(SERVICES)} />
-        <ThreeDCtaSection />
+        <ThreeDCtaSection capabilities={neural.skills.map((s) => s.name)} />
         <WritingSection posts={posts} />
         <FaqSection faqs={faqs} />
         <ContactSection />

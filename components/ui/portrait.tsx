@@ -1,4 +1,5 @@
-// Raish's studio headshot (PROFILE.photo). Server component; next/image serves AVIF/WebP at the right size.
+// Raish's studio headshot (PROFILE.photo). Server component; next/image serves AVIF/WebP at the right size
+// (quality 75: the only value allowed by the default images.qualities, so Next never coerces it with a warning).
 // Small avatars sit next to the visible name, so they are decorative (alt=""); the large portrait carries the alt text.
 import Image from "next/image";
 import { PROFILE } from "@/lib/profile";
@@ -23,7 +24,7 @@ export function Portrait({
       width={size}
       height={size}
       sizes={sizes ?? `${size}px`}
-      quality={85}
+      quality={75}
       className={cn("shrink-0 object-cover", className)}
     />
   );

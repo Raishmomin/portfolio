@@ -2,16 +2,17 @@ import { Accent, ButtonLink, Container, Kicker, StatusDot } from "../ui/primitiv
 import { Portrait } from "../ui/portrait";
 import { PROFILE } from "@/lib/profile";
 import { LocalTime } from "./local-time";
-import { SceneNote, aiText } from "./ui";
+import { SceneNote, aiText, reveal } from "./ui";
 
 export type HeroStat = { value: number; suffix?: string; label: string; ai?: boolean };
 
 /**
- * Home hero: full viewport, text on the left over the calm side of the 3D neural
- * network (a CSS gradient scrim keeps it readable over any glow). The h1, the
- * positioning line and the intro are the LCP candidates: plain server-rendered text,
- * never animated (no reveal/split hooks in this section). Stats carry data-count for
- * the counter enhancement; the server HTML already holds the final numbers.
+ * Home hero, "full" composition: the 3D neural network spans the whole viewport and the
+ * text sits on its calm left side (a CSS gradient scrim keeps it readable over any glow).
+ * The h1, the positioning line and the intro are the LCP candidates: plain
+ * server-rendered text, never animated. What moves in the DOM: the stat tiles rise in
+ * as a wave (CSS reveal, before gsap loads), then the calls to action and the caption
+ * chip. Stats carry data-count; the server HTML already holds the final numbers.
  */
 export function Hero({
   intro,
@@ -26,6 +27,7 @@ export function Hero({
     <section
       id="top"
       data-section="hero"
+      data-stage="full"
       aria-labelledby="hero-heading"
       className="relative"
     >
@@ -56,8 +58,8 @@ export function Hero({
           {intro ? <p className="mt-6 max-w-[58ch] text-muted-foreground">{intro}</p> : null}
 
           <dl className="mt-8 grid max-w-[36rem] grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label} className="flex flex-col-reverse gap-1 border-l border-border pl-3">
+            {stats.map((s, i) => (
+              <div key={s.label} className="flex flex-col-reverse gap-1 border-l border-border pl-3" {...reveal(120 + i * 90)} data-reveal-y="28">
                 <dt className="font-mono text-[11px] uppercase leading-4 tracking-[0.1em] text-muted-foreground">{s.label}</dt>
                 <dd className={`text-[clamp(1.75rem,3.4vw,2.5rem)] font-semibold leading-none tracking-[-0.03em] tabular-nums ${s.ai ? aiText : "text-foreground"}`}>
                   <span data-count={s.value}>{s.value}</span>
@@ -67,7 +69,7 @@ export function Hero({
             ))}
           </dl>
 
-          <div className="mt-9 flex flex-wrap gap-3">
+          <div className="mt-9 flex flex-wrap gap-3" {...reveal(480)}>
             <ButtonLink href="#contact" data-magnetic="">
               Start a project
             </ButtonLink>
@@ -90,7 +92,9 @@ export function Hero({
           </p>
         </div>
 
-        <SceneNote className="mt-10 max-w-[30rem] lg:absolute lg:bottom-10 lg:right-8 lg:mt-0 lg:max-w-[22rem] lg:rounded-xl lg:border lg:border-border lg:bg-background/85 lg:p-4">
+        <SceneNote
+          {...reveal(900)}
+          className="mt-10 max-w-[30rem] lg:absolute lg:bottom-10 lg:right-8 lg:mt-0 lg:max-w-[22rem] lg:rounded-xl lg:border lg:border-border lg:bg-background/85 lg:p-4">
           Behind this text is a neural network: signals travel layer by layer from input to output, and the network
           leans toward your cursor.
         </SceneNote>

@@ -2,7 +2,7 @@
 // (scaleX only, rAF-throttled) and, on mouse/trackpad devices, a soft cursor glow in the AI accent
 // (rAF that sleeps once it settles, transform only). Styles: app/globals.css.
 import { gsap } from "gsap";
-import { FINE, type Binding } from "./bindings";
+import { FINE, type Binding } from "./shared";
 
 function node(className: string): HTMLDivElement {
   const el = document.createElement("div");
