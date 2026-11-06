@@ -1,6 +1,6 @@
 // Browser-only helpers shared by the island (initial JS) and the lazy stage chunk:
 // the capability gate, idle scheduling and the page's single WebGL-context slot.
-// Ported from components/cluster/cluster-island.tsx (tri-state motion contract).
+// Ported from the former cluster island (tri-state motion contract).
 
 /** Run `fn` in an idle period (timeout fallback); returns a cancel function. */
 export function onIdle(fn: () => void, timeout = 1000): () => void {
