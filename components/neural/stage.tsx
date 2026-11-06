@@ -87,7 +87,18 @@ class Rig {
   }
 
   /** Advances one frame; returns true when the last second ran below MIN_FPS. */
-  frame(camera: PerspectiveCamera, rawDelta: number, aspect: number, store: SceneStore): boolean {
+  /** Eased 0..1: how far the view is shifted right / zoomed out for content-panel sections. */
+  private shift = 0;
+  private appliedShift = -1;
+  private appliedW = 0;
+
+  frame(
+    camera: PerspectiveCamera,
+    rawDelta: number,
+    aspect: number,
+    store: SceneStore,
+    size: { width: number; height: number },
+  ): boolean {
     const dt = Math.min(rawDelta, 0.1);
     const { pointer, raw, sum, pos, look } = this;
     const kp = 1 - Math.exp(-dt / POINTER_TAU);
@@ -98,9 +109,13 @@ class Rig {
     const { frame } = store;
     sum.px = sum.py = sum.pz = sum.lx = sum.ly = sum.lz = 0;
     let total = 0;
+    let shiftSum = 0;
     for (const [key] of SCENES) {
       const w = frame.weight[key];
       if (w <= 0) continue;
+      // Desktop: section text panels cover the left ~45%, so every scene except the hero
+      // (which frames itself on the right) is rendered into the free right side.
+      if (key !== "hero") shiftSum += w;
       const t = cameraFor(key, aspect, frame.progress[key], this.target);
       sum.px += t.px * w;
       sum.py += t.py * w;
@@ -124,6 +139,19 @@ class Rig {
     look.z += (sum.lz / total - look.z) * k;
     camera.position.set(pos.x + pointer.x * 0.6, pos.y + pointer.y * 0.35, pos.z);
     camera.lookAt(look);
+
+    const wide = size.width >= 1024;
+    const shiftTarget = wide ? shiftSum / total : 0;
+    this.shift += (shiftTarget - this.shift) * k;
+    const sh = Math.abs(this.shift - shiftTarget) < 0.001 ? shiftTarget : this.shift;
+    if (Math.abs(sh - this.appliedShift) > 0.0005 || this.appliedW !== size.width) {
+      if (sh > 0.0005) camera.setViewOffset(size.width, size.height, -size.width * 0.21 * sh, 0, size.width, size.height);
+      else camera.clearViewOffset();
+      camera.zoom = 1 - 0.18 * sh;
+      camera.updateProjectionMatrix();
+      this.appliedShift = sh;
+      this.appliedW = size.width;
+    }
 
     // Frame monitor: only back-to-back frames count, after the warm-up.
     const now = performance.now();
@@ -285,7 +313,7 @@ function Director({
 
   useFrame((state, delta) => {
     const aspect = state.size.width / Math.max(1, state.size.height);
-    if (rig.frame(state.camera as PerspectiveCamera, delta, aspect, store)) onDecline();
+    if (rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size)) onDecline();
   }, -1);
 
   return (
