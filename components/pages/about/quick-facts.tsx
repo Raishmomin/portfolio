@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Container, PillList, Section, StatusDot } from "../../ui/primitives";
 import { SubsectionHeading, TEXT_LINK } from "./subpage";
+import { reveal } from "../motion";
 import { PROFILE, LOCATION_LABEL, experienceLabel } from "@/lib/profile";
 import { SERVICES } from "@/lib/services";
 import { parsePeriod } from "@/lib/seo";
@@ -123,8 +124,8 @@ export function QuickFacts({ experience }: { experience: ExperienceItem[] }) {
           {PROFILE.name} at a glance
         </SubsectionHeading>
         <dl className="min-w-0 divide-y divide-border border-y border-border lg:col-span-8">
-          {rows.map((r) => (
-            <div key={r.label} className="grid grid-cols-1 gap-1.5 py-4 md:grid-cols-[11rem_1fr] md:gap-6 md:py-5">
+          {rows.map((r, i) => (
+            <div key={r.label} className="grid grid-cols-1 gap-1.5 py-4 md:grid-cols-[11rem_1fr] md:gap-6 md:py-5" {...reveal(i, 40)}>
               <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground md:pt-1">{r.label}</dt>
               <dd className="min-w-0 text-[15px] leading-7 text-foreground md:text-base">{r.value}</dd>
             </div>

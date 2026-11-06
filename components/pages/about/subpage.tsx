@@ -1,12 +1,12 @@
 // Shared server-only chrome for the /about, /skills, /experience and /contact
 // subpages (tasks/design-spec.md §3 Subpages): breadcrumb, h1 intro with the
-// decorative cluster motif, and the "keep exploring" internal links.
+// decorative neural motif, and the "keep exploring" internal links.
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { ClusterMotif } from "../../cluster/motif";
-import type { FormationData } from "../../cluster/types";
 import { Container, Kicker, Section, SectionHeader, StatusDot } from "../../ui/primitives";
+import { PageMotif } from "../projects/subpage-header";
+import { reveal, split } from "../motion";
 import { PROFILE } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +51,8 @@ export function SubpageIntro({
   crumb: string;
   title: ReactNode;
   lead?: ReactNode;
-  motif: FormationData;
+  /** Caption for the neural motif: what the network stands for on this page (real figures). */
+  motif: { label: string; value: string };
   children?: ReactNode;
 }) {
   return (
@@ -62,9 +63,7 @@ export function SubpageIntro({
           <SectionHeader as="h1" title={title} lead={lead} className="mt-1" />
           {children}
         </div>
-        <div className="hidden lg:col-span-4 lg:flex lg:justify-end">
-          <ClusterMotif data={motif} className="w-full max-w-[280px]" />
-        </div>
+        <PageMotif {...motif} className="lg:col-span-4" motifClassName="ml-auto max-w-[280px]" />
       </div>
     </Container>
   );
@@ -95,7 +94,7 @@ export function SubsectionHeading({
   return (
     <div className={className}>
       <Kicker>{kicker}</Kicker>
-      <h2 id={id} className="mt-3 text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
+      <h2 {...split} id={id} className="mt-3 text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
         {children}
       </h2>
     </div>
@@ -123,10 +122,10 @@ export function RelatedPages({ keys, kicker }: { keys: RelatedKey[]; kicker: str
           Keep exploring
         </SubsectionHeading>
         <ul className="mt-8 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          {keys.map((key) => {
+          {keys.map((key, i) => {
             const link = RELATED[key];
             return (
-              <li key={key} className="bg-background">
+              <li key={key} className="bg-background" {...reveal(i)}>
                 <Link
                   href={link.href}
                   className="group flex h-full min-h-11 flex-col gap-2 p-5 transition-colors duration-150 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"

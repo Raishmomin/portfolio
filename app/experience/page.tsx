@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { toFormationData } from "../../components/cluster/formation-data";
 import { Accent, Kicker } from "../../components/ui/primitives";
 import { RelatedPages, SubpageIntro } from "../../components/pages/about/subpage";
 import { ExperienceTimeline } from "../../components/pages/experience/timeline";
 import { buildMetadata, breadcrumbList, employeeRoles, webPageSchema } from "@/lib/seo";
 import { careerStartLabel, sortRoles } from "@/lib/llms";
 import { experienceLabel } from "@/lib/profile";
-import { getExperience, getProjects, getSkills } from "@/lib/data";
+import { getExperience } from "@/lib/data";
+import { count } from "../../components/pages/motion";
 
 export const revalidate = 86400;
 
@@ -28,7 +28,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function ExperiencePage() {
-  const [experience, skills, projects] = await Promise.all([getExperience(), getSkills(), getProjects()]);
+  const experience = await getExperience();
   // Newest first, and the ItemList positions follow the same visible order.
   const roles = sortRoles(experience);
 
@@ -55,8 +55,8 @@ export default async function ExperiencePage() {
       { name: "Experience", path: "/experience" },
     ]),
   ];
-  const motif = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
   const companies = new Set(roles.map((r) => r.company)).size;
+  const motif = { label: "neural · career", value: `since ${careerStartLabel}` };
 
   return (
     <>
@@ -74,7 +74,8 @@ export default async function ExperiencePage() {
           motif={motif}
         >
           <Kicker className="mt-6">
-            {experienceLabel()} years · {roles.length} roles · {companies} companies · since {careerStartLabel}
+            {experienceLabel()} years · <span {...count(roles.length)}>{roles.length}</span> roles ·{" "}
+            <span {...count(companies)}>{companies}</span> companies · since {careerStartLabel}
           </Kicker>
         </SubpageIntro>
 

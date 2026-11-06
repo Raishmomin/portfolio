@@ -1,4 +1,5 @@
 import type { FAQ } from "@/lib/seo";
+import { reveal } from "../motion";
 
 /**
  * Visible FAQ (server-rendered <details>; answers stay in the DOM when closed).
@@ -8,8 +9,8 @@ export function FaqList({ faqs }: { faqs: FAQ[] }) {
   if (!faqs.length) return null;
   return (
     <ul className="divide-y divide-border border-y border-border">
-      {faqs.map((f) => (
-        <li key={f.q}>
+      {faqs.map((f, i) => (
+        <li key={f.q} {...reveal(i, 40)}>
           <details className="group">
             <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-6 rounded-sm py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
               <h3 className="text-base font-medium leading-7 tracking-[-0.01em] text-foreground md:text-lg">{f.q}</h3>

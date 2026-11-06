@@ -1,5 +1,7 @@
 // Project category labels and chips, derived from the DB `category` arrays (never hand-counted).
+// "ai" is driven by isAiProject (the same rule as the home AI scene), not by the DB tag alone.
 import type { Project } from "@/lib/data";
+import { isAiProject } from "../../neural";
 
 const LABELS: Record<string, string> = {
   fullstack: "Full stack",
@@ -22,12 +24,19 @@ export function domainLabel(categories: string[]): string {
   return parts.map(categoryLabel).join(" · ");
 }
 
+/** Filter categories of a project: its DB categories, with "ai" set exactly when isAiProject(p). */
+export function projectCategories(p: Project): string[] {
+  const set = new Set(p.category.filter((c) => c !== "ai"));
+  if (isAiProject(p)) set.add("ai");
+  return [...set];
+}
+
 export type Chip = { id: string; label: string; count: number };
 
 /** Filter chips: "All" plus every category that narrows the list, in a fixed order, with real counts. */
 export function categoryChips(projects: Project[]): Chip[] {
   const counts = new Map<string, number>();
-  for (const p of projects) for (const c of new Set(p.category)) counts.set(c, (counts.get(c) ?? 0) + 1);
+  for (const p of projects) for (const c of projectCategories(p)) counts.set(c, (counts.get(c) ?? 0) + 1);
   const ids = [...counts.keys()].sort((a, b) => {
     const ra = ORDER.indexOf(a) === -1 ? ORDER.length : ORDER.indexOf(a);
     const rb = ORDER.indexOf(b) === -1 ? ORDER.length : ORDER.indexOf(b);

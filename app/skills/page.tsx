@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { toFormationData } from "../../components/cluster/formation-data";
 import { Accent, Kicker } from "../../components/ui/primitives";
 import { RelatedPages, SubpageIntro } from "../../components/pages/about/subpage";
 import { StackMap, TopTechnologies } from "../../components/pages/skills/stack-map";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
-import { getExperience, getProjects, getSkills } from "@/lib/data";
+import { getProjects, getSkills } from "@/lib/data";
+import { count } from "../../components/pages/motion";
 
 export const revalidate = 86400;
 
@@ -30,7 +30,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function SkillsPage() {
-  const [groups, projects, experience] = await Promise.all([getSkills(), getProjects(), getExperience()]);
+  const [groups, projects] = await Promise.all([getSkills(), getProjects()]);
   const skills = groups.flatMap((g) => g.skills.map((s) => s.name));
 
   const schema: object[] = [
@@ -55,7 +55,7 @@ export default async function SkillsPage() {
       { name: "Skills", path: "/skills" },
     ]),
   ];
-  const motif = toFormationData({ skills: groups, experience, featuredProjects: projects.slice(0, 6) });
+  const motif = { label: "neural · skills", value: `${skills.length} nodes` };
 
   return (
     <>
@@ -73,7 +73,8 @@ export default async function SkillsPage() {
           motif={motif}
         >
           <Kicker className="mt-6">
-            {skills.length} skills · {groups.length} groups · {projects.length} projects
+            <span {...count(skills.length)}>{skills.length}</span> skills · <span {...count(groups.length)}>{groups.length}</span> groups ·{" "}
+            <span {...count(projects.length)}>{projects.length}</span> projects
           </Kicker>
         </SubpageIntro>
 
