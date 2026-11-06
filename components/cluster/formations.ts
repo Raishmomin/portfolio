@@ -138,8 +138,9 @@ function skyline(items: { pods: number; tag: number }[], f: number, perRow: numb
 function experienceSlots(data: FormationData, pods: number, layout: Layout): Slot[] {
   const jobs = data.experience.map((e, tag) => ({ months: Math.max(1, e.months), tag })).reverse(); // oldest first
   const counts = apportion(jobs.map((j) => j.months), pods);
-  // The most recent role (display order index 0) is the live revision: its pods read Ready.
-  const status = (tag: number) => (tag === 0 ? STATUS.ready : undefined);
+  // The most recent role (display order index 0) is the live revision: only its top layer reads
+  // Ready (a green cap), so status green stays an accent rather than a solid block.
+  const status = (tag: number, top: boolean) => (tag === 0 && top ? STATUS.ready : undefined);
   const slots: Slot[] = [];
   if (layout === "portrait") {
     // A staircase: one f×f block of layers per company, oldest at the bottom, each newer
@@ -151,9 +152,10 @@ function experienceSlots(data: FormationData, pods: number, layout: Layout): Slo
     let y = HALF;
     jobs.forEach((job, k) => {
       const oz = (jobs.length - 1) / 2 * step - k * step;
+      const topLayer = Math.ceil(counts[k] / (f * f)) - 1;
       for (let p = 0; p < counts[k]; p++) {
         const layer = Math.floor(p / (f * f));
-        slots.push({ x: Math.floor((p % (f * f)) / f) - c, y: y + layer, z: oz + (p % f) - c, tag: job.tag, status: status(job.tag) });
+        slots.push({ x: Math.floor((p % (f * f)) / f) - c, y: y + layer, z: oz + (p % f) - c, tag: job.tag, status: status(job.tag, layer === topLayer) });
       }
       y += Math.ceil(counts[k] / (f * f)) + 1;
     });
@@ -163,7 +165,8 @@ function experienceSlots(data: FormationData, pods: number, layout: Layout): Slo
     jobs.forEach((job, k) => {
       for (let p = 0; p < counts[k]; p++) {
         const along = Math.floor(p / 4);
-        slots.push({ x: x + along, y: HALF + (Math.floor(p / 2) % 2), z: (p % 2) - 0.5, tag: job.tag, status: status(job.tag) });
+        const row = Math.floor(p / 2) % 2;
+        slots.push({ x: x + along, y: HALF + row, z: (p % 2) - 0.5, tag: job.tag, status: status(job.tag, row === 1) });
       }
       x += Math.ceil(counts[k] / 4) + 1;
     });
