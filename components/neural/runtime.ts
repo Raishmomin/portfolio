@@ -18,12 +18,27 @@ type Nav = Navigator & { connection?: { saveData?: boolean }; deviceMemory?: num
 export const REDUCED = "(prefers-reduced-motion: reduce)";
 
 let webgl2: boolean | undefined;
-/** Hardware WebGL2 only: software rasterisers fail `failIfMajorPerformanceCaveat`. */
+/** Software rasterisers (no GPU): headless/CI Chrome, VMs, broken drivers. Never worth running the scene on. */
+const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|software|basic render|mesa offscreen|subzero/i;
+
+/**
+ * Hardware WebGL2 only. `failIfMajorPerformanceCaveat` alone is not enough: headless Chrome
+ * (Lighthouse / PageSpeed Insights) hands out SwiftShader without flagging a caveat, so the
+ * unmasked renderer name is checked too.
+ */
 export function hasWebGL2(): boolean {
   if (webgl2 === undefined) {
     try {
       const gl = document.createElement("canvas").getContext("webgl2", { failIfMajorPerformanceCaveat: true });
-      webgl2 = !!gl;
+      let ok = !!gl;
+      if (gl) {
+        const info = gl.getExtension("WEBGL_debug_renderer_info");
+        const renderer = String(
+          (info && gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || "",
+        );
+        if (SOFTWARE_GL.test(renderer)) ok = false;
+      }
+      webgl2 = ok;
       gl?.getExtension("WEBGL_lose_context")?.loseContext();
     } catch {
       webgl2 = false;
