@@ -562,7 +562,7 @@ function Pods({ data, count, variant, active, onReady, onDecline }: Omit<ScenePr
 
   useEffect(() => {
     if (!engine) return;
-    // Colours follow the theme: next-themes flips the html class.
+    // Colours follow the theme: the theme toggle flips the html class.
     const mo = new MutationObserver(() => {
       engine.readTheme();
       invalidate();

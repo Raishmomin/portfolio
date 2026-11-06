@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { toFormationData } from "../../components/cluster";
+import { toFormationData } from "../../components/cluster/formation-data";
 import { Accent, Kicker } from "../../components/ui/primitives";
 import { RelatedPages, SubpageIntro } from "../../components/pages/about/subpage";
 import { StackMap, TopTechnologies } from "../../components/pages/skills/stack-map";

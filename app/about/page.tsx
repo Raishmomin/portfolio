@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { toFormationData } from "../../components/cluster";
+import { toFormationData } from "../../components/cluster/formation-data";
 import { Accent, ButtonLink, Container, Section } from "../../components/ui/primitives";
 import {
   AvailabilityLine,

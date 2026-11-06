@@ -3,7 +3,7 @@ import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { ContactForm } from "../../components/contact-form";
-import { toFormationData } from "../../components/cluster";
+import { toFormationData } from "../../components/cluster/formation-data";
 import { Accent, Container, Section } from "../../components/ui/primitives";
 import {
   RelatedPages,

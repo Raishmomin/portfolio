@@ -2,7 +2,8 @@
 // Server Components only. The h1 is plain, never animated (LCP).
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ClusterMonitor, toFormationData } from "../../cluster";
+import { ClusterMotif } from "../../cluster/motif";
+import { toFormationData } from "../../cluster/formation-data";
 import { Container, Kicker } from "../../ui/primitives";
 import { getExperience, getProjects, getSkills } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,7 @@ export async function PageMotif({
   const data = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
   return (
     <div aria-hidden="true" className={cn("hidden lg:block", className)}>
-      <ClusterMonitor data={data} variant="motif" className={motifClassName} />
+      <ClusterMotif data={data} className={motifClassName} />
     </div>
   );
 }

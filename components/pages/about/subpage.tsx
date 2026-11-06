@@ -4,7 +4,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { ClusterMonitor, type FormationData } from "../../cluster";
+import { ClusterMotif } from "../../cluster/motif";
+import type { FormationData } from "../../cluster/types";
 import { Container, Kicker, Section, SectionHeader, StatusDot } from "../../ui/primitives";
 import { PROFILE } from "@/lib/profile";
 import { cn } from "@/lib/utils";
@@ -62,7 +63,7 @@ export function SubpageIntro({
           {children}
         </div>
         <div className="hidden lg:col-span-4 lg:flex lg:justify-end">
-          <ClusterMonitor variant="motif" data={motif} className="w-full max-w-[280px]" />
+          <ClusterMotif data={motif} className="w-full max-w-[280px]" />
         </div>
       </div>
     </Container>
