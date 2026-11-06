@@ -5,7 +5,8 @@
 // - Composition: data-stage="left|right|full|band" (default left), blended like the
 //   scenes across section boundaries; phones (<1024px) use their own treatment.
 // - Pinned sections (ScrollTrigger wraps them in a .pin-spacer) are measured through
-//   their spacer, so progress keeps moving while the section itself stands still.
+//   their spacer, so progress keeps moving while the section itself stands still; a live
+//   [data-hscroll] section (sticky frame) progresses with its horizontal journey.
 // Values live in a tiny external store with one snapshot per scene, so a scene
 // re-renders only when its own (quantized) values change.
 import { BAND_BOTTOM, BAND_TOP, compositionFor, isLayout, zeroComposition, type Composition } from "./framing";
@@ -95,7 +96,11 @@ export function measure(out: Frame = emptyFrame()): Frame {
     const key = sceneOf(el);
     const stage = el.dataset.stage;
     const layout: StageLayout = isLayout(stage) ? stage : "left";
-    const progress = spacer ? clamp01(-r.top / Math.max(1, r.height - vh)) : clamp01((c - r.top) / r.height);
+    // Pinned (spacer) and sticky horizontal-journey sections ([data-hscroll-live]: one
+    // viewport plus the track's overflow tall) progress exactly with their scrub: 0 when
+    // they reach the top of the viewport, 1 when their bottom meets its bottom.
+    const held = spacer || el.hasAttribute("data-hscroll-live");
+    const progress = held ? clamp01(-r.top / Math.max(1, r.height - vh)) : clamp01((c - r.top) / r.height);
     const f = smooth(Math.min(clamp01((c - r.top + band) / (2 * band)), clamp01((r.bottom + band - c) / (2 * band))));
     // Several sections may share a scene (subpages): the most central one drives it.
     if (f > bestF[key]) {

@@ -368,6 +368,18 @@ html.js[data-motion="on"] .ai-pulse {
   translate: 2px -2px;
 }
 
+/* Cards entering from depth (perspective rotations) must never widen the page on phones.
+   clip, not hidden: no scroll container, so sticky frames/decks inside keep working. */
+#main {
+  overflow-x: clip;
+}
+/* The site footer sits on the page colour: the fixed 3D stage (the contact scene's
+   converging node and beam at the end of the page) never shows through its links. */
+#main ~ footer {
+  position: relative;
+  background-color: hsl(var(--background));
+}
+
 /*
  * Card motion (components/motion/cards.ts). Every rule is keyed on an attribute the
  * runtime sets while bound (data-*-live, data-lit, data-deck-top) or on html.motion-live,

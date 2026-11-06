@@ -73,6 +73,8 @@ export type AiFrameInput = {
   weight: number;
   pointer: { x: number; y: number };
   focus: string | null;
+  /** The project on top of the AI card deck ([data-deck] "cp:deck"), when the deck is live. */
+  deck: string | null;
   scale: number;
   /** Resting yaw of the whole pipeline (radians). */
   yaw: number;
@@ -148,9 +150,10 @@ export class AiRig {
     const model = f.model;
     const dt = Math.min(delta, 0.1);
     const n = model.projects.length;
-    let target = Math.min(n - 1, Math.floor(clamp01(f.progress) * n));
-    const picked = f.focus ? model.index.get(f.focus) : undefined;
-    if (picked !== undefined) target = picked;
+    // Hover/focus wins, then the card on top of the live deck, else equal progress slices
+    // (phones, motion off: no deck).
+    const picked = (f.focus ? model.index.get(f.focus) : undefined) ?? (f.deck ? model.index.get(f.deck) : undefined);
+    const target = picked ?? Math.min(n - 1, Math.floor(clamp01(f.progress) * n));
     this.cur = this.cur < 0 || this.cur > n - 1 || Math.abs(this.cur - target) < 1e-3 ? target : damp(this.cur, target, 3.2, dt);
     const a = Math.floor(this.cur);
     const b = Math.min(n - 1, a + 1);

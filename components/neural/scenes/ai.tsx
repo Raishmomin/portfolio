@@ -112,6 +112,22 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
   const llm = model.vocab.findIndex((v) => v.kind === "llm");
   const reg = useRef<AiRegistry>(emptyRegistry());
 
+  // The card on top of the AI deck (desktop [data-deck] emits "cp:deck"): the pipeline shows
+  // that project. Read per frame only while its deck is still live (it reverts on phones).
+  const deck = useRef<{ el: Element; id: string | null } | null>(null);
+  useEffect(() => {
+    const onDeck = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id ?? null;
+      if (e.target instanceof Element && id && model.index.has(id)) deck.current = { el: e.target, id };
+    };
+    document.addEventListener("cp:deck", onDeck);
+    const live = document.querySelector<HTMLElement>("[data-deck-live][data-deck-index]");
+    const top = live?.querySelector<HTMLElement>("[data-deck-top]");
+    const id = top?.dataset.focusId ?? top?.querySelector<HTMLElement>("[data-focus-id]")?.dataset.focusId;
+    if (live && id && model.index.has(id)) deck.current = { el: live, id };
+    return () => document.removeEventListener("cp:deck", onDeck);
+  }, [model]);
+
   // Labels: stage names under each stage, the current project's title above the pipe, in
   // the shared screen-space layer (active scene only, hidden over content, clamped).
   // Rebuilt when the theme changes; the layer itself is cheap plain DOM.
@@ -159,7 +175,9 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       ? fitFree(state.camera, state.size, 2.2, (PATH_W + 3.6) / 2, 1.1)
       : fitFree(state.camera, state.size, 6.7, 2.5, 1.1, 1.3);
     const r = reg.current;
-    rig.frame(state, dt, { model, progress, weight, pointer, focus, scale, yaw: portrait ? 0 : -0.32 }, r);
+    const d = deck.current;
+    const deckId = d && d.el.hasAttribute("data-deck-live") ? d.id : null;
+    rig.frame(state, dt, { model, progress, weight, pointer, focus, deck: deckId, scale, yaw: portrait ? 0 : -0.32 }, r);
     if (!layer || !ids || !r.root || !layer.begin(weight)) return;
     const { width: w, height: h } = state.size;
     r.root.updateMatrixWorld(true);

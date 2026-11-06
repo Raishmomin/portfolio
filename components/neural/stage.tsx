@@ -53,7 +53,8 @@ const SCENES: [SceneKey, ComponentType<SceneProps>][] = [
   ["ambient", Ambient],
 ];
 
-const MIN_FPS = 30; // sustained below this (back-to-back frames only) counts as a decline
+const MIN_FPS = 30; // a 1 s window below this (back-to-back frames only) is a slow window
+const SUSTAINED = 4; // this many slow windows in a row (already at low quality) fall back to the poster
 const WARMUP_FRAMES = 90; // first frames compile shaders and build scenes: not measured
 const IDLE_MS = 45_000; // no input for this long pauses the render loop until the next input
 const INPUTS = ["scroll", "wheel", "pointerdown", "pointermove", "keydown", "touchstart"] as const;
@@ -172,6 +173,9 @@ class Rig {
   private frames = 0;
   private time = 0;
   private seen = 0;
+  private slowRun = 0;
+  private monitored: SceneKey | null = null;
+  private quietUntil = 0;
 
   setPointer(x: number, y: number) {
     this.raw.x = x;
@@ -185,7 +189,7 @@ class Rig {
   private appliedW = 0;
   private appliedH = 0;
 
-  /** Advances one frame; returns true when the last second ran below MIN_FPS. */
+  /** Advances one frame; returns how many 1 s windows in a row ran below MIN_FPS (0 = none / not yet). */
   frame(
     camera: PerspectiveCamera,
     rawDelta: number,
@@ -193,7 +197,7 @@ class Rig {
     store: SceneStore,
     size: { width: number; height: number },
     dim: Dimmer,
-  ): boolean {
+  ): number {
     const dt = Math.min(rawDelta, 0.1);
     const { pointer, raw, sum, pos, look } = this;
     const kp = 1 - Math.exp(-dt / POINTER_TAU);
@@ -255,18 +259,27 @@ class Rig {
     }
     dim.update(c, frame);
 
-    // Frame monitor: only back-to-back frames count, after the warm-up.
+    // Frame monitor: only back-to-back frames count, after the warm-up, and not in the
+    // first second after a scene switch (a scene's first frames upload its buffers).
     const now = performance.now();
     const gap = now - this.last;
     this.last = now;
-    if (++this.seen < WARMUP_FRAMES || gap > 100) return false;
+    if (store.active !== this.monitored) {
+      this.monitored = store.active;
+      this.quietUntil = now + 1000;
+      this.frames = 0;
+      this.time = 0;
+    }
+    if (++this.seen < WARMUP_FRAMES || gap > 100 || now < this.quietUntil) return 0;
     this.frames += 1;
     this.time += gap;
-    if (this.time < 1000) return false;
+    if (this.time < 1000) return 0;
     const slow = (this.frames * 1000) / this.time < MIN_FPS;
     this.frames = 0;
     this.time = 0;
-    return slow;
+    // Consecutive slow windows: a passing hitch (a busy scroll, GC, another app) resets.
+    this.slowRun = slow ? this.slowRun + 1 : 0;
+    return this.slowRun;
   }
 }
 
@@ -297,7 +310,7 @@ function Director({
   data: NeuralData;
   quality: Quality;
   onReady: (ready: boolean) => void;
-  onDecline: () => void;
+  onDecline: (slowRun: number) => void;
 }) {
   const get = useThree((s) => s.get);
   const [store] = useState(() => {
@@ -417,7 +430,8 @@ function Director({
 
   useFrame((state, delta) => {
     const aspect = state.size.width / Math.max(1, state.size.height);
-    if (rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim)) onDecline();
+    const slowRun = rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim);
+    if (slowRun) onDecline(slowRun);
   }, -1);
 
   return (
@@ -448,12 +462,17 @@ export default function Stage({ data, active, onReady, onFallback }: StageProps)
   const [idle, setIdle] = useState(false);
   const declines = useRef(0);
 
-  // First decline: low quality (half the counts, dpr 1); a third falls back to the poster.
-  const onDecline = useCallback(() => {
-    declines.current += 1;
-    if (declines.current === 1) setQuality("low");
-    if (declines.current >= 3) onFallback();
-  }, [onFallback]);
+  // A slow second drops to low quality (half the counts, dpr 1); only a device that stays
+  // slow at low quality (SUSTAINED seconds in a row) falls back to the poster, so a few
+  // passing hitches over a long visit never take the 3D away.
+  const onDecline = useCallback(
+    (slowRun: number) => {
+      declines.current += 1;
+      if (declines.current === 1) setQuality("low");
+      else if (slowRun >= SUSTAINED) onFallback();
+    },
+    [onFallback],
+  );
 
   // Idle pause: no input for IDLE_MS stops the render loop; any input resumes it.
   useEffect(() => {
