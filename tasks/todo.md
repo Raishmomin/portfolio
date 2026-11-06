@@ -46,7 +46,7 @@ Rule: borrow patterns, never clone any single portfolio's design, copy, or asset
 - [x] lane-pages-a: /about /skills /experience /contact (wt-pages-a)
 - [x] lane-pages-b: /projects /services /blog /404 (wt-pages-b)
 - [x] Lead merges lanes -> redesign-3d, build
-- [ ] Parallel verification (crawler/SEO, perf/CWV, a11y+no-JS+reduced-motion, visual vs spec, code health) + fixer
+- [x] Parallel verification (crawler/SEO, perf/CWV, a11y+no-JS+reduced-motion, visual vs spec, code health) + 2 parallel fixers (fix-3d, fix-ui), merged into redesign-3d
 
 ## Recovery after reboot (2026-11-06)
 - [x] Branches intact (integration b84fcc4); rulebook + checker recovered from agent transcripts -> tasks/seo-audit.md, tasks/qa/seo_check.py
@@ -72,5 +72,28 @@ Rule: borrow patterns, never clone any single portfolio's design, copy, or asset
 - Keep public/google797364b8fd6f1221.html (Search Console verification)
 - Semantic HTML, one h1 per page, alt text, keyboard nav, prefers-reduced-motion
 
-## Review
-_(filled in after QA)_
+## Review (2026-11-06)
+Branch `redesign-3d` (local, not pushed) = verified integration build + docs. tsc, eslint, build clean; indexable routes static/ISR.
+
+| Check | Original (dee9f64) | Redesign |
+|---|---|---|
+| Old URLs | 68 × 200 | 68 OK (29 × 200, 39 duplicate posts 301 -> canonical 200) |
+| seo_check, 7 user agents (incl. GPTBot/ClaudeBot/PerplexityBot) | 38/68 pages with hard failures | 0 hard failures on all 24 live pages |
+| Words visible to non-JS crawlers | / 275, /projects 88, /skills 73, /experience 64 | / 1500, /projects 2777, /skills 382, /experience 337 |
+| Lighthouse mobile median (perf / LCP / CLS / TBT), home | 90 / 3.0s / ≤0.137 / 200ms | 97 / 2.2s / 0 / 140ms |
+| /projects | 88 / 3.0s / 0.142 / 140ms | 93 / 2.1s / 0 / 290ms (TBT up: 21 projects now server-rendered in full) |
+| /services/nextjs-development | 96 / 2.3s / 0 / 170ms | 97 / 2.0s / 0.013 / 150ms |
+| Blog post | 89 / 2.5s / 0 / 320ms | 96 / 2.1s / 0 / 200ms |
+| Lighthouse a11y / BP / SEO | 96–100 / 100 / 100 | 100 / 100 / 100 everywhere; axe: 0 violations in 60 runs |
+| Initial JS gzip | / 165 KB, subpages 153–157 KB | / 145 KB, subpages 138 KB (3D chunk 254 KB lazy, capable devices only) |
+
+Open / owner follow-ups:
+- [ ] Headshot photo -> Person.image, OG, author bio (currently the generated OG card)
+- [ ] Review/rewrite the 12 remaining AI-written blog posts (some technically wrong); cron is paused (BLOG_AUTOGEN_ENABLED)
+- [ ] Confirm Cybersurf role title (DB vs description mismatch flagged by verifiers)
+- [ ] Phone number is now server-rendered on /contact (was client-only before) — keep or remove
+- [ ] /projects TBT 290ms: consider collapsing feature lists or paginating
+- [ ] Budgets re-baselined: subpage JS 138 KB vs 130 KB target (framework floor ~136 KB on Next 16/React 19); 3D chunk 254 KB vs 250 KB spec (rulebook 300 KB)
+- [ ] After deploy: Search Console + Bing Webmaster sitemap resubmit, Rich Results test, watch field CWV for 28 days
+- [ ] ⌘K command palette (P2) not built
+
