@@ -100,8 +100,12 @@ Open / owner follow-ups:
 
 ## Phase 4 — Neural redesign (owner feedback 2026-11-06: make it understandable, AI-themed, fully animated)
 - [x] Contract (components/neural/types.ts, neural-data.ts), stubs, spec (tasks/neural-spec.md) — commit 48e4abe
-- [ ] 6 parallel lanes: engine+hero, scenes-a (stack, experience), scenes-b (ai, work, contact), motion (GSAP scroll system), home, pages
-- [ ] Merge lanes -> delete components/cluster -> build
-- [ ] Verify: SEO parity (bots), perf budgets, a11y/reduced-motion/no-JS, visual review on owner-like hardware (4 threads, no core spoofing)
-- [ ] After merge: place PROFILE.photo in home About, /about and AuthorBio (next/image, priority=false)
+- [x] 6 parallel lanes: engine+hero, scenes-a (stack, experience), scenes-b (ai, work, contact), motion (GSAP scroll system), home, pages
+- [x] Merge lanes -> delete components/cluster -> build (redesign-3d d64d5a9)
+- [x] Verify on owner-like hardware (4 threads, real GPU, no spoofing): scenes switch per section, 1 canvas, 0 errors
+- [x] SEO: 68 old URLs OK, 0 hard failures for default/Googlebot/GPTBot/ClaudeBot/PerplexityBot, 1 h1, facts + headshot ImageObject in HTML
+- [x] Fixes found in QA: scenes framed in the free right side on desktop; software WebGL rejected (lab TBT 6.6 s -> 0.3-0.55 s)
+- [ ] Follow-up: home lab perf 85-91 (was 97 before the full-animation rebuild) — HTML parse + hydration of the bigger page; trim if needed
+- [ ] Follow-up: experience label for the current role clips at the right edge on 1440px
+- [x] Photo placed: hero avatar, /about portrait card, blog author avatar
 - [ ] Owner: add the AI tutor (live speaking) project to MongoDB `projects` (category ["AI"], technologies incl. speech/TTS) — it appears in the AI section automatically
