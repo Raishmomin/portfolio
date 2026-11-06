@@ -138,16 +138,22 @@ function skyline(items: { pods: number; tag: number }[], f: number, perRow: numb
 function experienceSlots(data: FormationData, pods: number, layout: Layout): Slot[] {
   const jobs = data.experience.map((e, tag) => ({ months: Math.max(1, e.months), tag })).reverse(); // oldest first
   const counts = apportion(jobs.map((j) => j.months), pods);
+  // The most recent role (display order index 0) is the live revision: its pods read Ready.
+  const status = (tag: number) => (tag === 0 ? STATUS.ready : undefined);
   const slots: Slot[] = [];
   if (layout === "portrait") {
-    // A tower: one block of layers per company, oldest at the bottom, a gap between companies.
+    // A staircase: one f×f block of layers per company, oldest at the bottom, each newer
+    // block a layer higher and stepped back along −z (screen up-right), so every block
+    // leaves its predecessor's top face visible as a ledge.
     const f = 4;
     const c = (f - 1) / 2;
+    const step = 2;
     let y = HALF;
     jobs.forEach((job, k) => {
+      const oz = (jobs.length - 1) / 2 * step - k * step;
       for (let p = 0; p < counts[k]; p++) {
         const layer = Math.floor(p / (f * f));
-        slots.push({ x: Math.floor((p % (f * f)) / f) - c, y: y + layer, z: (p % f) - c, tag: job.tag });
+        slots.push({ x: Math.floor((p % (f * f)) / f) - c, y: y + layer, z: oz + (p % f) - c, tag: job.tag, status: status(job.tag) });
       }
       y += Math.ceil(counts[k] / (f * f)) + 1;
     });
@@ -157,7 +163,7 @@ function experienceSlots(data: FormationData, pods: number, layout: Layout): Slo
     jobs.forEach((job, k) => {
       for (let p = 0; p < counts[k]; p++) {
         const along = Math.floor(p / 4);
-        slots.push({ x: x + along, y: HALF + (Math.floor(p / 2) % 2), z: (p % 2) - 0.5, tag: job.tag });
+        slots.push({ x: x + along, y: HALF + (Math.floor(p / 2) % 2), z: (p % 2) - 0.5, tag: job.tag, status: status(job.tag) });
       }
       x += Math.ceil(counts[k] / 4) + 1;
     });
@@ -237,6 +243,24 @@ function pack(slots: Slot[], plates: number[], count: number, seed: number, view
   };
 }
 
+/**
+ * Pods that can hop: scheduled pods with nothing above them. Pods are axis-aligned
+ * 0.8 cubes, so a straight lift can only meet a pod whose footprint overlaps in x and z.
+ */
+export function hopCandidates(f: Formation): Uint16Array {
+  const p = f.positions;
+  const out: number[] = [];
+  for (let i = 0; i < f.visible; i++) {
+    if (f.status[i] === STATUS.hidden) continue;
+    let free = true;
+    for (let j = 0; j < f.visible && free; j++) {
+      free = !(j !== i && p[j * 3 + 1] > p[i * 3 + 1] + 0.01 && Math.abs(p[j * 3] - p[i * 3]) < POD && Math.abs(p[j * 3 + 2] - p[i * 3 + 2]) < POD);
+    }
+    if (free) out.push(i);
+  }
+  return Uint16Array.from(out);
+}
+
 export function buildFormations(
   data: FormationData,
   count: number,
@@ -258,14 +282,12 @@ export function buildFormations(
   const hero = heroSlots(n, layout);
   const pods = hero.slots.length;
   const heroView = viewOf(hero.slots, hero.plates);
-  // "about": the same scheduling, framed closer on the middle node.
-  const mid = hero.slots[n * n + (n * n) / 2 - n / 2];
-  const aboutView: FormationView = {
-    cx: projectX(mid.x, 0, mid.z),
-    cy: projectY(mid.x, 0, mid.z),
-    w: heroView.w * 0.62,
-    h: heroView.h * 0.62,
-  };
+  // "about": the same scheduling, the camera eased in on the middle node: its whole
+  // plate fills the frame edge to edge (VIEW_MARGIN still leaves air at the corners);
+  // the neighbouring nodes stay in view above and below.
+  const aboutView = viewOf(hero.slots.slice(n * n, 2 * n * n), hero.plates.slice(4, 8));
+  aboutView.w *= 0.96;
+  aboutView.h *= 0.96;
 
   const skillItems = data.skills.map((s, tag) => ({ weight: s.count, tag }));
   const skillPods = apportion(skillItems.map((s) => s.weight), pods);

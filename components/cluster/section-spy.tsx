@@ -1,8 +1,14 @@
 "use client";
 
-// One IntersectionObserver over [data-section] drives the monitor's formation and
-// the header's aria-current; document-level delegation maps hover/focus on project
+// One IntersectionObserver over the page's sections drives the monitor's formation
+// and the header's aria-current; document-level delegation maps hover/focus on project
 // cards and skill groups to scene focus. Renders nothing.
+//
+// Sections: [data-section] (formation keys) plus any other <section id> in <main>
+// (services, writing, faq). Every centred section re-marks the nav, so one without a
+// nav item clears aria-current; one without a formation keeps the formation of the
+// nearest formation section above it (document order, so the result never depends on
+// scroll direction).
 import { useEffect } from "react";
 import { clusterStore } from "./store";
 import { FORMATION_KEYS, type FormationKey, type SkillGroupKey } from "./types";
@@ -30,18 +36,27 @@ function focusFrom(target: EventTarget | null) {
 
 export function SectionSpy() {
   useEffect(() => {
+    const formationOf = new Map<Element, FormationKey>();
+    const navKey = new Map<Element, string>();
+    let last: FormationKey = "hero";
+    for (const el of document.querySelectorAll<HTMLElement>("[data-section], main section[id]")) {
+      const key = el.dataset.section ?? el.id;
+      if (SECTIONS.has(key)) last = key as FormationKey;
+      formationOf.set(el, last);
+      navKey.set(el, key);
+    }
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const key = (entry.target as HTMLElement).dataset.section;
-          if (!entry.isIntersecting || !key || !SECTIONS.has(key)) continue;
-          if (clusterStore.getState().section !== key) clusterStore.setState({ section: key as FormationKey });
-          markNav(key);
+          if (!entry.isIntersecting) continue;
+          const section = formationOf.get(entry.target);
+          if (section && clusterStore.getState().section !== section) clusterStore.setState({ section });
+          markNav(navKey.get(entry.target) ?? "");
         }
       },
       { rootMargin: "-45% 0px -50% 0px" },
     );
-    document.querySelectorAll("[data-section]").forEach((el) => io.observe(el));
+    formationOf.forEach((_, el) => io.observe(el));
 
     const enter = (e: Event) => focusFrom(e.target);
     // relatedTarget is where the pointer/focus went: null or outside a card clears the focus.
