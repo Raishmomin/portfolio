@@ -97,3 +97,10 @@ Open / owner follow-ups:
 - [ ] After deploy: Search Console + Bing Webmaster sitemap resubmit, Rich Results test, watch field CWV for 28 days
 - [ ] ⌘K command palette (P2) not built
 
+
+## Phase 4 — Neural redesign (owner feedback 2026-11-06: make it understandable, AI-themed, fully animated)
+- [x] Contract (components/neural/types.ts, neural-data.ts), stubs, spec (tasks/neural-spec.md) — commit 48e4abe
+- [ ] 6 parallel lanes: engine+hero, scenes-a (stack, experience), scenes-b (ai, work, contact), motion (GSAP scroll system), home, pages
+- [ ] Merge lanes -> delete components/cluster -> build
+- [ ] Verify: SEO parity (bots), perf budgets, a11y/reduced-motion/no-JS, visual review on owner-like hardware (4 threads, no core spoofing)
+- [ ] Owner: add the AI tutor (live speaking) project to MongoDB `projects` (category ["AI"], technologies incl. speech/TTS) — it appears in the AI section automatically
