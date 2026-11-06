@@ -3,18 +3,10 @@
 // split/counter DOM. Loaded only inside the lazy motion runtime.
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { CARD_BINDERS } from "./cards";
+import { DESKTOP, FINE, NOOP, clamp, seen, type Binding } from "./shared";
 
-export type Binding = { revert(): void };
-const NOOP: Binding = { revert() {} };
-
-/** Mouse/trackpad devices only (tilt, magnetic, cursor glow). */
-export const FINE = "(hover: hover) and (pointer: fine)";
-const DESKTOP = "(min-width: 1024px)";
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-
-/** Already on screen (or scrolled past) when the runtime bound it: never hide what was seen. */
-const seen = (el: Element) => el.getBoundingClientRect().top < window.innerHeight * 0.92;
+export { FINE, type Binding };
 
 /** Swap text nodes for replacement nodes; returns an idempotent restore of the ORIGINAL nodes. */
 function swapText(pairs: [Text, Node[]][]): () => void {
@@ -235,9 +227,17 @@ function tilt(el: HTMLElement): Binding {
     const rx = gsap.quickTo(el, "rotationX", { duration: 0.6, ease: "power3" });
     const ry = gsap.quickTo(el, "rotationY", { duration: 0.6, ease: "power3" });
     const lift = gsap.quickTo(el, "z", { duration: 0.6, ease: "power3" });
+    // The untilted rect, cached on enter (reading it per move would measure the tilt
+    // itself); re-read only after the page scrolled.
+    let r: DOMRect | null = null;
+    let at = 0;
     const move = (e: PointerEvent) => {
       if (e.pointerType === "touch") return;
-      const r = el.getBoundingClientRect();
+      if (!r || at !== window.scrollY) {
+        if (!r) r = el.getBoundingClientRect();
+        else r = new DOMRect(r.x, r.y + at - window.scrollY, r.width, r.height);
+        at = window.scrollY;
+      }
       const px = clamp((e.clientX - r.left) / r.width, 0, 1);
       const py = clamp((e.clientY - r.top) / r.height, 0, 1);
       ry((px - 0.5) * 2 * max);
@@ -248,6 +248,7 @@ function tilt(el: HTMLElement): Binding {
       el.setAttribute("data-tilting", "");
     };
     const leave = () => {
+      r = null;
       rx(0);
       ry(0);
       lift(0);
@@ -299,6 +300,7 @@ function magnetic(el: HTMLElement): Binding {
 
 /** Attribute → binder. The runtime binds each element once per attribute. */
 export const BINDERS: Record<string, (el: HTMLElement) => Binding> = {
+  ...CARD_BINDERS,
   "data-split": split,
   "data-count": count,
   "data-parallax": parallax,

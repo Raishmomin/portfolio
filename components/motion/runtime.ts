@@ -4,12 +4,13 @@
 // (DOM restored, inline styles cleared) when motion is turned off.
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { BINDERS, type Binding } from "./bindings";
+import { BINDERS } from "./bindings";
+import type { Binding } from "./shared";
 import { mountChrome } from "./chrome";
 
 gsap.registerPlugin(ScrollTrigger);
 gsap.config({ nullTargetWarn: false });
-ScrollTrigger.config({ ignoreMobileResize: true });
+ScrollTrigger.config({ ignoreMobileResize: true, limitCallbacks: true });
 
 const bound = new Map<string, Map<Element, Binding>>();
 let running = false;
@@ -32,10 +33,31 @@ function scheduleRefresh() {
     // (anchor/keyboard) scroll short: wait until scrolling has been idle for 150 ms.
     if (performance.now() - lastScroll < 150) return scheduleRefresh();
     lastHeight = document.documentElement.scrollHeight;
+    const keep = anchor();
     // Refresh in page order: a pin's spacer must exist before the triggers below it measure.
     ScrollTrigger.sort();
     ScrollTrigger.refresh();
+    // A refresh restores the numeric scroll position, so a pin spacer inserted above the
+    // reader (e.g. after landing on /#ai) would push the content away: put it back.
+    if (keep) {
+      const moved = boxOf(keep[0]).getBoundingClientRect().top - keep[1];
+      if (Math.abs(moved) > 1) window.scrollBy({ top: moved, behavior: "instant" });
+    }
   }, 120);
+}
+
+/** A pinned section's in-flow box is its pin spacer. */
+const boxOf = (s: Element) => (s.parentElement?.classList.contains("pin-spacer") ? s.parentElement : s);
+
+/** The section under the reading line (30% down the viewport) and its box's top, or null at the very top. */
+function anchor(): [Element, number] | null {
+  if (window.scrollY < 1) return null;
+  const line = window.innerHeight * 0.3;
+  for (const s of document.querySelectorAll("main [data-section]")) {
+    const r = boxOf(s).getBoundingClientRect();
+    if (r.bottom > line) return [s, r.top];
+  }
+  return null;
 }
 
 const PENDING: Binding = { revert() {} };
@@ -46,6 +68,9 @@ let bindChanged = false;
 /** Drop bindings whose element left the DOM and queue new hook elements. */
 function scan() {
   if (!running) return;
+  // Never bind under an in-flight scroll (e.g. the smooth jump to a #hash on load): what is
+  // "already seen" and whether a pin may still change the layout depend on where it ends.
+  if (performance.now() - lastScroll < 150) return queueScan();
   let changed = false;
   for (const [, map] of bound) {
     for (const [el, binding] of map) {
@@ -76,7 +101,13 @@ function drain() {
   while (queue.length && running) {
     const [map, el, bind] = queue.shift()!;
     if (el.isConnected && map.get(el) === PENDING) {
-      map.set(el, bind(el));
+      // One broken element must never stop the rest of the page from binding.
+      try {
+        map.set(el, bind(el));
+      } catch (err) {
+        map.set(el, { revert() {} });
+        if (process.env.NODE_ENV !== "production") console.warn("[motion] bind failed", el, err);
+      }
       bindChanged = true;
     }
     if (performance.now() - t0 > 8) {
@@ -95,14 +126,17 @@ function queueScan() {
   scanTimer = window.setTimeout(scan, 80);
 }
 
-/** Only element additions/removals that are not our own split words, glare or pin spacers. */
+/** Our own nodes (split words, glare, pin spacers, ticker clones/button) never trigger a rescan. */
+const OWN = ["split-word", "tilt-glare", "pin-spacer", "mq-clone", "mq-pause"];
+
+/** Only element additions/removals that are not our own nodes. */
 function relevant(records: MutationRecord[]): boolean {
   for (const r of records) {
     for (const list of [r.addedNodes, r.removedNodes]) {
       for (const n of list) {
         if (n.nodeType !== 1) continue;
         const el = n as Element;
-        if (el.classList.contains("split-word") || el.classList.contains("tilt-glare") || el.classList.contains("pin-spacer")) continue;
+        if (OWN.some((c) => el.classList.contains(c))) continue;
         return true;
       }
     }

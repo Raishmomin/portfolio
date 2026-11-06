@@ -1,7 +1,8 @@
 // Home sections after the work scene: services, the 3D-site call to action, writing,
 // FAQ and contact (contact owns the final 3D scene). Server Components; the contact form
-// and "copy email" are the only client islands. Sections without a scene keep the
-// previous scene, dimmed, behind their panels.
+// and "copy email" are the only client islands. Each declares its own composition
+// (data-stage) so the rhythm alternates; sections without a scene get the stage's calm
+// ambient field.
 import { Suspense } from "react";
 import Link from "next/link";
 import { Accent, ButtonLink } from "../ui/primitives";
@@ -13,38 +14,64 @@ import { shortDate } from "@/lib/derive";
 import { cn } from "@/lib/utils";
 import { CopyEmail } from "../copy-email";
 import type { PostRow } from "./latest-posts";
-import { HomeSection, NeuralGlyph, SectionHead, aiText, panel, reveal } from "./ui";
+import { HomeSection, NeuralGlyph, SectionHead, aiText, column, panel } from "./ui";
 
-const rowLink =
-  "group grid grid-cols-[2.25rem_1fr_auto] items-baseline gap-x-3 py-5 transition-colors duration-150";
+/** "AWS (EC2, ECS, …)" -> "AWS": a short chip label for a service's stack entry. */
+const chipLabel = (t: string) => t.replace(/\s*\(.*?\)/g, "").trim();
 
+/** "right" composition over the ambient field: four service cards flip in from depth. */
 export function ServicesSection({ services }: { services: ServiceConfig[] }) {
   return (
-    <HomeSection id="services" section="services" labelledBy="services-heading">
-      <div className={cn(panel, "p-6 md:p-8 lg:max-w-[46rem]")} {...reveal()}>
-        <SectionHead
-          id="services-heading"
-          index="05"
-          kicker="services"
-          title={
-            <>
-              Ways to <Accent>work together.</Accent>
-            </>
-          }
-        />
-        <ul className="mt-8 border-t border-border">
+    <HomeSection id="services" section="services" stage="right" labelledBy="services-heading">
+      <div className={column.right}>
+        <div data-card="" className={cn(panel, "p-6 md:p-8")}>
+          <SectionHead
+            id="services-heading"
+            index="05"
+            kicker="services"
+            title={
+              <>
+                Ways to <Accent>work together.</Accent>
+              </>
+            }
+          />
+        </div>
+        <ul data-card-group="" className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {services.map((s, i) => (
-            <li key={s.slug} className="border-b border-border last:border-b-0">
-              <Link href={`/services/${s.slug}`} className={rowLink}>
-                <span className="font-mono text-xs text-muted-foreground tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                <span className="min-w-0">
-                  <h3 className="text-lg font-semibold leading-6 tracking-[-0.015em] text-foreground group-hover:text-primary">
-                    {s.h1}
-                  </h3>
-                  <span className="mt-1 block text-[15px] leading-6 text-muted-foreground">{s.tagline}</span>
+            <li key={s.slug} data-card="flip" className="flex">
+              <Link
+                href={`/services/${s.slug}`}
+                data-tilt="4"
+                data-spotlight=""
+                className={cn(panel, "group flex w-full flex-col p-5 transition-colors duration-150 hover:border-foreground/30")}
+              >
+                <span data-card-part="" className="font-mono text-xs text-muted-foreground tabular-nums">
+                  {String(i + 1).padStart(2, "0")}
                 </span>
-                <span aria-hidden="true" className="text-muted-foreground transition-[translate] duration-150 group-hover:translate-x-0.5">
-                  →
+                <h3
+                  data-card-part=""
+                  className="mt-3 text-lg font-semibold leading-6 tracking-[-0.015em] text-foreground transition-colors duration-150 group-hover:text-primary"
+                >
+                  {s.h1}
+                </h3>
+                <span data-card-part="" className="mt-2 block text-[15px] leading-6 text-muted-foreground">
+                  {s.tagline}
+                </span>
+                <span data-card-part="pop" className="mt-4 flex flex-wrap gap-1.5">
+                  {s.techStack.slice(0, 3).map((t) => (
+                    <span key={t} className="pill">
+                      {chipLabel(t)}
+                    </span>
+                  ))}
+                </span>
+                <span
+                  data-card-part=""
+                  className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-medium text-foreground"
+                >
+                  Explore
+                  <span aria-hidden="true" className="transition-[translate] duration-200 group-hover:translate-x-2">
+                    →
+                  </span>
                 </span>
               </Link>
             </li>
@@ -55,33 +82,65 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
   );
 }
 
-/** "Want a 3D site like this?" — the page itself is the portfolio piece. */
-export function ThreeDCtaSection() {
+/** The capabilities ticker under the 3D call to action (real skill names from the DB). */
+function Capabilities({ items }: { items: string[] }) {
+  if (!items.length) return null;
   return (
-    <HomeSection id="build-3d" section="cta" labelledBy="build-3d-heading">
-      <div className={cn(panel, "relative overflow-hidden p-6 md:p-10 lg:max-w-[52rem]")} {...reveal()}>
+    <div data-marquee="" className="relative mt-12 py-1 lg:mt-16">
+      <ul aria-label="Technologies I build with" className="gap-y-2">
+        {items.map((t) => (
+          <li key={t} className="shrink-0 pr-3">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/85 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
+              <span aria-hidden="true" className="h-1 w-1 rounded-full bg-primary" />
+              {t}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** "Want a 3D site like this?" — the page itself is the portfolio piece. "full" composition. */
+export function ThreeDCtaSection({ capabilities }: { capabilities: string[] }) {
+  return (
+    <HomeSection
+      id="build-3d"
+      section="cta"
+      stage="full"
+      labelledBy="build-3d-heading"
+      bleed={<Capabilities items={capabilities} />}
+    >
+      <div
+        data-card="zoom"
+        data-spotlight=""
+        className={cn(panel, "relative mx-auto max-w-4xl overflow-hidden p-6 text-center md:p-12")}
+      >
         <div
           aria-hidden="true"
           data-parallax="-0.3"
           className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgb(63_91_217/0.22),transparent)] dark:bg-[radial-gradient(closest-side,rgb(124_156_255/0.22),transparent)]"
         />
-        <p className={cn("relative inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em]", aiText)}>
+        <p
+          data-card-part=""
+          className={cn("relative inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em]", aiText)}
+        >
           <NeuralGlyph />
           Interactive 3D web
         </p>
         <h2
           id="build-3d-heading"
           data-split=""
-          className="relative mt-4 text-balance text-[clamp(2rem,5vw,3.75rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-foreground"
+          className="relative mx-auto mt-4 max-w-[18ch] text-balance text-[clamp(2rem,5.4vw,4.25rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-foreground"
         >
           Want a 3D site <Accent>like this one?</Accent>
         </h2>
-        <p className="relative mt-5 max-w-[56ch] text-[17px] leading-7 text-muted-foreground">
+        <p data-card-part="" className="relative mx-auto mt-5 max-w-[56ch] text-[17px] leading-7 text-muted-foreground">
           I build interactive 3D web experiences. The neural network on this page is drawn live in your browser with
           WebGL (Three.js and React Three Fiber), while every word stays server-rendered HTML, so search engines and
           AI assistants read it all.
         </p>
-        <div className="relative mt-8 flex flex-wrap gap-3">
+        <div data-card-part="" className="relative mt-8 flex flex-wrap justify-center gap-3">
           <ButtonLink href="/contact" data-magnetic="">
             Start a 3D project <span aria-hidden="true">→</span>
           </ButtonLink>
@@ -94,11 +153,12 @@ export function ThreeDCtaSection() {
   );
 }
 
+/** "band" composition: the ambient field owns the top; the post cards zoom in as a wave. */
 export function WritingSection({ posts }: { posts: PostRow[] }) {
   if (!posts.length) return null;
   return (
-    <HomeSection id="writing" section="writing" labelledBy="writing-heading">
-      <div className={cn(panel, "p-6 md:p-8 lg:max-w-[46rem]")} {...reveal()}>
+    <HomeSection id="writing" section="writing" stage="band" labelledBy="writing-heading">
+      <div data-card="" className="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
         <SectionHead
           id="writing-heading"
           index="06"
@@ -109,53 +169,76 @@ export function WritingSection({ posts }: { posts: PostRow[] }) {
             </>
           }
         />
-        <ul className="mt-8 border-t border-border">
-          {posts.map((p) => (
-            <li key={p.slug} className="border-b border-border">
-              <Link href={`/blog/${p.slug}`} className="group block py-5">
-                <h3 className="text-[17px] font-medium leading-6 tracking-[-0.01em] text-foreground group-hover:text-primary">
-                  {p.title}
-                </h3>
-                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
-                  <time dateTime={p.publishedAt}>{shortDate(p.publishedAt)}</time>
-                  {p.readTime ? ` · ${p.readTime} min read` : null}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
         <Link
           href="/blog"
-          className="mt-6 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-primary"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-primary"
         >
           All posts <span aria-hidden="true">→</span>
         </Link>
       </div>
+      <ul data-card-group="" className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {posts.map((p, i) => (
+          <li key={p.slug} data-card="zoom" className="flex">
+            <Link
+              href={`/blog/${p.slug}`}
+              data-tilt="4"
+              data-spotlight=""
+              className={cn(panel, "group flex w-full flex-col p-5 transition-colors duration-150 hover:border-foreground/30")}
+            >
+              <span
+                data-card-part=""
+                className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground tabular-nums"
+              >
+                {String(i + 1).padStart(2, "0")} · <time dateTime={p.publishedAt}>{shortDate(p.publishedAt)}</time>
+                {p.readTime ? ` · ${p.readTime} min read` : null}
+              </span>
+              <h3
+                data-card-part=""
+                className="mt-4 text-[17px] font-medium leading-6 tracking-[-0.01em] text-foreground transition-colors duration-150 group-hover:text-primary"
+              >
+                {p.title}
+              </h3>
+              <span data-card-part="" className="mt-auto inline-flex items-center gap-1 pt-6 text-sm text-muted-foreground">
+                Read
+                <span aria-hidden="true" className="transition-[translate] duration-200 group-hover:translate-x-2">
+                  →
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </HomeSection>
   );
 }
 
+/** "left" composition: each question is its own card; answers open smoothly. */
 export function FaqSection({ faqs }: { faqs: FAQ[] }) {
   return (
-    <HomeSection id="faq" section="faq" labelledBy="faq-heading">
-      <div className={cn(panel, "p-6 md:p-8 lg:max-w-[46rem]")} {...reveal()}>
-        <SectionHead
-          id="faq-heading"
-          index="07"
-          kicker="faq"
-          title={
-            <>
-              Questions, <Accent>answered.</Accent>
-            </>
-          }
-        />
-        <ul className="mt-8 border-t border-border">
+    <HomeSection id="faq" section="faq" stage="left" labelledBy="faq-heading">
+      <div className={column.left}>
+        <div data-card="" className={cn(panel, "p-6 md:p-8")}>
+          <SectionHead
+            id="faq-heading"
+            index="07"
+            kicker="faq"
+            title={
+              <>
+                Questions, <Accent>answered.</Accent>
+              </>
+            }
+          />
+        </div>
+        <ul data-card-group="" className="mt-4 grid grid-cols-1 gap-3">
           {faqs.map((f) => (
-            <li key={f.q} className="border-b border-border last:border-b-0">
-              <details className="group">
+            <li key={f.q} data-card="">
+              <details data-spotlight="" className={cn(panel, "faq group px-5")}>
                 <summary className="flex min-h-12 cursor-pointer list-none items-start justify-between gap-6 py-4 [&::-webkit-details-marker]:hidden">
                   <h3 className="text-[17px] font-medium leading-6 tracking-[-0.01em] text-foreground">{f.q}</h3>
-                  <span aria-hidden="true" className="mt-0.5 font-mono text-lg leading-5 text-muted-foreground transition-transform duration-200 group-open:rotate-45">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 font-mono text-lg leading-5 text-muted-foreground transition-transform duration-300 group-open:rotate-45 group-open:text-primary"
+                  >
                     +
                   </span>
                 </summary>
@@ -175,11 +258,13 @@ const SOCIALS = [
   { label: "X", href: PROFILE.social.x },
 ] as const;
 
+/** "full" composition: the network converges behind the centred contact card. */
 export function ContactSection() {
   return (
-    <HomeSection id="contact" section="contact" labelledBy="contact-heading" scene>
-      <div className={cn(panel, "p-6 md:p-8 lg:max-w-[40rem]")} {...reveal()}>
+    <HomeSection id="contact" section="contact" stage="full" scene labelledBy="contact-heading">
+      <div data-card="">
         <SectionHead
+          center
           id="contact-heading"
           index="08"
           kicker="contact"
@@ -190,8 +275,10 @@ export function ContactSection() {
           }
           scene="The whole network converges into one bright node, with a line drawn out to you: a direct line to me."
         />
-        <dl className="mt-8 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
-          <div className="bg-background p-5 sm:col-span-2">
+      </div>
+      <div data-card="zoom" className={cn(panel, "mx-auto mt-10 max-w-[52rem] p-6 md:p-8 lg:mt-14")}>
+        <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
+          <div data-card-part="" className="bg-background p-5 sm:col-span-2">
             <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">Email</dt>
             <dd className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
               <a
@@ -203,17 +290,17 @@ export function ContactSection() {
               <CopyEmail email={PROFILE.email} />
             </dd>
           </div>
-          <div className="bg-background p-5">
+          <div data-card-part="" className="bg-background p-5">
             <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">Availability</dt>
             <dd className="mt-2 text-[15px] leading-6 text-foreground">Open to {PROFILE.availability}</dd>
           </div>
-          <div className="bg-background p-5">
+          <div data-card-part="" className="bg-background p-5">
             <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">Timezone</dt>
             <dd className="mt-2 text-[15px] leading-6 text-foreground">
               IST (UTC+5:30) · {PROFILE.location.locality}, {PROFILE.location.country}
             </dd>
           </div>
-          <div className="bg-background p-5 sm:col-span-2">
+          <div data-card-part="" className="bg-background p-5 sm:col-span-2">
             <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">Elsewhere</dt>
             <dd className="mt-1 flex flex-wrap gap-x-6">
               {SOCIALS.map((s) => (
@@ -231,7 +318,7 @@ export function ContactSection() {
             </dd>
           </div>
         </dl>
-        <div className="mt-10">
+        <div data-card-part="" className="mt-10">
           {/* Below the fold: the boundary lets React hydrate the form in its own low-priority pass. */}
           <Suspense>
             <ContactForm />
