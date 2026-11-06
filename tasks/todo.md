@@ -113,7 +113,17 @@ Open / owner follow-ups:
 ## Phase 5 — Full-motion redesign (owner feedback 2026-11-06: "animation only one side", "design not match", "animate the content cards")
 Spec: tasks/fullmotion-spec.md (diagnosis from a Playwright audit, art direction, lane contract)
 - [x] Playwright audit of every home section + page (desktop, mobile) -> 7 issues
-- [ ] Research (2 agents, parallel): visual 3D/motion patterns from award-level sites; technical recipes + root causes in our code
-- [ ] Build (3 senior 3D/motion designer agents, parallel worktrees): stage (full-bleed compositions, ambient scene, subpage stage, labels), home + motion system (card animation hooks, varied compositions), pages (subpages on the same design language + stage + card motion)
-- [ ] Merge -> build -> full-site Playwright tour (video + every section, desktop/mobile, dark/light) -> fix loop
-- [ ] SEO regression (68 URLs, seo_check 5 UAs), Lighthouse home/projects/post, motion-off + reduced-motion static layout
+- [x] Research (2 agents): visual 3D/motion patterns; technical recipes + root causes (scratchpad data/fm/research-*.md)
+- [x] Build (3 senior 3D/motion designer lanes): fm-stage (full-bleed data-stage framing, ambient scene, label occlusion, multi-page stage), fm-home (card motion system: data-card/-group/deck/hscroll/spotlight/draw/marquee; varied home compositions; dev-error fix), fm-pages (all subpages on the same language + stage + card motion)
+- [x] QA automation agent: tools/fm-tour.cjs (checks a-k)
+- [x] 2 integration designers (home, pages) + lead fix (tall cards stayed invisible: pose pivots on top edge)
+- [x] Merged -> redesign-3d 8b30c47 (fast-forward)
+
+### Review (2026-11-06)
+- fm-tour full run on the production build: a-k all PASS (0 errors; 1 canvas; no two neighbouring sections share a composition; scene matches every centred section; 0 labels over text/clipped; cards animate and land visible; motion-off/reduced-motion static; no mobile overflow; anchors; light theme).
+- fps while scrolling each home section (1440, real GPU): 53-60, quality high, canvas kept. The tour's mid-page poster fallback only happens under heavy machine load (load avg 7-8, swapping); the frame monitor now needs 4 slow seconds in a row at low quality.
+- SEO: 63/63 old paths reach 200; 1 h1 per page; seo_check default + GPTBot 0 hard failures on / and 12 subpaths; routes still static/ISR; JSON-LD unchanged.
+- Initial JS +4.1 KB home / +3.9 KB subpages; GSAP 44.7 KB + motion runtime 6.3 KB (lazy); 3D chunk ~278 KB gzip (lazy).
+- [ ] Lighthouse home on an IDLE machine (under load: median 79, one run at load 3.7 scored 95; a11y/bp/seo 100)
+- [ ] Polish: work scene mostly hidden behind the dense 3-column grid; contact scene hidden behind the full-width form until the end
+- [ ] Polish: tall-card IntersectionObserver should ideally test the layout box (pose fix covers today's cards)
