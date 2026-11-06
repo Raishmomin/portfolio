@@ -24,7 +24,7 @@ function Breadcrumb({ current }: { current: string }) {
     <nav aria-label="Breadcrumb" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
       <ol className="flex items-center gap-2">
         <li>
-          <Link href="/" className={cn("inline-flex min-h-11 items-center hover:text-foreground", FOCUS_RING)}>
+          <Link href="/" className={cn("-mx-2 inline-flex min-h-11 items-center px-2 hover:text-foreground", FOCUS_RING)}>
             Home
           </Link>
         </li>
@@ -94,7 +94,7 @@ export function SubsectionHeading({
   return (
     <div className={className}>
       <Kicker>{kicker}</Kicker>
-      <h2 id={id} className="mt-3 text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
+      <h2 id={id} className="mt-3 text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">
         {children}
       </h2>
     </div>

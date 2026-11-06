@@ -1,19 +1,16 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 
 // Reveal-on-scroll as progressive enhancement (SEO rulebook P0-2, 6.6 rule 20).
 // The server HTML is always fully visible. The hidden start state lives in
 // app/globals.css and applies only under `html.js` (set by REVEAL_SCRIPT in the
 // root layout) and `prefers-reduced-motion: no-preference`; the script marks each
 // `[data-reveal]` element `data-in` when it scrolls into view, which plays the
-// entrance. `[data-enter]` plays once on load (above-the-fold chrome). No React
-// state or framer-motion is involved, so these work in Server Components.
+// entrance. No React state is involved, so this works in Server Components.
 
 type RevealOptions = {
-  /** "up" fades and slides in; "clip" wipes in from the left (headings). */
-  variant?: "up" | "clip";
   /** Seconds. */
   delay?: number;
-  /** Start offset in px for "up" (negative slides down from above). */
+  /** Start offset in px (negative slides down from above). */
   y?: number;
   /** Seconds. */
   duration?: number;
@@ -33,19 +30,16 @@ function motionVars({ delay, y, duration }: RevealOptions): CSSProperties | unde
  */
 export function revealProps(options: RevealOptions = {}) {
   return {
-    "data-reveal": options.variant === "clip" ? "clip" : "",
+    "data-reveal": "",
     suppressHydrationWarning: true,
     style: motionVars(options),
   };
 }
 
-/** Props for a one-off entrance on page load (no scroll trigger). */
-export function enterProps(options: Omit<RevealOptions, "variant"> = {}) {
-  return { "data-enter": "", style: motionVars(options) };
-}
-
 /**
- * Runs in <head> before first paint: applies the persisted 3D/motion preference
+ * Runs in <head> before first paint: applies the color theme (localStorage "theme" =
+ * "light" | "dark" | "system", default dark; html class + color-scheme, see
+ * components/header/theme-toggle.tsx), applies the persisted 3D/motion preference
  * (localStorage "cp:3d" = "off" sets html[data-motion="off"]; no attribute = on,
  * see components/header/motion-toggle.tsx), flags `html.js` and reveals `[data-reveal]`
  * elements as they enter the viewport, including ones added later by client
@@ -54,26 +48,15 @@ export function enterProps(options: Omit<RevealOptions, "variant"> = {}) {
  * on the page both trigger). Without JS (or IntersectionObserver) nothing is ever hidden.
  */
 export const REVEAL_SCRIPT = `(function(){
-try{if(localStorage.getItem("cp:3d")==="off")document.documentElement.dataset.motion="off";}catch(e){}
+var d=document.documentElement,t;
+try{t=localStorage.getItem("theme");}catch(e){}
+if(t!=="light"&&t!=="dark")t=t==="system"&&!matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark";
+d.classList.add(t);d.style.colorScheme=t;
+try{if(localStorage.getItem("cp:3d")==="off")d.dataset.motion="off";}catch(e){}
 if(!("IntersectionObserver" in window))return;
-var d=document.documentElement;d.classList.add("js");
+d.classList.add("js");
 var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){var e=es[i];if(e.isIntersecting&&(e.intersectionRatio>=0.15||e.intersectionRect.height>=window.innerHeight*0.2)){e.target.setAttribute("data-in","");io.unobserve(e.target);}}},{threshold:[0,0.01,0.02,0.05,0.1,0.15]});
 function scan(n){if(n.nodeType!==1)return;if(n.hasAttribute("data-reveal")&&!n.hasAttribute("data-in"))io.observe(n);var l=n.querySelectorAll("[data-reveal]:not([data-in])");for(var i=0;i<l.length;i++)io.observe(l[i]);}
 function start(){scan(document.body);new MutationObserver(function(ms){for(var i=0;i<ms.length;i++){var a=ms[i].addedNodes;for(var j=0;j<a.length;j++)scan(a[j]);}}).observe(document.body,{childList:true,subtree:true});}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 })();`;
-
-type RevealProps = RevealOptions & {
-  children: ReactNode;
-  className?: string;
-  as?: "div" | "article";
-};
-
-/** Fade-up on scroll for server-rendered content. */
-export function Reveal({ children, className, as: Tag = "div", ...options }: RevealProps) {
-  return (
-    <Tag className={className} {...revealProps(options)}>
-      {children}
-    </Tag>
-  );
-}

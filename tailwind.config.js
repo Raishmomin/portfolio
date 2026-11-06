@@ -61,40 +61,8 @@ module.exports = {
       },
       fontSize: {
         display: ["clamp(2.75rem, 7vw, 6.5rem)", { lineHeight: "0.95", letterSpacing: "-0.035em" }],
-        "fluid-display": ["clamp(2.5rem, 8vw, 6rem)", { lineHeight: "1", letterSpacing: "-0.04em" }],
-        "fluid-heading": ["clamp(1.875rem, 4.5vw, 3.25rem)", { lineHeight: "1.05", letterSpacing: "-0.03em" }],
-        "fluid-title": ["clamp(1.25rem, 2.2vw, 1.75rem)", { lineHeight: "1.2", letterSpacing: "-0.02em" }],
-      },
-      keyframes: {
-        shimmer: {
-          to: { backgroundPosition: "-200% 0" },
-        },
-        marquee: {
-          from: { transform: "translateX(0)" },
-          to: { transform: "translateX(-50%)" },
-        },
-        "mask-reveal": {
-          from: { clipPath: "inset(0 100% 0 0)" },
-          to: { clipPath: "inset(0 0 0 0)" },
-        },
-        draw: {
-          to: { strokeDashoffset: "0" },
-        },
-        "fade-in-up": {
-          from: { opacity: "0", transform: "translateY(8px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
-      },
-      animation: {
-        shimmer: "shimmer 6s linear infinite",
-        marquee: "marquee 40s linear infinite",
-        "marquee-slow": "marquee 80s linear infinite",
-        "mask-reveal": "mask-reveal 0.8s cubic-bezier(0.77, 0, 0.175, 1) forwards",
-        draw: "draw 1.6s cubic-bezier(0.65, 0, 0.35, 1) forwards",
-        "fade-in-up": "fade-in-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards",
       },
     },
   },
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- the config file stays CommonJS
-  plugins: [require("tailwindcss-animate")],
+  plugins: [],
 };

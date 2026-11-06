@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { StatusDot } from "../../ui/primitives";
 import { SubsectionHeading, TEXT_LINK } from "../about/subpage";
-import { CopyEmail } from "./copy-email";
+import { CopyEmail } from "../../copy-email";
 import { PROFILE } from "@/lib/profile";
 import type { Personal } from "@/lib/data";
 
@@ -49,7 +49,7 @@ export function ContactChannels({ personal }: { personal: Personal }) {
         <ul className="flex flex-wrap gap-x-6">
           {PROFILES.map(([label, url]) => (
             <li key={label}>
-              <a href={url} target="_blank" rel="noopener noreferrer" className={`-my-2 inline-flex min-h-11 items-center ${TEXT_LINK}`}>
+              <a href={url} target="_blank" rel="noopener noreferrer" className={`-my-2 inline-flex min-h-11 min-w-11 items-center ${TEXT_LINK}`}>
                 {label} ↗<span className="sr-only"> (opens in a new tab)</span>
               </a>
             </li>
@@ -64,13 +64,15 @@ export function ContactChannels({ personal }: { personal: Personal }) {
       <SubsectionHeading kicker="01 · direct" id="channels-heading">
         Reach me directly
       </SubsectionHeading>
-      <a
-        href={`mailto:${email}`}
-        className="mt-5 inline-flex min-h-11 items-center break-all text-[clamp(1.25rem,2.4vw,1.75rem)] font-medium tracking-[-0.02em] text-foreground underline decoration-primary/60 decoration-1 underline-offset-[6px] transition-colors duration-150 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
-        {email}
-      </a>
-      <CopyEmail email={email} className="mt-4" />
+      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <a
+          href={`mailto:${email}`}
+          className="inline-flex min-h-11 items-center break-all text-[clamp(1.25rem,2.4vw,1.75rem)] font-medium tracking-[-0.02em] text-foreground underline decoration-foreground/30 decoration-1 underline-offset-[6px] transition-colors duration-150 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          {email}
+        </a>
+        <CopyEmail email={email} icon />
+      </div>
 
       <dl className="mt-10 divide-y divide-border border-y border-border">
         {rows.map((r) => (

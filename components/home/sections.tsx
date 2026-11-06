@@ -1,9 +1,10 @@
 // Home sections 01–03 (about, stack, experience). Server Components; reveals are the
 // CSS progressive enhancement from components/reveal.tsx (never on the hero).
-import { Accent, Section, SectionHeader } from "../ui/primitives";
+import { Accent, Section, SectionHeader, WithFigures } from "../ui/primitives";
 import { revealProps } from "../reveal";
 import type { ExperienceItem } from "@/lib/data";
-import { formatPeriod, splitFigures, type StackGroup } from "./derive";
+import { formatPeriod } from "@/lib/derive";
+import type { StackGroup } from "./derive";
 
 export function AboutSection({
   bio,
@@ -25,10 +26,14 @@ export function AboutSection({
       />
       <div {...revealProps()}>
         {bio ? <p className="mt-6 max-w-[62ch] text-muted-foreground">{bio}</p> : null}
-        <dl className="mt-10 grid grid-cols-3 divide-x divide-border border-y border-border">
+        {/* Three columns from 360px; stacked below that, where the longest one-word label cannot fit a third. */}
+        <dl className="mt-10 grid grid-cols-1 divide-y divide-border border-y border-border min-[360px]:grid-cols-3 min-[360px]:divide-x min-[360px]:divide-y-0">
           {stats.map((s) => (
-            <div key={s.label} className="flex flex-col-reverse justify-end gap-1 px-3 py-5 first:pl-0 sm:px-5">
-              <dt className="font-mono text-[11px] uppercase leading-4 tracking-[0.14em] text-muted-foreground sm:text-xs">
+            <div
+              key={s.label}
+              className="flex min-w-0 flex-col-reverse justify-end gap-1 py-5 min-[360px]:px-2.5 min-[360px]:first:pl-0 min-[360px]:last:pr-0 sm:px-5"
+            >
+              <dt className="font-mono text-[11px] uppercase leading-4 tracking-[0.08em] text-muted-foreground sm:text-xs sm:tracking-[0.14em]">
                 {s.label}
               </dt>
               <dd className="text-[clamp(1.75rem,4vw,2.75rem)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-foreground">
@@ -67,8 +72,8 @@ export function StackSection({ groups }: { groups: StackGroup[] }) {
             </h3>
             <ul className="mt-4 space-y-1.5">
               {g.items.map((item) => (
-                <li key={item.name} className="flex items-baseline justify-between gap-3 text-[15px] leading-6">
-                  <span className="text-foreground">{item.name}</span>
+                <li key={item.name} className="flex flex-wrap items-baseline justify-between gap-x-3 whitespace-nowrap text-[15px] leading-6 text-foreground">
+                  {item.name}{" "}
                   {item.used > 0 ? (
                     <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground tabular-nums">
                       used in {item.used} {item.used === 1 ? "project" : "projects"}
@@ -81,22 +86,6 @@ export function StackSection({ groups }: { groups: StackGroup[] }) {
         ))}
       </div>
     </Section>
-  );
-}
-
-function WithFigures({ text }: { text: string }) {
-  return (
-    <>
-      {splitFigures(text).map((part, i) =>
-        part.figure ? (
-          <strong key={i} className="font-semibold text-foreground">
-            {part.text}
-          </strong>
-        ) : (
-          part.text
-        ),
-      )}
-    </>
   );
 }
 
@@ -134,11 +123,8 @@ export function ExperienceSection({ items }: { items: ExperienceItem[] }) {
               {e.achievements.length ? (
                 <ul className="mt-4 space-y-2">
                   {e.achievements.map((a) => (
-                    <li key={a} className="flex gap-3 text-[15px] leading-6 text-muted-foreground">
-                      <span aria-hidden="true" className="mt-[11px] h-px w-3 shrink-0 bg-primary" />
-                      <span>
-                        <WithFigures text={a} />
-                      </span>
+                    <li key={a} className="dash-item text-[15px] leading-6 text-muted-foreground">
+                      <WithFigures text={a} />
                     </li>
                   ))}
                 </ul>

@@ -5,7 +5,7 @@ import { LOCATION_LABEL, PROFILE, experienceLabel } from "@/lib/profile";
 // Identity facts come only from profile.ts (via SITE/PROFILE); nothing here is typed by hand.
 
 const serviceLink =
-  "text-foreground underline decoration-primary decoration-1 underline-offset-[3px] transition-colors duration-150 hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "text-foreground underline decoration-foreground/30 decoration-1 underline-offset-[3px] transition-colors duration-150 hover:decoration-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const chip =
   "inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border px-4 font-mono text-xs uppercase tracking-[0.12em] text-foreground transition-colors duration-150 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
@@ -19,7 +19,7 @@ export function AuthorBio() {
       <div className="flex items-start gap-5 p-5 md:p-6">
         <div
           aria-hidden="true"
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-border bg-background font-mono text-sm font-semibold text-primary"
+          className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-border bg-background font-mono text-sm font-semibold text-foreground"
         >
           {PROFILE.givenName.charAt(0)}
           {PROFILE.familyName.charAt(0)}

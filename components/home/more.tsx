@@ -1,5 +1,8 @@
 // Home sections 05–08: services teaser, writing, FAQ, contact. Server Components;
-// the contact form and "copy email" are the only client islands.
+// the contact form and "copy email" are the only client islands. Every section
+// carries data-section so the scroll-spy can track (and clear) the active nav item;
+// only formation keys (about, stack, experience, work, contact) move the 3D scene.
+import { Suspense } from "react";
 import Link from "next/link";
 import { Accent, Section, SectionHeader } from "../ui/primitives";
 import { revealProps } from "../reveal";
@@ -7,7 +10,8 @@ import { ContactForm } from "../contact-form";
 import type { ServiceConfig } from "@/lib/services";
 import type { FAQ } from "@/lib/seo";
 import { PROFILE } from "@/lib/profile";
-import { CopyEmail } from "./copy-email";
+import { shortDate } from "@/lib/derive";
+import { CopyEmail } from "../copy-email";
 import type { PostRow } from "./latest-posts";
 
 const rowLink =
@@ -15,7 +19,7 @@ const rowLink =
 
 export function ServicesSection({ services }: { services: ServiceConfig[] }) {
   return (
-    <section id="services" aria-labelledby="services-heading" className="scroll-mt-24 border-t border-border py-20 md:py-28">
+    <section id="services" data-section="services" aria-labelledby="services-heading" className="border-t border-border py-20 md:py-28">
       <SectionHeader
         id="services-heading"
         kicker="05 · services"
@@ -47,12 +51,10 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
   );
 }
 
-const dateFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-
 export function WritingSection({ posts }: { posts: PostRow[] }) {
   if (!posts.length) return null;
   return (
-    <section id="writing" aria-labelledby="writing-heading" className="scroll-mt-24 border-t border-border py-20 md:py-28">
+    <section id="writing" data-section="writing" aria-labelledby="writing-heading" className="border-t border-border py-20 md:py-28">
       <SectionHeader
         id="writing-heading"
         kicker="06 · writing"
@@ -70,7 +72,7 @@ export function WritingSection({ posts }: { posts: PostRow[] }) {
                 {p.title}
               </h3>
               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
-                <time dateTime={p.publishedAt}>{dateFmt.format(new Date(p.publishedAt))}</time>
+                <time dateTime={p.publishedAt}>{shortDate(p.publishedAt)}</time>
                 {p.readTime ? ` · ${p.readTime} min read` : null}
               </p>
             </Link>
@@ -89,7 +91,7 @@ export function WritingSection({ posts }: { posts: PostRow[] }) {
 
 export function FaqSection({ faqs }: { faqs: FAQ[] }) {
   return (
-    <section id="faq" aria-labelledby="faq-heading" className="scroll-mt-24 border-t border-border py-20 md:py-28">
+    <section id="faq" data-section="faq" aria-labelledby="faq-heading" className="border-t border-border py-20 md:py-28">
       <SectionHeader
         id="faq-heading"
         kicker="07 · faq"
@@ -169,7 +171,7 @@ export function ContactSection() {
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer me"
-                  className="inline-flex min-h-11 items-center gap-1 text-[15px] text-foreground underline decoration-border underline-offset-4 hover:decoration-primary"
+                  className="inline-flex min-h-11 min-w-11 items-center gap-1 text-[15px] text-foreground underline decoration-border underline-offset-4 hover:decoration-primary"
                 >
                   {s.label}
                   <span aria-hidden="true">↗</span>
@@ -179,7 +181,10 @@ export function ContactSection() {
           </div>
         </dl>
         <div className="mt-12">
-          <ContactForm />
+          {/* Below the fold: the boundary lets React hydrate the form in its own low-priority pass. */}
+          <Suspense>
+            <ContactForm />
+          </Suspense>
         </div>
       </div>
     </Section>

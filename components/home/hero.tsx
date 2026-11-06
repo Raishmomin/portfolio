@@ -1,6 +1,6 @@
 import { Accent, ButtonLink, Kicker, StatusDot } from "../ui/primitives";
 import { PROFILE } from "@/lib/profile";
-import { CopyEmail } from "./copy-email";
+import { CopyEmail } from "../copy-email";
 import { LocalTime } from "./local-time";
 
 /**
@@ -22,7 +22,7 @@ export function Hero({
       id="top"
       data-section="hero"
       aria-labelledby="hero-heading"
-      className="scroll-mt-24 pb-16 pt-12 md:pb-20 md:pt-20"
+      className="pb-16 pt-12 md:pb-20 md:pt-20"
     >
       <Kicker>Full Stack Developer · DevOps Engineer</Kicker>
 
@@ -34,7 +34,7 @@ export function Hero({
         </span>
       </h1>
 
-      <p className="mt-8 max-w-[22ch] text-[clamp(1.625rem,3vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.025em] text-foreground">
+      <p className="mt-8 max-w-[22ch] text-balance text-[clamp(1.625rem,3vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.025em] text-foreground">
         I build web products — <Accent>and the pipelines that ship them.</Accent>
       </p>
 
@@ -47,10 +47,13 @@ export function Hero({
 
       <ul
         aria-label="At a glance"
-        className="mt-6 flex flex-wrap gap-y-1 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums"
+        className="mt-6 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums"
       >
         {proof.map((item) => (
-          <li key={item} className="whitespace-nowrap after:px-2 after:content-['·'] last:after:content-none">
+          <li
+            key={item}
+            className="inline-flex items-center gap-2 whitespace-nowrap before:block before:h-1 before:w-1 before:bg-muted-foreground/50 before:content-['']"
+          >
             {item}
           </li>
         ))}

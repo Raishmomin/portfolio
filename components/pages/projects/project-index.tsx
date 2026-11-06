@@ -2,7 +2,7 @@
 // so home cards can link to /projects#<slug>, and data-categories for the filter island.
 import type { Project } from "@/lib/data";
 import { slugify } from "@/lib/utils";
-import { Kicker, Pill } from "../../ui/primitives";
+import { Kicker, PillList } from "../../ui/primitives";
 import { domainLabel } from "./categories";
 
 const linkClass =
@@ -26,11 +26,11 @@ export function ProjectIndex({ projects }: { projects: Project[] }) {
         const slug = slugify(p.title);
         const stack = p.technologies.slice(0, 2).join(" · ");
         return (
-          <li key={slug} id={slug} data-categories={p.category.join(" ")} className="scroll-mt-28 border-t border-border">
+          <li key={slug} id={slug} data-categories={p.category.join(" ")} className="border-t border-border">
             <article aria-labelledby={`${slug}-title`} className="grid gap-6 py-10 md:grid-cols-12 md:gap-8 md:py-14">
               <div className="flex items-start justify-between gap-4 md:col-span-3 md:flex-col md:justify-start">
                 <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
-                  <span className="text-primary">{String(i + 1).padStart(pad, "0")}</span>
+                  <span className="text-foreground">{String(i + 1).padStart(pad, "0")}</span>
                   <span aria-hidden="true"> / </span>
                   <span className="sr-only"> of </span>
                   {String(projects.length).padStart(pad, "0")}
@@ -63,9 +63,8 @@ export function ProjectIndex({ projects }: { projects: Project[] }) {
                     <h3 className="sr-only">Key features of {p.title}</h3>
                     <ul className="mt-6 grid gap-x-8 gap-y-2.5 lg:grid-cols-2">
                       {p.features.map((f) => (
-                        <li key={f} className="flex gap-3 text-[15px] leading-6 text-foreground/90">
-                          <span aria-hidden="true" className="mt-[11px] h-px w-3 shrink-0 bg-primary" />
-                          <span className="min-w-0">{f}</span>
+                        <li key={f} className="dash-item text-[15px] leading-6 text-foreground/90">
+                          {f}
                         </li>
                       ))}
                     </ul>
@@ -73,13 +72,7 @@ export function ProjectIndex({ projects }: { projects: Project[] }) {
                 ) : null}
 
                 {p.technologies.length > 0 ? (
-                  <ul aria-label={`Technologies used in ${p.title}`} className="mt-6 flex flex-wrap gap-1.5">
-                    {p.technologies.map((t) => (
-                      <li key={t}>
-                        <Pill>{t}</Pill>
-                      </li>
-                    ))}
-                  </ul>
+                  <PillList items={p.technologies} label={`Technologies used in ${p.title}`} className="mt-6" />
                 ) : null}
               </div>
             </article>

@@ -10,6 +10,7 @@ import {
   SubpageIntro,
   SubsectionHeading,
 } from "../../components/pages/about/subpage";
+import { skillCount } from "@/lib/derive";
 import { AboutBio } from "../../components/pages/about/bio";
 import { QuickFacts } from "../../components/pages/about/quick-facts";
 import { FaqList } from "../../components/pages/about/faq-list";
@@ -68,7 +69,7 @@ export default async function AboutPage() {
     ]),
   ];
   const motif = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
-  const skillCount = skills.reduce((n, g) => n + g.skills.length, 0);
+  const technologies = skillCount(skills);
 
   return (
     <>
@@ -96,7 +97,7 @@ export default async function AboutPage() {
           </div>
         </SubpageIntro>
 
-        <AboutBio personal={personal} projectCount={projects.length} skillCount={skillCount} />
+        <AboutBio personal={personal} projectCount={projects.length} skillCount={technologies} />
         <QuickFacts experience={experience} />
 
         {faqs.length ? (

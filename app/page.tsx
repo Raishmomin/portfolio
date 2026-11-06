@@ -10,7 +10,9 @@ import { AboutSection, ExperienceSection, StackSection } from "../components/hom
 import { WorkSection } from "../components/home/work";
 import { ContactSection, FaqSection, ServicesSection, WritingSection } from "../components/home/more";
 import { getLatestPosts } from "../components/home/latest-posts";
-import { byRecency, stackMap, technologyCount, tickerSkills } from "../components/home/derive";
+import { stackMap, tickerSkills } from "../components/home/derive";
+import { skillCount } from "@/lib/derive";
+import { sortRoles } from "@/lib/llms";
 import { buildMetadata, breadcrumbList, faqPageSchema, webPageSchema, PERSON_ID, PERSON_IMAGE } from "@/lib/seo";
 import { SITE } from "@/lib/config";
 import { PROFILE, SAME_AS, experienceLabel } from "@/lib/profile";
@@ -69,7 +71,7 @@ export default async function Home() {
   const featured = projects.slice(0, FEATURED_COUNT);
   const archive = projects.slice(FEATURED_COUNT);
   const groups = stackMap(skills, projects);
-  const timeline = byRecency(experience);
+  const timeline = sortRoles(experience);
   const faqs = homeFaqs();
   const formation = toFormationData({ skills, experience: timeline, featuredProjects: featured });
 
@@ -78,7 +80,7 @@ export default async function Home() {
   const stats = [
     { value: years, label: "years shipping" },
     { value: String(projects.length), label: "projects shipped" },
-    { value: String(technologyCount(skills)), label: "technologies" },
+    { value: String(skillCount(skills)), label: "technologies" },
   ];
 
   // One ProfilePage node (keeps the home WebPage @id `${SITE_URL}/#webpage`).

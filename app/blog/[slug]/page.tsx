@@ -23,9 +23,10 @@ import { renderMarkdown } from "@/lib/markdown";
 import clientPromise from "@/lib/mongodb";
 import type { BlogPost } from "@/lib/blog-types";
 import { ButtonLink, Container, Kicker } from "../../../components/ui/primitives";
-import { Crumbs } from "../../../components/pages/projects/subpage-header";
+import { Crumbs, PageMotif } from "../../../components/pages/projects/subpage-header";
 import { BlogProse } from "../../../components/pages/blog/prose";
-import { cleanTag, shortDate } from "../../../components/pages/blog/post-list";
+import { cleanTag } from "../../../components/pages/blog/post-list";
+import { shortDate } from "@/lib/derive";
 
 export const revalidate = 3600;
 
@@ -167,10 +168,10 @@ export default async function BlogPostPage({
                                 <span className="sr-only">, </span>
                                 {post.readTime} min read
                             </Kicker>
-                            <h1 className="mt-4 text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground">
+                            <h1 className="mt-4 text-balance text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground">
                                 {title}
                             </h1>
-                            <p className="mt-6 max-w-[68ch] text-lg leading-8 text-muted-foreground">
+                            <p className="mt-6 max-w-[34em] text-lg leading-8 text-muted-foreground">
                                 {excerpt}
                             </p>
                             {tags.length ? (
@@ -189,27 +190,28 @@ export default async function BlogPostPage({
                     </Container>
 
                     <div className="border-t border-border">
-                        <Container
-                            className={
-                                showToc
-                                    ? "grid gap-10 py-12 text-[18px] md:py-16 lg:grid-cols-[minmax(0,68ch)_minmax(0,1fr)] lg:gap-16 xl:gap-24"
-                                    : "py-12 md:py-16"
-                            }
-                        >
-                            {/* Table of contents: a block above the post on mobile, a sticky rail on desktop */}
-                            {showToc && (
+                        {/* text-[18px] on the grid, so every 34em measure in it (prose and the blocks
+                            under it, about 68 characters per line) resolves at the 18px body size. */}
+                        <Container className="grid gap-10 py-12 text-[18px] md:py-16 lg:grid-cols-[minmax(0,34em)_minmax(0,1fr)] lg:gap-16 xl:gap-24">
+                            {/* Right rail: the table of contents (a block above the post on mobile, sticky
+                                on desktop), or, for short posts without one, the decorative cluster motif. */}
+                            {showToc ? (
                                 <div className="lg:col-start-2 lg:row-start-1">
                                     <TableOfContents
                                         items={toc}
                                         className="rounded-lg border border-border bg-card p-5 lg:sticky lg:max-w-xs lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0"
                                     />
                                 </div>
+                            ) : (
+                                <div className="hidden lg:col-start-2 lg:row-start-1 lg:block">
+                                    <PageMotif className="sticky top-28" motifClassName="ml-auto max-w-[240px]" />
+                                </div>
                             )}
 
                             <div className="min-w-0 lg:col-start-1 lg:row-start-1">
                                 <BlogProse html={html} />
 
-                                <div className="max-w-[68ch]">
+                                <div className="max-w-[34em]">
                                     <AuthorBio />
                                     <RelatedPosts currentSlug={post.slug} tags={post.tags || []} />
                                     <div className="mt-16 border-t border-border pt-8">

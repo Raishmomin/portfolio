@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { splitFigures } from "@/lib/derive";
 
 export function Container({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={cn("mx-auto w-full max-w-[1280px] px-4 md:px-8", className)}>{children}</div>;
@@ -36,7 +37,7 @@ export function SectionHeader({
   return (
     <header className={cn("max-w-3xl", className)}>
       {kicker ? <Kicker>{kicker}</Kicker> : null}
-      <Heading id={id} className="mt-3 text-[clamp(1.875rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-foreground">
+      <Heading id={id} className="mt-3 text-balance text-[clamp(1.875rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-foreground">
         {title}
       </Heading>
       {lead ? <p className="mt-4 text-[17px] leading-7 text-muted-foreground">{lead}</p> : null}
@@ -49,11 +50,50 @@ export function Accent({ children }: { children: ReactNode }) {
   return <em className="font-serif font-normal italic tracking-normal">{children}</em>;
 }
 
-export function Pill({ className, children }: { className?: string; children: ReactNode }) {
+/** DB copy with its real figures ("20%", "50+", "3x") bolded; never adds any. */
+export function WithFigures({ text }: { text: string }) {
   return (
-    <span className={cn("inline-flex items-center rounded-full border border-border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground", className)}>
-      {children}
-    </span>
+    <>
+      {splitFigures(text).map((part, i) =>
+        part.figure ? (
+          <strong key={i} className="font-semibold text-foreground">
+            {part.text}
+          </strong>
+        ) : (
+          part.text
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * Tech pills as one list: each <li> is the pill (`.pill` in app/globals.css), so a
+ * pill costs one element instead of two. `more` adds a "+N" pill.
+ */
+export function PillList({
+  items,
+  label,
+  more,
+  className,
+  pillClassName,
+}: {
+  items: readonly string[];
+  label?: string;
+  more?: number;
+  className?: string;
+  pillClassName?: string;
+}) {
+  const pill = cn("pill", pillClassName);
+  return (
+    <ul aria-label={label} className={cn("flex flex-wrap gap-1.5", className)}>
+      {items.map((t) => (
+        <li key={t} className={pill}>
+          {t}
+        </li>
+      ))}
+      {more ? <li className={pill}>+{more}</li> : null}
+    </ul>
   );
 }
 
@@ -116,7 +156,7 @@ export function Section({
   children: ReactNode;
 } & Record<string, unknown>) {
   return (
-    <Tag id={id} data-section={section} className={cn("scroll-mt-24 border-t border-border py-20 md:py-28", className)} {...rest}>
+    <Tag id={id} data-section={section} className={cn("border-t border-border py-20 md:py-28", className)} {...rest}>
       {children}
     </Tag>
   );

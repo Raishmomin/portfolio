@@ -62,6 +62,9 @@
   }
   html {
     scroll-behavior: smooth;
+    /* The sticky header is 64px (h-16) + 1px hairline: focus scrolling and #anchor
+       jumps stop below it, never under it (WCAG 2.4.11 Focus Not Obscured). */
+    scroll-padding-top: 5rem;
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-foreground selection:text-background;
@@ -93,104 +96,36 @@
   }
 }
 
-@layer utilities {
-  .glass {
-    @apply bg-background/70 backdrop-blur-xl border border-border;
+@layer components {
+  /* Tech pill: the <li> itself (components/ui/primitives.tsx PillList). */
+  .pill {
+    @apply inline-flex items-center rounded-full border border-border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground;
   }
-
-  .glass-card {
-    @apply bg-card/60 backdrop-blur-md border border-border shadow-sm;
+  /* List item with a neutral 12px dash centred on its first line (no extra elements). */
+  .dash-item {
+    position: relative;
+    padding-left: 1.5rem;
   }
-
-  .text-shimmer {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--muted-foreground)) 0%,
-      hsl(var(--foreground)) 50%,
-      hsl(var(--muted-foreground)) 100%
-    );
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: shimmer 6s linear infinite;
-  }
-
-  .scrim-radial {
-    background: radial-gradient(
-      ellipse at center,
-      hsl(var(--foreground) / 0.04) 0%,
-      transparent 70%
-    );
-  }
-
-
-  .mask-edge-x {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 10%,
-      black 90%,
-      transparent
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 10%,
-      black 90%,
-      transparent
-    );
-  }
-
-  .display-fluid {
-    font-size: clamp(2.5rem, 8vw, 6rem);
-    line-height: 1;
-    letter-spacing: -0.04em;
-  }
-
-  .heading-fluid {
-    font-size: clamp(1.875rem, 4.5vw, 3.25rem);
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-  }
-
-  .ink-link {
-    @apply text-muted-foreground transition-colors duration-200 hover:text-foreground;
+  .dash-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.75em;
+    top: calc(0.5lh - 0.5px);
+    width: 0.75rem;
+    height: 1px;
+    background: hsl(var(--muted-foreground) / 0.5);
   }
 }
 
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes mask-reveal {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-@keyframes draw {
-  to {
-    stroke-dashoffset: 0;
-  }
+/* Controls that only work with JS (copy, theme, 3D, filters) are hidden when the
+   head script has not flagged html.js, instead of rendering as dead buttons. */
+html:not(.js) .js-only {
+  display: none;
 }
 
 /*
- * Reveal and entrance animations (components/reveal.tsx). Progressive enhancement:
+ * Reveal animations (components/reveal.tsx). Progressive enhancement:
  * server HTML is visible by default, without JS, for reduced motion and in print.
  * Only under html.js (set by the inline head script) is a [data-reveal] element
  * hidden until the script marks it data-in, and never when the header's 3D/motion
@@ -201,23 +136,8 @@
   html.js:not([data-motion="off"]) [data-reveal]:not([data-in]) {
     opacity: 0;
   }
-  html.js:not([data-motion="off"]) [data-reveal][data-in],
-  html.js:not([data-motion="off"]) [data-enter] {
+  html.js:not([data-motion="off"]) [data-reveal][data-in] {
     animation: reveal-up var(--reveal-duration, 0.42s) cubic-bezier(0.22, 1, 0.36, 1)
-      var(--reveal-delay, 0s) backwards;
-  }
-  /* "clip" wipes the children in; the observed element itself stays unclipped. */
-  html.js:not([data-motion="off"]) [data-reveal="clip"]:not([data-in]) {
-    opacity: 1;
-  }
-  html.js:not([data-motion="off"]) [data-reveal="clip"]:not([data-in]) > * {
-    clip-path: inset(0 100% 0 0);
-  }
-  html.js:not([data-motion="off"]) [data-reveal="clip"][data-in] {
-    animation: none;
-  }
-  html.js:not([data-motion="off"]) [data-reveal="clip"][data-in] > * {
-    animation: reveal-clip var(--reveal-duration, 0.8s) cubic-bezier(0.77, 0, 0.175, 1)
       var(--reveal-delay, 0s) backwards;
   }
 }
@@ -226,12 +146,6 @@
   from {
     opacity: 0;
     translate: 0 var(--reveal-y, 16px);
-  }
-}
-
-@keyframes reveal-clip {
-  from {
-    clip-path: inset(0 100% 0 0);
   }
 }
 

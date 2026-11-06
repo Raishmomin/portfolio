@@ -7,7 +7,7 @@ import { Container, Kicker } from "../../ui/primitives";
 import { getExperience, getProjects, getSkills } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-/** Visible breadcrumb trail; mirrors the page's BreadcrumbList JSON-LD. */
+/** Visible breadcrumb trail; mirrors the page's BreadcrumbList JSON-LD. Links are 44px touch targets (padding offset by negative margins). */
 export function Crumbs({ items }: { items: { name: string; href?: string }[] }) {
   return (
     <nav aria-label="Breadcrumb" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -18,7 +18,7 @@ export function Crumbs({ items }: { items: { name: string; href?: string }[] }) 
             {item.href ? (
               <Link
                 href={item.href}
-                className="rounded-sm py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="-mx-2 -my-2.5 inline-flex min-h-11 items-center rounded-sm px-2 transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {item.name}
               </Link>
@@ -35,12 +35,18 @@ export function Crumbs({ items }: { items: { name: string; href?: string }[] }) 
 }
 
 /** Decorative static cluster motif (desktop only). Data is real: skills, experience, featured projects. */
-export async function PageMotif({ className }: { className?: string }) {
+export async function PageMotif({
+  className,
+  motifClassName = "ml-auto max-w-[240px]",
+}: {
+  className?: string;
+  motifClassName?: string;
+}) {
   const [skills, experience, projects] = await Promise.all([getSkills(), getExperience(), getProjects()]);
   const data = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
   return (
     <div aria-hidden="true" className={cn("hidden lg:block", className)}>
-      <ClusterMonitor data={data} variant="motif" className="ml-auto max-w-[240px]" />
+      <ClusterMonitor data={data} variant="motif" className={motifClassName} />
     </div>
   );
 }
@@ -67,7 +73,7 @@ export function SubpageHeader({
       <div className={cn("grid gap-10 lg:grid-cols-12 lg:items-end", crumbs && "mt-10 md:mt-14")}>
         <header className="lg:col-span-8">
           <Kicker>{kicker}</Kicker>
-          <h1 className="mt-4 text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.98] tracking-[-0.035em] text-foreground">
+          <h1 className="mt-4 text-balance text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.98] tracking-[-0.035em] text-foreground">
             {title}
           </h1>
           {lead ? <p className="mt-6 max-w-[60ch] text-[17px] leading-7 text-muted-foreground">{lead}</p> : null}

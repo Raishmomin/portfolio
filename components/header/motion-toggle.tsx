@@ -42,7 +42,7 @@ export function MotionToggle() {
       aria-label="3D scene and motion"
       title={enabled ? "Turn off 3D and motion" : "Turn on 3D and motion"}
       onClick={toggle}
-      className="group inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground aria-pressed:text-foreground"
+      className="js-only group inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground aria-pressed:text-foreground"
     >
       <span
         aria-hidden="true"

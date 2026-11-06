@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Container, Pill, Section, StatusDot } from "../../ui/primitives";
+import { Container, PillList, Section, StatusDot } from "../../ui/primitives";
 import { SubsectionHeading, TEXT_LINK } from "./subpage";
 import { PROFILE, LOCATION_LABEL, experienceLabel } from "@/lib/profile";
 import { SERVICES } from "@/lib/services";
 import { parsePeriod } from "@/lib/seo";
-import { careerStartLabel, periodLabel, sortRoles } from "@/lib/llms";
+import { careerStartLabel, sortRoles } from "@/lib/llms";
+import { formatPeriod, periodParts } from "@/lib/derive";
 import type { ExperienceItem } from "@/lib/data";
 
 const PROFILES = [
@@ -44,7 +45,7 @@ export function QuickFacts({ experience }: { experience: ExperienceItem[] }) {
       ? [
           {
             label: "Current role",
-            value: `${current.title} at ${current.company}, since ${periodLabel(current.period).split(" – ")[0]}.`,
+            value: `${current.title} at ${current.company}, since ${periodParts(current.period).from}.`,
           },
         ]
       : []),
@@ -58,7 +59,7 @@ export function QuickFacts({ experience }: { experience: ExperienceItem[] }) {
                   <li key={`${e.company}-${e.period}`}>
                     {e.title} at {e.company}{" "}
                     <span className="whitespace-nowrap font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                      ({periodLabel(e.period)})
+                      ({formatPeriod(e.period)})
                     </span>
                   </li>
                 ))}
@@ -72,13 +73,7 @@ export function QuickFacts({ experience }: { experience: ExperienceItem[] }) {
           {
             label: "Current stack",
             value: (
-              <ul className="flex flex-wrap gap-1.5" aria-label="Current stack">
-                {current.technologies.map((t) => (
-                  <li key={t}>
-                    <Pill>{t}</Pill>
-                  </li>
-                ))}
-              </ul>
+              <PillList items={current.technologies} label="Current stack" />
             ),
           },
         ]
@@ -111,7 +106,7 @@ export function QuickFacts({ experience }: { experience: ExperienceItem[] }) {
         <ul className="flex flex-wrap gap-x-6">
           {PROFILES.map(([label, url]) => (
             <li key={label}>
-              <a href={url} target="_blank" rel="noopener noreferrer" className={`-my-2 inline-flex min-h-11 items-center ${TEXT_LINK}`}>
+              <a href={url} target="_blank" rel="noopener noreferrer" className={`-my-2 inline-flex min-h-11 min-w-11 items-center ${TEXT_LINK}`}>
                 {label} ↗<span className="sr-only"> (opens in a new tab)</span>
               </a>
             </li>

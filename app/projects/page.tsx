@@ -4,6 +4,7 @@ import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
 import { getProjects } from "@/lib/data";
+import { projectTechCount } from "@/lib/derive";
 import { Accent, ButtonLink, Container } from "../../components/ui/primitives";
 import { ContactBand, PageMotif, SubpageHeader } from "../../components/pages/projects/subpage-header";
 import { ProjectIndex } from "../../components/pages/projects/project-index";
@@ -63,7 +64,8 @@ export default async function ProjectsPage() {
   ];
 
   const live = projects.filter((p) => p.liveUrl).length;
-  const techCount = new Set(projects.flatMap((p) => p.technologies.map((t) => t.toLowerCase()))).size;
+  // Distinct technologies across the projects (same matching rule as every stack count).
+  const techCount = projectTechCount(projects);
 
   return (
     <>
@@ -90,7 +92,7 @@ export default async function ProjectsPage() {
               <dd className="text-foreground">{live}</dd>
             </div>
             <div className="flex gap-2">
-              <dt>Technologies</dt>
+              <dt>Technologies used</dt>
               <dd className="text-foreground">{techCount}</dd>
             </div>
           </dl>

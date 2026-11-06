@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cx } from "@/lib/cx";
 import { resolveNav, type ResolvedNavItem } from "./nav-items";
 
 /**
@@ -46,7 +46,7 @@ export function NavLinks() {
         <li key={item.label}>
           <NavLink
             item={item}
-            className={cn(
+            className={cx(
               "nav-link relative inline-flex min-h-11 items-center px-3 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground",
               "aria-[current=page]:text-foreground aria-[current=true]:text-foreground",
             )}
