@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { JsonLd } from "../components/json-ld";
 import { REVEAL_SCRIPT } from "../components/reveal";
+import { MotionProvider } from "../components/motion";
 import { SITE, SITE_URL } from "@/lib/config";
 import { PROFILE } from "@/lib/profile";
 import { RSS_URL } from "@/lib/seo";
@@ -142,6 +143,8 @@ export default function RootLayout({
         </a>
         {children}
         <JsonLd />
+        {/* Lazy scroll/motion runtime (gsap after load + idle, only when motion is allowed). */}
+        <MotionProvider />
       </body>
     </html>
   );

@@ -50,6 +50,8 @@ module.exports = {
           foreground: "hsl(var(--brand-foreground))",
         },
         ok: "hsl(var(--ok))",
+        /** AI accent (neural glows; text-safe ≥4.5:1 in both themes). */
+        ai: "hsl(var(--ai))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
