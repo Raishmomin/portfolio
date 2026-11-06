@@ -13,12 +13,15 @@ const linkClass =
   "inline-flex min-h-11 min-w-11 items-center text-[15px] text-muted-foreground transition-colors duration-150 hover:text-foreground";
 const headingClass = "font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground";
 
-/** Site footer (every page; no props). Server Component: wordmark, every page, socials, RSS. */
+/**
+ * Site footer (every page; no props). Server Component: wordmark, every page, socials, RSS.
+ * The three columns rise in as one wave (data-card-group); static without motion.
+ */
 export function Footer() {
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-4 pb-10 pt-16 sm:grid-cols-2 md:px-8 lg:grid-cols-12 lg:gap-8">
-        <div className="lg:col-span-6">
+    <footer className="relative border-t border-border bg-background">
+      <div data-card-group="" className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-4 pb-10 pt-16 sm:grid-cols-2 md:px-8 lg:grid-cols-12 lg:gap-8">
+        <div data-card="" className="lg:col-span-6">
           <Link href="/" className="inline-flex min-h-11 items-center font-mono text-sm font-medium text-foreground">
             raish<span className="text-primary">.</span>momin
           </Link>
@@ -34,7 +37,7 @@ export function Footer() {
           </a>
         </div>
 
-        <nav aria-label="Footer" className="lg:col-span-3">
+        <nav aria-label="Footer" data-card="" className="lg:col-span-3">
           <h2 className={headingClass}>Pages</h2>
           <ul className="mt-3 grid grid-cols-2 gap-x-6 sm:grid-cols-1">
             {PAGES.map((p) => (
@@ -47,7 +50,7 @@ export function Footer() {
           </ul>
         </nav>
 
-        <div className="lg:col-span-3">
+        <div data-card="" className="lg:col-span-3">
           <h2 className={headingClass}>Elsewhere</h2>
           <ul className="mt-3">
             {SOCIALS.map((s) => (

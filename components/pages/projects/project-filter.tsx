@@ -4,6 +4,9 @@
 // filtering only toggles the `hidden` attribute on [data-categories] items inside
 // #project-index. Without JS the chips are inert and every project is shown. The "ai"
 // chip matches isAiProject (data-categories is built by projectCategories).
+// While the motion runtime is live (html.motion-live), the grid animates the change:
+// leaving cards shrink and fade, the rest slide to their new places (FLIP, Web
+// Animations on the compositor), arriving cards grow in. Otherwise it is instant.
 import { useCallback, useEffect, useState } from "react";
 import { cx } from "@/lib/cx";
 import { AI_TEXT, NeuralGlyph } from "../ai-badge";
@@ -11,13 +14,46 @@ import type { Chip } from "./categories";
 
 const ITEM_SELECTOR = "#project-index [data-categories]";
 
-function apply(filter: string): number {
-  let shown = 0;
-  document.querySelectorAll<HTMLElement>(ITEM_SELECTOR).forEach((el) => {
-    const match = filter === "all" || (el.dataset.categories ?? "").split(" ").includes(filter);
-    el.hidden = !match;
-    if (match) shown += 1;
+const EXPO = "cubic-bezier(0.16, 1, 0.3, 1)";
+
+const matches = (el: HTMLElement, filter: string) =>
+  filter === "all" || (el.dataset.categories ?? "").split(" ").includes(filter);
+
+/** Shows the matching items; returns how many. Animated only while the motion runtime is live. */
+async function apply(filter: string): Promise<number> {
+  const items = Array.from(document.querySelectorAll<HTMLElement>(ITEM_SELECTOR));
+  const next = items.map((el) => matches(el, filter));
+  const shown = next.filter(Boolean).length;
+  const live = document.documentElement.classList.contains("motion-live") && typeof Element.prototype.animate === "function";
+  if (!live) {
+    items.forEach((el, i) => (el.hidden = !next[i]));
+    return shown;
+  }
+  // 1. Leaving cards shrink and fade out.
+  const leaving = items.filter((el, i) => !el.hidden && !next[i]);
+  const outs = leaving.map((el) =>
+    el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.92)" }], { duration: 250, easing: "ease-in", fill: "forwards" }),
+  );
+  await Promise.all(outs.map((a) => a.finished.catch(() => undefined)));
+  // 2. FLIP: first rects, apply, last rects, play the inverse.
+  const first = new Map(items.filter((el) => !el.hidden).map((el) => [el, el.getBoundingClientRect()]));
+  items.forEach((el, i) => (el.hidden = !next[i]));
+  outs.forEach((a) => a.cancel());
+  items.forEach((el, i) => {
+    if (!next[i]) return;
+    const a = el.getBoundingClientRect();
+    const b = first.get(el);
+    if (!b) {
+      el.animate([{ opacity: 0, transform: "scale(0.92)" }, { opacity: 1, transform: "none" }], { duration: 450, easing: EXPO });
+      return;
+    }
+    const dx = b.left - a.left;
+    const dy = b.top - a.top;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 600, easing: EXPO });
   });
+  // The page height changed: let ScrollTrigger re-measure (entrances of newly shown cards).
+  window.dispatchEvent(new Event("resize"));
   return shown;
 }
 
@@ -27,7 +63,7 @@ export function ProjectFilter({ chips, total }: { chips: Chip[]; total: number }
 
   const select = useCallback((id: string) => {
     setFilter(id);
-    setShown(apply(id));
+    void apply(id).then(setShown);
   }, []);
 
   // A /projects#<slug> link must never land on a hidden project.
