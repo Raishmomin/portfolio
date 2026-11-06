@@ -109,3 +109,11 @@ Open / owner follow-ups:
 - [ ] Follow-up: experience label for the current role clips at the right edge on 1440px
 - [x] Photo placed: hero avatar, /about portrait card, blog author avatar
 - [ ] Owner: add the AI tutor (live speaking) project to MongoDB `projects` (category ["AI"], technologies incl. speech/TTS) — it appears in the AI section automatically
+
+## Phase 5 — Full-motion redesign (owner feedback 2026-11-06: "animation only one side", "design not match", "animate the content cards")
+Spec: tasks/fullmotion-spec.md (diagnosis from a Playwright audit, art direction, lane contract)
+- [x] Playwright audit of every home section + page (desktop, mobile) -> 7 issues
+- [ ] Research (2 agents, parallel): visual 3D/motion patterns from award-level sites; technical recipes + root causes in our code
+- [ ] Build (3 senior 3D/motion designer agents, parallel worktrees): stage (full-bleed compositions, ambient scene, subpage stage, labels), home + motion system (card animation hooks, varied compositions), pages (subpages on the same design language + stage + card motion)
+- [ ] Merge -> build -> full-site Playwright tour (video + every section, desktop/mobile, dark/light) -> fix loop
+- [ ] SEO regression (68 URLs, seo_check 5 UAs), Lighthouse home/projects/post, motion-off + reduced-motion static layout
