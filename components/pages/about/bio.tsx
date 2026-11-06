@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Accent, Container, Section } from "../../ui/primitives";
+import { Portrait } from "../../ui/portrait";
 import { SubsectionHeading, TEXT_LINK } from "./subpage";
 import { count, reveal } from "../motion";
 import type { Personal } from "@/lib/data";
@@ -37,6 +38,12 @@ export function AboutBio({
         </div>
 
         <div className="min-w-0 lg:col-span-5" {...reveal(2)}>
+          <figure className="mb-6 overflow-hidden rounded-xl border border-border bg-card">
+            <Portrait size={400} sizes="(min-width: 1024px) 400px, 100vw" className="aspect-square h-auto w-full" />
+            <figcaption className="border-t border-border px-4 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              Raish Momin · Ahmedabad, India
+            </figcaption>
+          </figure>
           <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
             {stats.map((s) => (
               <div key={s.label} className="flex min-w-0 flex-col-reverse justify-end gap-2 bg-background p-3 sm:p-4 md:p-6">
