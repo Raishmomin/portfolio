@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { Accent } from "../../ui/primitives";
-import { Portrait } from "../../ui/portrait";
 import { TEXT_LINK } from "./subpage";
-import { PageSection, SectionHead, card, lit, part } from "../ui";
+import { PageSection, SectionHead, card, part } from "../ui";
 import type { Personal } from "@/lib/data";
 
 /**
- * Bio, "full" composition: the bio card and the portrait float over the
- * centred hero network as separate cards that enter as one wave.
+ * Bio, "full" composition: the bio card floats over the hero network, which keeps
+ * the free side of the page.
  */
 export function AboutBio({
   personal,
@@ -51,14 +50,6 @@ export function AboutBio({
           </p>
         </article>
 
-        <figure {...card("flip")} className="panel min-w-0 overflow-hidden lg:col-span-5">
-          <div {...lit} className="overflow-hidden">
-            <Portrait size={400} sizes="(min-width: 1024px) 400px, 100vw" className="aspect-square h-auto w-full object-cover sm:aspect-[4/3] lg:aspect-square" />
-          </div>
-          <figcaption className="border-t border-border px-4 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            Raish Momin · Ahmedabad, India
-          </figcaption>
-        </figure>
       </div>
     </PageSection>
   );

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Portrait } from "./ui/portrait";
 import { SITE } from "@/lib/config";
 import { LOCATION_LABEL, experienceLabel } from "@/lib/profile";
 import { card, part } from "./pages/ui";
@@ -19,7 +18,15 @@ export function AuthorBio() {
         <span className="truncate">{LOCATION_LABEL}</span>
       </p>
       <div className="flex items-start gap-5 p-5 md:p-6">
-        <Portrait size={56} decorative className="rounded-full ring-1 ring-border" />
+        <span
+          aria-hidden="true"
+          className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-border bg-background font-mono text-sm font-medium tracking-[0.08em] text-foreground"
+        >
+          {SITE.name
+            .split(" ")
+            .map((w) => w[0])
+            .join("")}
+        </span>
         <div className="min-w-0 flex-1">
           <h2 {...part} id="author-bio" className="text-lg font-semibold tracking-tight text-foreground">
             Written by {SITE.name}

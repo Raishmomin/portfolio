@@ -5,7 +5,7 @@
 // ambient field.
 import { Suspense } from "react";
 import Link from "next/link";
-import { Accent, ButtonLink } from "../ui/primitives";
+import { Accent } from "../ui/primitives";
 import { ContactForm } from "../contact-form";
 import type { ServiceConfig } from "@/lib/services";
 import type { FAQ } from "@/lib/seo";
@@ -14,7 +14,7 @@ import { shortDate } from "@/lib/derive";
 import { cn } from "@/lib/utils";
 import { CopyEmail } from "../copy-email";
 import type { PostRow } from "./latest-posts";
-import { HomeSection, NeuralGlyph, SectionHead, aiText, column, panel } from "./ui";
+import { HomeSection, SectionHead, column, panel } from "./ui";
 
 /** "AWS (EC2, ECS, …)" -> "AWS": a short chip label for a service's stack entry. */
 const chipLabel = (t: string) => t.replace(/\s*\(.*?\)/g, "").trim();
@@ -77,77 +77,6 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
             </li>
           ))}
         </ul>
-      </div>
-    </HomeSection>
-  );
-}
-
-/** The capabilities ticker under the 3D call to action (real skill names from the DB). */
-function Capabilities({ items }: { items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <div data-marquee="" className="relative mt-12 py-1 lg:mt-16">
-      <ul aria-label="Technologies I build with" className="gap-y-2">
-        {items.map((t) => (
-          <li key={t} className="shrink-0 pr-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/85 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
-              <span aria-hidden="true" className="h-1 w-1 rounded-full bg-primary" />
-              {t}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** "Want a 3D site like this?" — the page itself is the portfolio piece. "full" composition. */
-export function ThreeDCtaSection({ capabilities }: { capabilities: string[] }) {
-  return (
-    <HomeSection
-      id="build-3d"
-      section="cta"
-      stage="full"
-      labelledBy="build-3d-heading"
-      bleed={<Capabilities items={capabilities} />}
-    >
-      <div
-        data-card="zoom"
-        data-spotlight=""
-        className={cn(panel, "relative mx-auto max-w-4xl overflow-hidden p-6 text-center md:p-12")}
-      >
-        <div
-          aria-hidden="true"
-          data-parallax="-0.3"
-          className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgb(63_91_217/0.22),transparent)] dark:bg-[radial-gradient(closest-side,rgb(124_156_255/0.22),transparent)]"
-        />
-        <p
-          data-card-part=""
-          className={cn("relative inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em]", aiText)}
-        >
-          <NeuralGlyph />
-          Interactive 3D web
-        </p>
-        <h2
-          id="build-3d-heading"
-          data-split=""
-          className="relative mx-auto mt-4 max-w-[18ch] text-balance text-[clamp(2rem,5.4vw,4.25rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-foreground"
-        >
-          Want a 3D site <Accent>like this one?</Accent>
-        </h2>
-        <p data-card-part="" className="relative mx-auto mt-5 max-w-[56ch] text-[17px] leading-7 text-muted-foreground">
-          I build interactive 3D web experiences. The neural network on this page is drawn live in your browser with
-          WebGL (Three.js and React Three Fiber), while every word stays server-rendered HTML, so search engines and
-          AI assistants read it all.
-        </p>
-        <div data-card-part="" className="relative mt-8 flex flex-wrap justify-center gap-3">
-          <ButtonLink href="/contact" data-magnetic="">
-            Start a 3D project <span aria-hidden="true">→</span>
-          </ButtonLink>
-          <ButtonLink href="/services" variant="ghost">
-            See all services
-          </ButtonLink>
-        </div>
       </div>
     </HomeSection>
   );

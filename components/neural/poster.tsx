@@ -3,7 +3,7 @@
 // ambient field everywhere else (picked in CSS with :has(), no JS), plus the shared CSS
 // that animates signal pulses along their routes. No JS: the pulses are
 // stroke-dashoffset keyframes that run only when motion is allowed (the tri-state
-// 3D/motion contract, components/header/motion-toggle.tsx): html.js without
+// 3D/motion contract, components/reveal.tsx): html.js without
 // data-motion="off" under prefers-reduced-motion: no-preference, or an explicit
 // html[data-motion="on"].
 import type { CSSProperties } from "react";

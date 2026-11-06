@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 import { SITE, SITE_URL } from "@/lib/config";
 import { experienceLabel } from "@/lib/profile";
-import { PORTRAIT_DATA_URL } from "@/lib/portrait-data";
 
 export const alt = `${SITE.name} — Portfolio`;
 export const size = { width: 1200, height: 630 };
@@ -9,6 +8,19 @@ export const contentType = "image/png";
 // The card prints the derived years figure, so it is regenerated like the home
 // page (ISR, daily) instead of being fixed at build time.
 export const revalidate = 86400;
+
+// A small neural network (4 layers) as the card's visual, drawn with plain SVG.
+const LAYERS = [3, 5, 5, 2];
+const NODES: [number, number][] = LAYERS.flatMap((n, l) =>
+  Array.from({ length: n }, (_, i) => [30 + l * 106.7, 190 + (i - (n - 1) / 2) * 68] as [number, number]),
+);
+const EDGES: [[number, number], [number, number]][] = [];
+LAYERS.reduce((start, n, l) => {
+  const next = start + n;
+  if (l < LAYERS.length - 1)
+    for (let i = start; i < next; i++) for (let j = next; j < next + LAYERS[l + 1]; j++) EDGES.push([NODES[i], NODES[j]]);
+  return next;
+}, 0);
 
 export default async function OG() {
   return new ImageResponse(
@@ -40,13 +52,14 @@ export default async function OG() {
             <span>&nbsp;· Next.js · Node · AI products · DevOps</span>
           </div>
         </div>
-        <img
-          src={PORTRAIT_DATA_URL}
-          alt=""
-          width={400}
-          height={400}
-          style={{ width: 400, height: 400, borderRadius: 28, border: "2px solid #26292F", objectFit: "cover" }}
-        />
+        <svg width="380" height="380" viewBox="0 0 380 380" style={{ flexShrink: 0 }}>
+          {EDGES.map(([a, b], i) => (
+            <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={i % 7 === 0 ? "#FF5B1F" : "#7C9CFF"} strokeOpacity={i % 7 === 0 ? 0.8 : 0.28} strokeWidth={i % 7 === 0 ? 2 : 1.2} />
+          ))}
+          {NODES.map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r={x > 330 ? 9 : 6} fill={x > 330 ? "#FF5B1F" : "#ECE7DC"} />
+          ))}
+        </svg>
       </div>
     ),
     { ...size }

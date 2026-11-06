@@ -39,10 +39,10 @@ export function revealProps(options: RevealOptions = {}) {
 /**
  * Runs in <head> before first paint: applies the color theme (localStorage "theme" =
  * "light" | "dark" | "system", default dark; html class + color-scheme, see
- * components/header/theme-toggle.tsx), applies the persisted 3D/motion preference
- * (localStorage "cp:3d" = "off" | "on" sets html[data-motion]; no attribute = follow the OS
- * reduced-motion setting; an explicit "on" overrides it,
- * see components/header/motion-toggle.tsx), flags `html.js` and reveals `[data-reveal]`
+ * components/header/theme-toggle.tsx), turns motion and 3D ON for every visitor
+ * (html[data-motion]="on", owner decision 2026-11-06: no toggle, the OS reduced-motion
+ * setting is not followed; localStorage "cp:3d"="off" remains as a hidden QA/debug kill
+ * switch), flags `html.js` and reveals `[data-reveal]`
  * elements as they enter the viewport, including ones added later by client
  * navigation. An element counts as in view once 15% of it, or a fifth of the
  * viewport's height of it, is visible (so very tall sections and the last element
@@ -56,7 +56,7 @@ var d=document.documentElement,t;
 try{t=localStorage.getItem("theme");}catch(e){}
 if(t!=="light"&&t!=="dark")t=t==="system"&&!matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark";
 d.classList.add(t);d.style.colorScheme=t;
-try{var m=localStorage.getItem("cp:3d");if(m==="off"||m==="on")d.dataset.motion=m;}catch(e){}
+var m;try{m=localStorage.getItem("cp:3d");}catch(e){}d.dataset.motion=m==="off"?"off":"on";
 if(!("IntersectionObserver" in window))return;
 d.classList.add("js");
 function show(n){n.setAttribute("data-in","");}

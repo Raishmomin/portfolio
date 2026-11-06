@@ -1,5 +1,4 @@
 import { Accent, ButtonLink, Container, Kicker, StatusDot } from "../ui/primitives";
-import { Portrait } from "../ui/portrait";
 import { PROFILE } from "@/lib/profile";
 import { LocalTime } from "./local-time";
 import { SceneNote, aiText, reveal } from "./ui";
@@ -38,10 +37,7 @@ export function Hero({
       />
       <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center py-12 md:py-16">
         <div className="max-w-[44rem]">
-          <div className="flex items-center gap-4">
-            <Portrait size={56} decorative className="rounded-full ring-1 ring-border ring-offset-2 ring-offset-background" />
-            <Kicker>Full Stack Developer · DevOps Engineer · AI products</Kicker>
-          </div>
+          <Kicker>Full Stack Developer · DevOps Engineer · AI products</Kicker>
 
           <h1 id="hero-heading" className="mt-5 text-display font-semibold text-foreground">
             {PROFILE.name}

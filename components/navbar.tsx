@@ -2,7 +2,6 @@ import Link from "next/link";
 import { NavLinks } from "./header/nav-links";
 import { MobileMenu } from "./header/mobile-menu";
 import { ThemeToggle } from "./header/theme-toggle";
-import { MotionToggle } from "./header/motion-toggle";
 
 /**
  * Site header (every page; no props). A Server Component: the wordmark and layout are
@@ -27,7 +26,6 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-1">
-          <MotionToggle />
           <ThemeToggle />
           <MobileMenu />
         </div>

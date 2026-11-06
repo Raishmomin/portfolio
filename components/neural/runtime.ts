@@ -57,9 +57,10 @@ export function motionPref(): MotionPref {
     const saved = localStorage.getItem("cp:3d");
     if (saved === "on" || saved === "off") return saved;
   } catch {
-    // storage blocked: fall through to auto
+    // storage blocked: fall through to the default
   }
-  return "auto";
+  // Owner decision (2026-11-06): motion and 3D are on for everyone; "off" is a hidden QA switch.
+  return "on";
 }
 
 /** May this visitor get the WebGL stage? An explicit "on" overrides reduced motion / Save-Data. */

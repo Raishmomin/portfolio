@@ -8,7 +8,7 @@ import { Hero } from "../components/home/hero";
 import { ExperienceSection, StackSection } from "../components/home/sections";
 import { AiSection } from "../components/home/ai";
 import { WorkSection } from "../components/home/work";
-import { ContactSection, FaqSection, ServicesSection, ThreeDCtaSection, WritingSection } from "../components/home/more";
+import { ContactSection, FaqSection, ServicesSection, WritingSection } from "../components/home/more";
 import { getLatestPosts } from "../components/home/latest-posts";
 import { skillLayers } from "../components/home/derive";
 import { NavSpy } from "../components/home/nav-spy";
@@ -137,7 +137,6 @@ export default async function Home() {
         <AiSection steps={aiSteps} total={projects.length} />
         <WorkSection featured={featured} archive={archive} />
         <ServicesSection services={Object.values(SERVICES)} />
-        <ThreeDCtaSection capabilities={neural.skills.map((s) => s.name)} />
         <WritingSection posts={posts} />
         <FaqSection faqs={faqs} />
         <ContactSection />
