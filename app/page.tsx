@@ -3,19 +3,21 @@ import { PageJsonLd } from "../components/page-json-ld";
 import { Navbar } from "../components/navbar";
 import { Footer } from "../components/footer";
 import { VisitBeacon } from "../components/visit-beacon";
-import { Container } from "../components/ui/primitives";
-import { ClusterMonitor, SectionSpy, toFormationData } from "../components/cluster";
+import { NeuralStage, isAiProject, toNeuralData } from "../components/neural";
 import { Hero } from "../components/home/hero";
-import { AboutSection, ExperienceSection, StackSection } from "../components/home/sections";
+import { ExperienceSection, StackSection } from "../components/home/sections";
+import { AiSection } from "../components/home/ai";
 import { WorkSection } from "../components/home/work";
-import { ContactSection, FaqSection, ServicesSection, WritingSection } from "../components/home/more";
+import { ContactSection, FaqSection, ServicesSection, ThreeDCtaSection, WritingSection } from "../components/home/more";
 import { getLatestPosts } from "../components/home/latest-posts";
-import { stackMap, tickerSkills } from "../components/home/derive";
+import { skillLayers } from "../components/home/derive";
+import { NavSpy } from "../components/home/nav-spy";
 import { skillCount } from "@/lib/derive";
 import { sortRoles } from "@/lib/llms";
+import { slugify } from "@/lib/utils";
 import { buildMetadata, breadcrumbList, faqPageSchema, webPageSchema, PERSON_ID, PERSON_IMAGE } from "@/lib/seo";
 import { SITE } from "@/lib/config";
-import { PROFILE, SAME_AS, experienceLabel } from "@/lib/profile";
+import { PROFILE, SAME_AS, yearsOfExperience } from "@/lib/profile";
 import { FAQS } from "@/lib/faqs";
 import { SERVICES } from "@/lib/services";
 import { getExperience, getPersonal, getProjects, getSkills } from "@/lib/data";
@@ -70,17 +72,24 @@ export default async function Home() {
 
   const featured = projects.slice(0, FEATURED_COUNT);
   const archive = projects.slice(FEATURED_COUNT);
-  const groups = stackMap(skills, projects);
-  const timeline = sortRoles(experience);
+  const timeline = sortRoles(experience); // newest first
   const faqs = homeFaqs();
-  const formation = toFormationData({ skills, experience: timeline, featuredProjects: featured });
+  const neural = toNeuralData({ skills, experience: timeline, projects, featured });
 
-  const years = experienceLabel();
-  const proof = [`${years} yrs`, `${projects.length} shipped projects`, ...tickerSkills(groups)];
+  // The DOM mirrors the 3D scenes: same skill ids, same oldest→newest career path,
+  // same AI projects in the same order (card i = scene step i).
+  const bySlug = new Map(projects.map((p) => [slugify(p.title), p]));
+  const aiSteps = neural.ai.flatMap((a) => {
+    const project = bySlug.get(a.slug);
+    return project ? [{ ...a, project }] : [];
+  });
+  const career = [...timeline].reverse().map((e, i) => ({ ...e, months: neural.experience[i].months, current: neural.experience[i].current }));
+
   const stats = [
-    { value: years, label: "years shipping" },
-    { value: String(projects.length), label: "projects shipped" },
-    { value: String(skillCount(skills)), label: "technologies" },
+    { value: yearsOfExperience(), suffix: "+", label: "years shipping" },
+    { value: projects.length, label: "projects shipped" },
+    { value: projects.filter(isAiProject).length, label: "AI projects", ai: true },
+    { value: skillCount(skills), label: "technologies" },
   ];
 
   // One ProfilePage node (keeps the home WebPage @id `${SITE_URL}/#webpage`).
@@ -116,28 +125,18 @@ export default async function Home() {
       <VisitBeacon />
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
-        <SectionSpy />
-        <Container className="lg:grid lg:grid-cols-12 lg:gap-x-8">
-          <div className="min-w-0 lg:col-span-7">
-            <Hero intro={personal.intro} resumeUrl={personal.resumeUrl} proof={proof} />
-            <div className="pb-16 lg:hidden">
-              <ClusterMonitor variant="band" data={formation} />
-            </div>
-            <AboutSection bio={personal.about} stats={stats} />
-            <StackSection groups={groups} />
-            <ExperienceSection items={timeline} />
-            <WorkSection featured={featured} archive={archive} />
-            <ServicesSection services={Object.values(SERVICES)} />
-            <WritingSection posts={posts} />
-            <FaqSection faqs={faqs} />
-            <ContactSection />
-          </div>
-          <div className="hidden pt-8 lg:col-span-5 lg:block">
-            <div className="sticky top-24 h-[calc(100vh-128px)]">
-              <ClusterMonitor variant="sticky" data={formation} />
-            </div>
-          </div>
-        </Container>
+        <NeuralStage data={neural} />
+        <NavSpy />
+        <Hero intro={personal.intro} resumeUrl={personal.resumeUrl} stats={stats} />
+        <StackSection layers={skillLayers(neural.skills)} linkCount={neural.links.length} />
+        <ExperienceSection items={career} />
+        <AiSection steps={aiSteps} total={projects.length} />
+        <WorkSection featured={featured} archive={archive} />
+        <ServicesSection services={Object.values(SERVICES)} />
+        <ThreeDCtaSection />
+        <WritingSection posts={posts} />
+        <FaqSection faqs={faqs} />
+        <ContactSection />
       </main>
       <Footer />
     </>
