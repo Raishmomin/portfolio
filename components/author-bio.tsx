@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SITE } from "@/lib/config";
 import { LOCATION_LABEL, PROFILE, experienceLabel } from "@/lib/profile";
+import { reveal } from "./pages/motion";
 
 // Identity facts come only from profile.ts (via SITE/PROFILE); nothing here is typed by hand.
 
@@ -11,7 +12,7 @@ const chip =
 
 export function AuthorBio() {
   return (
-    <aside className="mt-16 rounded-lg border border-border bg-card" aria-labelledby="author-bio">
+    <aside className="mt-16 rounded-lg border border-border bg-card" aria-labelledby="author-bio" {...reveal()}>
       <p className="flex items-center justify-between gap-4 border-b border-border px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         <span>author</span>
         <span className="truncate">{LOCATION_LABEL}</span>

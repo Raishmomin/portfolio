@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Navbar } from "../../components/navbar";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
-import { toFormationData } from "../../components/cluster/formation-data";
 import { Accent, ButtonLink, Container, Section } from "../../components/ui/primitives";
 import {
   AvailabilityLine,
@@ -24,6 +23,7 @@ import {
 import { FAQS } from "@/lib/faqs";
 import { experienceLabel } from "@/lib/profile";
 import { getExperience, getPersonal, getProjects, getSkills } from "@/lib/data";
+import { isAiProject } from "../../components/neural";
 
 export const revalidate = 86400;
 
@@ -68,8 +68,9 @@ export default async function AboutPage() {
       { name: "About", path: "/about" },
     ]),
   ];
-  const motif = toFormationData({ skills, experience, featuredProjects: projects.slice(0, 6) });
   const technologies = skillCount(skills);
+  const aiCount = projects.filter(isAiProject).length;
+  const motif = { label: "neural · about", value: `AI in ${aiCount} of ${projects.length} projects` };
 
   return (
     <>

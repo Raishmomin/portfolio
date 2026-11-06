@@ -1,5 +1,5 @@
 import { Container, PillList, Section, StatusDot, WithFigures } from "../../ui/primitives";
-import { revealProps } from "../../reveal";
+import { reveal, split } from "../motion";
 import { periodMonths, periodParts } from "@/lib/derive";
 import type { ExperienceItem } from "@/lib/data";
 
@@ -23,7 +23,7 @@ export function ExperienceTimeline({ roles }: { roles: ExperienceItem[] }) {
               <li
                 key={`${role.company}-${role.period}`}
                 className="grid gap-5 border-b border-border py-10 last:border-b-0 md:grid-cols-12 md:gap-8 md:py-14"
-                {...revealProps({ y: 12, delay: Math.min(i, 3) * 0.05 })}
+                {...reveal(Math.min(i, 3), 50)}
               >
                 <div className="md:col-span-4 lg:col-span-3">
                   <p className="font-mono text-[13px] uppercase tracking-[0.14em] text-foreground tabular-nums">
@@ -47,7 +47,7 @@ export function ExperienceTimeline({ roles }: { roles: ExperienceItem[] }) {
                 </div>
 
                 <article className="min-w-0 md:col-span-8 lg:col-span-9">
-                  <h2 className="text-[clamp(1.25rem,2.2vw,1.75rem)] font-semibold leading-tight tracking-[-0.02em] text-foreground">
+                  <h2 {...split} className="text-[clamp(1.25rem,2.2vw,1.75rem)] font-semibold leading-tight tracking-[-0.02em] text-foreground">
                     {role.title} <span className="font-normal text-muted-foreground">· {role.company}</span>
                   </h2>
                   {role.description ? (

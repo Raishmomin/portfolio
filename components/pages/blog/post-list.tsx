@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { BlogPostSummary } from "@/lib/blog-types";
 import { plainExcerpt, postTitle } from "@/lib/blog";
 import { shortDate } from "@/lib/derive";
+import { reveal } from "../motion";
 
 /** Generated tags sometimes end with a stray period ("Edge Runtime."). */
 export const cleanTag = (tag: string) => tag.trim().replace(/\.+$/, "");
@@ -11,8 +12,8 @@ export const cleanTag = (tag: string) => tag.trim().replace(/\.+$/, "");
 export function PostList({ posts }: { posts: BlogPostSummary[] }) {
   return (
     <ol className="border-b border-border">
-      {posts.map((post) => (
-        <li key={post.slug} className="group relative border-t border-border first:border-t-0">
+      {posts.map((post, i) => (
+        <li key={post.slug} className="group relative border-t border-border first:border-t-0" {...reveal(i % 3)}>
           <article className="grid gap-3 py-8 md:grid-cols-12 md:gap-8 md:py-10">
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums md:col-span-2 md:pt-1.5">
               <time dateTime={new Date(post.publishedAt).toISOString()}>{shortDate(post.publishedAt)}</time>

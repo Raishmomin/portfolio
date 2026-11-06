@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import clientPromise from "@/lib/mongodb";
 import { TAGS } from "@/lib/cache-tags";
 import { LISTED_POSTS, plainExcerpt, postTitle } from "@/lib/blog";
+import { reveal, split } from "./pages/motion";
 
 type RelatedPost = { title: string; slug: string; excerpt: string };
 
@@ -40,12 +41,12 @@ export async function RelatedPosts({
   return (
     <section className="mt-16" aria-labelledby="related-posts">
       <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">keep reading</p>
-      <h2 id="related-posts" className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
+      <h2 {...split} id="related-posts" className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
         Related reading
       </h2>
       <ul className="mt-6 border-b border-border">
-        {posts.map((p) => (
-          <li key={p.slug} className="border-t border-border">
+        {posts.map((p, i) => (
+          <li key={p.slug} className="border-t border-border" {...reveal(i)}>
             <Link
               href={`/blog/${p.slug}`}
               className="group block py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
