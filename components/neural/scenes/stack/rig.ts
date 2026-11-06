@@ -15,7 +15,7 @@ import {
 import type { Camera } from "three";
 import type { ScenePalette, SkillLayer } from "../../types";
 import { GLOW_OUT, Sprites, clamp01, fitScale, hash01, isLightBg, layerColors, setGlowBlending, smooth01 } from "./gl";
-import type { LabelLayer } from "./labels";
+import type { Align, LabelLayer } from "./labels";
 import { LAYER_NAME, bezier, type StackLayout } from "./layout";
 
 const TILT = 0.38; // rad: view the plates from slightly above
@@ -102,6 +102,9 @@ const PLATE_FRAG = /* glsl */ `
 `;
 
 const tmp = new Vector3();
+/** Plate names sit left of the rim (or just inside it on narrow viewports). */
+const PLATE_OUT: Align = { x: -1, y: -0.5, dx: -6 };
+const PLATE_IN: Align = { x: 0, y: -0.5, dx: 8 };
 
 export class StackRig {
   /** Weight fade/scale + tilt; React mounts it, plate labels live here (they do not orbit). */
@@ -325,13 +328,13 @@ export class StackRig {
     const { nodes, plates } = this.layout;
     this.nodeLabel0 = -1;
     nodes.forEach((nd) => {
-      const i = layer.add(nd.name, "font-size:11px;line-height:14px;letter-spacing:0.02em;translate:9px -50%;");
+      const i = layer.add(nd.name, "font-size:11px;line-height:14px;letter-spacing:0.02em;", "font-mono", { x: 0, y: -0.5, dx: 9 });
       if (this.nodeLabel0 < 0) this.nodeLabel0 = i;
     });
     this.plateLabel0 = -1;
     this.platesInside = false;
     plates.forEach((pl) => {
-      const i = layer.add(`${LAYER_NAME[pl.layer]} · ${pl.count}`, "font-size:10px;line-height:12px;letter-spacing:0.16em;text-transform:uppercase;translate:calc(-100% - 6px) -50%;");
+      const i = layer.add(`${LAYER_NAME[pl.layer]} · ${pl.count}`, "font-size:10px;line-height:12px;letter-spacing:0.16em;text-transform:uppercase;", "font-mono", PLATE_OUT);
       if (this.plateLabel0 < 0) this.plateLabel0 = i;
     });
     this.styleLabels();
@@ -392,7 +395,7 @@ export class StackRig {
     const k = 1 - Math.exp(-d * 5);
 
     // Weight: fade, scale in, and the plates stack apart from one plane.
-    const s = (0.86 + 0.14 * e) * fitScale(camera, size, 3.5, 3.5);
+    const s = (0.86 + 0.14 * e) * fitScale(camera, size, 3.5, 3.5, 1.4);
     this.root.scale.set(s, s * (0.3 + 0.7 * e), s);
 
     // Progress → slow orbit (damped, so scroll steps never jerk); pointer → slight lean.
@@ -460,7 +463,7 @@ export class StackRig {
     // Labels: the most-used skills, plus the focused skill and its neighbours; quieter at
     // the back of the orbit, dimmed by focus, faded with weight.
     const layer = this.labels;
-    if (layer) {
+    if (layer?.begin(weight)) {
       this.root.updateMatrixWorld(true);
       const fi = this.focusId === null ? -1 : (this.layout.index.get(this.focusId) ?? -1);
       for (let i = 0; i < nodes.length; i++) {
@@ -479,8 +482,7 @@ export class StackRig {
       const inside = size.width < 640;
       if (inside !== this.platesInside) {
         this.platesInside = inside;
-        const t = inside ? "8px -50%" : "calc(-100% - 6px) -50%";
-        this.layout.plates.forEach((_, k) => layer.style(this.plateLabel0 + k, { translate: t }));
+        this.layout.plates.forEach((_, k) => layer.setAlign(this.plateLabel0 + k, inside ? PLATE_IN : PLATE_OUT));
       }
       const plates = this.layout.plates;
       for (let k = 0; k < plates.length; k++) {

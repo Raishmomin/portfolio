@@ -4,8 +4,9 @@
 // in as `progress` grows, swirling into one bright pulsing node; then a beam of light
 // reaches out from it toward the viewer. All motion is in the shaders (one uniform
 // drives convergence); no text in the canvas.
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
+import { fitFree } from "../framing";
 import type { SceneProps } from "../types";
 import { isLight } from "./ai/shared";
 import { ContactRig, type ContactRegistry } from "./contact/rig";
@@ -20,12 +21,15 @@ export default function ContactScene({ data, progress, weight, pointer, palette,
   useEffect(() => rig.setPalette(palette), [rig, palette]);
   useEffect(() => rig.setQuality(quality), [rig, quality]);
 
-  const viewport = useThree((s) => s.viewport);
-  const scale = Math.min(viewport.width / 13, viewport.height / 8.5, 1.1);
   const active = weight > 0;
 
   const reg = useRef<ContactRegistry>({ root: null, core: null });
-  useFrame((state, dt) => rig.frame(state, dt, { progress, weight, pointer, scale }, reg.current));
+  useFrame((state, dt) => {
+    if (!active) return;
+    // Fitted into the free part of the viewport; centred and larger in a "full" composition.
+    const scale = fitFree(state.camera, state.size, 6.5, 4.25, 1.1, 1.35);
+    rig.frame(state, dt, { progress, weight, pointer, scale }, reg.current);
+  });
 
   return (
     <group

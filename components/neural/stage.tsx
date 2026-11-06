@@ -12,10 +12,25 @@
 //   priority -1). A scene may add an absolute offset afterwards in its own useFrame.
 // - `pointer` is a live, smoothed object: read pointer.x / pointer.y inside useFrame.
 // - Return null and skip useFrame work while weight === 0.
+// - Composition: the rig shifts the camera's view so the origin lands in the centre of the
+//   free part of the viewport that the section's data-stage leaves (framing.ts); size the
+//   scene with fitFree()/fitScale() so it fills that space and never sits under content.
+//   A full-screen dimmer drawn last keeps the scene quiet wherever content sits.
 import { Canvas, useFrame, useThree, type GLProps } from "@react-three/fiber";
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
-import { Vector3, WebGLRenderer, type PerspectiveCamera } from "three";
-import { SceneStore } from "./director";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
+import {
+  AddEquation,
+  CustomBlending,
+  OneMinusSrcAlphaFactor,
+  PlaneGeometry,
+  ShaderMaterial,
+  Vector3,
+  WebGLRenderer,
+  ZeroFactor,
+  type PerspectiveCamera,
+} from "three";
+import { SceneStore, type Frame } from "./director";
+import { framing, zeroComposition, type Composition } from "./framing";
 import { DEFAULT_DISTANCE, FOV, heroCamera, type CameraTarget } from "./hero-layout";
 import { readPalette, samePalette } from "./palette";
 import { contextOwner, nextIdle } from "./runtime";
@@ -26,6 +41,7 @@ import Experience from "./scenes/experience";
 import Ai from "./scenes/ai";
 import Work from "./scenes/work";
 import Contact from "./scenes/contact";
+import Ambient from "./scenes/ambient";
 
 const SCENES: [SceneKey, ComponentType<SceneProps>][] = [
   ["hero", Hero],
@@ -34,6 +50,7 @@ const SCENES: [SceneKey, ComponentType<SceneProps>][] = [
   ["ai", Ai],
   ["work", Work],
   ["contact", Contact],
+  ["ambient", Ambient],
 ];
 
 const MIN_FPS = 30; // sustained below this (back-to-back frames only) counts as a decline
@@ -66,6 +83,81 @@ function cameraFor(key: SceneKey, aspect: number, progress: number, out: CameraT
   return out;
 }
 
+// The dimmer: a full-screen pass drawn after every scene that scales down what the scenes
+// drew (colour and alpha alike) wherever the composition puts content, so text always sits
+// over a quiet scene: left / right halves, a uniform veil for "full", everything below the
+// band, and on phones everything outside the section opening in view.
+const DIM_VERT = /* glsl */ `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}`;
+const DIM_FRAG = /* glsl */ `
+uniform vec4 uMask; // left, right, full, band weights
+uniform float uPhone;
+uniform vec2 uBand;
+uniform vec2 uOpen;
+varying vec2 vUv;
+float inside(float y, vec2 w) {
+  return smoothstep(w.x - 0.04, w.x + 0.02, y) * (1.0 - smoothstep(w.y - 0.03, w.y + 0.05, y));
+}
+void main() {
+  float x = vUv.x;
+  float y = 1.0 - vUv.y;
+  float a = uMask.x * 0.8 * (1.0 - smoothstep(0.34, 0.62, x))
+    + uMask.y * 0.8 * smoothstep(0.38, 0.66, x)
+    + uMask.z * 0.42
+    + uMask.w * 0.82 * (1.0 - inside(y, uBand));
+  a = mix(a, 0.68 * (1.0 - inside(y, uOpen)), uPhone);
+  gl_FragColor = vec4(0.0, 0.0, 0.0, clamp(a, 0.0, 0.92));
+}`;
+
+class Dimmer {
+  readonly geometry = new PlaneGeometry(2, 2);
+  readonly material = new ShaderMaterial({
+    vertexShader: DIM_VERT,
+    fragmentShader: DIM_FRAG,
+    uniforms: {
+      uMask: { value: [0, 0, 0, 0] },
+      uPhone: { value: 0 },
+      uBand: { value: [0, 0] },
+      uOpen: { value: [0, 0] },
+    },
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    blending: CustomBlending,
+    blendEquation: AddEquation,
+    blendSrc: ZeroFactor,
+    blendDst: OneMinusSrcAlphaFactor,
+    blendEquationAlpha: AddEquation,
+    blendSrcAlpha: ZeroFactor,
+    blendDstAlpha: OneMinusSrcAlphaFactor,
+  });
+
+  update(c: Composition, f: Frame) {
+    const u = this.material.uniforms;
+    const m = u.uMask.value as number[];
+    m[0] = c.mL;
+    m[1] = c.mR;
+    m[2] = c.mF;
+    m[3] = c.mB;
+    u.uPhone.value = f.phone ? 1 : 0;
+    const b = u.uBand.value as number[];
+    b[0] = f.band.top;
+    b[1] = f.band.bottom;
+    const o = u.uOpen.value as number[];
+    o[0] = f.open.top;
+    o[1] = f.open.bottom;
+  }
+
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
+  }
+}
+
 /** Mutable per-frame state (smoothed pointer, camera rig, frame monitor) outside React. */
 class Rig {
   /** The live, smoothed pointer every scene receives. */
@@ -86,18 +178,21 @@ class Rig {
     this.raw.y = y;
   }
 
-  /** Advances one frame; returns true when the last second ran below MIN_FPS. */
-  /** Eased 0..1: how far the view is shifted right / zoomed out for content-panel sections. */
-  private shift = 0;
-  private appliedShift = -1;
+  /** Eased composition (free rect + dimmer weights). */
+  readonly comp: Composition = zeroComposition();
+  private appliedX = NaN;
+  private appliedY = NaN;
   private appliedW = 0;
+  private appliedH = 0;
 
+  /** Advances one frame; returns true when the last second ran below MIN_FPS. */
   frame(
     camera: PerspectiveCamera,
     rawDelta: number,
     aspect: number,
     store: SceneStore,
     size: { width: number; height: number },
+    dim: Dimmer,
   ): boolean {
     const dt = Math.min(rawDelta, 0.1);
     const { pointer, raw, sum, pos, look } = this;
@@ -105,17 +200,13 @@ class Rig {
     pointer.x += (raw.x - pointer.x) * kp;
     pointer.y += (raw.y - pointer.y) * kp;
 
-    // Camera: weight-blended scene targets, eased, plus pointer parallax.
+    // Camera: weight-blended scene targets, eased, plus pointer parallax (none on phones).
     const { frame } = store;
     sum.px = sum.py = sum.pz = sum.lx = sum.ly = sum.lz = 0;
     let total = 0;
-    let shiftSum = 0;
     for (const [key] of SCENES) {
       const w = frame.weight[key];
       if (w <= 0) continue;
-      // Desktop: section text panels cover the left ~45%, so every scene except the hero
-      // (which frames itself on the right) is rendered into the free right side.
-      if (key !== "hero") shiftSum += w;
       const t = cameraFor(key, aspect, frame.progress[key], this.target);
       sum.px += t.px * w;
       sum.py += t.py * w;
@@ -126,32 +217,43 @@ class Rig {
       total += w;
     }
     if (total === 0) {
-      cameraFor("hero", aspect, 0, sum);
+      cameraFor("ambient", aspect, 0, sum);
       total = 1;
     }
     const k = this.first ? 1 : 1 - Math.exp(-dt / CAMERA_TAU);
-    this.first = false;
     pos.x += (sum.px / total - pos.x) * k;
     pos.y += (sum.py / total - pos.y) * k;
     pos.z += (sum.pz / total - pos.z) * k;
     look.x += (sum.lx / total - look.x) * k;
     look.y += (sum.ly / total - look.y) * k;
     look.z += (sum.lz / total - look.z) * k;
-    camera.position.set(pos.x + pointer.x * 0.6, pos.y + pointer.y * 0.35, pos.z);
+    const par = frame.phone ? 0 : 1;
+    camera.position.set(pos.x + pointer.x * 0.6 * par, pos.y + pointer.y * 0.35 * par, pos.z);
     camera.lookAt(look);
 
-    const wide = size.width >= 1024;
-    const shiftTarget = wide ? shiftSum / total : 0;
-    this.shift += (shiftTarget - this.shift) * k;
-    const sh = Math.abs(this.shift - shiftTarget) < 0.001 ? shiftTarget : this.shift;
-    if (Math.abs(sh - this.appliedShift) > 0.0005 || this.appliedW !== size.width) {
-      if (sh > 0.0005) camera.setViewOffset(size.width, size.height, -size.width * 0.21 * sh, 0, size.width, size.height);
+    // Composition: ease toward the sections' blend, then frame the view onto the free rect.
+    const c = this.comp;
+    const t = frame.comp;
+    if (this.first) Object.assign(c, t);
+    else for (const key of Object.keys(c) as (keyof Composition)[]) c[key] += (t[key] - c[key]) * k;
+    this.first = false;
+    framing.w = Math.max(0.2, c.w);
+    framing.h = Math.max(0.2, c.h);
+    framing.grow = c.grow;
+    framing.phone = frame.phone;
+    const ox = Math.round(-c.cx * size.width * 2) / 2;
+    const oy = Math.round(-c.cy * size.height * 2) / 2;
+    if (ox !== this.appliedX || oy !== this.appliedY || size.width !== this.appliedW || size.height !== this.appliedH) {
+      if (ox !== 0 || oy !== 0) camera.setViewOffset(size.width, size.height, ox, oy, size.width, size.height);
       else camera.clearViewOffset();
-      camera.zoom = 1 - 0.18 * sh;
+      camera.zoom = 1;
       camera.updateProjectionMatrix();
-      this.appliedShift = sh;
+      this.appliedX = ox;
+      this.appliedY = oy;
       this.appliedW = size.width;
+      this.appliedH = size.height;
     }
+    dim.update(c, frame);
 
     // Frame monitor: only back-to-back frames count, after the warm-up.
     const now = performance.now();
@@ -206,6 +308,8 @@ function Director({
   const [palette, setPalette] = useState<ScenePalette>(readPalette);
   const [focus, setFocus] = useState<string | null>(null);
   const [rig] = useState(() => new Rig());
+  const dim = useMemo(() => new Dimmer(), []);
+  useEffect(() => () => dim.dispose(), [dim]);
 
   // Scroll/resize → director (one rAF-throttled measurement per frame at most).
   useEffect(() => {
@@ -313,11 +417,12 @@ function Director({
 
   useFrame((state, delta) => {
     const aspect = state.size.width / Math.max(1, state.size.height);
-    if (rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size)) onDecline();
+    if (rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim)) onDecline();
   }, -1);
 
   return (
     <>
+      <mesh geometry={dim.geometry} material={dim.material} frustumCulled={false} renderOrder={1e6} />
       {SCENES.map(([key, Scene]) => (
         <SceneSlot
           key={key}
@@ -395,6 +500,18 @@ export default function Stage({ data, active, onReady, onFallback }: StageProps)
   );
 
   const running = active && !idle;
+  // Scenes may assume complete data: a hot reload (or a partial payload) never crashes them.
+  const safe = useMemo<NeuralData>(
+    () => ({
+      skills: data?.skills ?? [],
+      links: data?.links ?? [],
+      experience: data?.experience ?? [],
+      ai: data?.ai ?? [],
+      work: data?.work ?? [],
+    }),
+    [data],
+  );
+
   return (
     <Canvas
       camera={{ fov: FOV, position: [0, 0, 15], near: 0.1, far: 200 }}
@@ -418,7 +535,7 @@ export default function Stage({ data, active, onReady, onFallback }: StageProps)
         );
       }}
     >
-      <Director data={data} quality={quality} onReady={onReady} onDecline={onDecline} />
+      <Director data={safe} quality={quality} onReady={onReady} onDecline={onDecline} />
     </Canvas>
   );
 }

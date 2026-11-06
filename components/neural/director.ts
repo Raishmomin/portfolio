@@ -1,73 +1,171 @@
 // Scroll director (lazy 3D chunk): maps the [data-section] elements' positions to a
-// per-scene blend weight and progress. Scenes crossfade across section boundaries;
-// sections without a scene (services, writing, faq, cta, …) keep the previous scene
-// at half weight. Values live in a tiny external store with one snapshot per scene,
-// so a scene re-renders only when its own (quantized) values change.
-import { SCENE_KEYS, type SceneKey } from "./types";
+// per-scene blend weight and progress, plus the composition the stage frames them in.
+// - Scene of a section: data-scene="<key>", else its data-section name when that is a
+//   scene key, else "ambient" (never the previous section's scene).
+// - Composition: data-stage="left|right|full|band" (default left), blended like the
+//   scenes across section boundaries; phones (<1024px) use their own treatment.
+// - Pinned sections (ScrollTrigger wraps them in a .pin-spacer) are measured through
+//   their spacer, so progress keeps moving while the section itself stands still.
+// Values live in a tiny external store with one snapshot per scene, so a scene
+// re-renders only when its own (quantized) values change.
+import { BAND_BOTTOM, BAND_TOP, compositionFor, isLayout, zeroComposition, type Composition } from "./framing";
+import { SCENE_KEYS, STAGE_LAYOUTS, type SceneKey, type StageLayout } from "./types";
 
 export type SceneSnap = { weight: number; progress: number };
-type Frame = { weight: Record<SceneKey, number>; progress: Record<SceneKey, number> };
-
-/** Weight given to the previous scene while a section without a scene is centred. */
-const INHERIT = 0.5;
+/** A vertical window of the viewport (fractions, top-down) where the scene owns the space. */
+export type Window = { top: number; bottom: number };
+export type Frame = {
+  weight: Record<SceneKey, number>;
+  progress: Record<SceneKey, number>;
+  /** Weight per data-stage layout (sums to 1). */
+  layout: Record<StageLayout, number>;
+  /** Target composition (blend of the sections' compositions). */
+  comp: Composition;
+  /** Desktop band sections: the clear band above their content. */
+  band: Window;
+  /** Phones: the section opening (above its heading) currently in view, if any. */
+  open: Window;
+  phone: boolean;
+};
 
 const isScene = (k: string | undefined): k is SceneKey => !!k && (SCENE_KEYS as readonly string[]).includes(k);
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const smooth = (v: number) => v * v * (3 - 2 * v);
 
-function emptyFrame(): Frame {
+export const PHONE_MAX = 1023;
+
+export function sceneOf(el: HTMLElement): SceneKey {
+  const explicit = el.dataset.scene;
+  if (isScene(explicit)) return explicit;
+  const name = el.dataset.section;
+  return isScene(name) ? name : "ambient";
+}
+
+export function emptyFrame(): Frame {
   const weight = {} as Record<SceneKey, number>;
   const progress = {} as Record<SceneKey, number>;
   for (const k of SCENE_KEYS) weight[k] = progress[k] = 0;
-  return { weight, progress };
+  const layout = {} as Record<StageLayout, number>;
+  for (const l of STAGE_LAYOUTS) layout[l] = 0;
+  return { weight, progress, layout, comp: zeroComposition(), band: { top: 0, bottom: 0 }, open: { top: 0, bottom: 0 }, phone: false };
 }
 
-/** Reads the sections' rects once and fills `out` (no allocation besides the rect objects). */
+/** Where a section's content starts (its heading), so its opening / band can be kept clear. */
+const headCache = new WeakMap<HTMLElement, HTMLElement | null>();
+function headOf(el: HTMLElement): HTMLElement | null {
+  let h = headCache.get(el);
+  if (h === undefined || (h && !h.isConnected)) {
+    h = el.querySelector<HTMLElement>("[data-stage-content], h1, h2");
+    headCache.set(el, h);
+  }
+  return h;
+}
+
+const KEY_W = 28; // px kept clear above a heading (its kicker line)
+const tmpComp = zeroComposition();
+type Part = { key: SceneKey; layout: StageLayout; f: number; el: HTMLElement; top: number };
+const parts: Part[] = [];
+const bestF = {} as Record<SceneKey, number>;
+
+/** Reads the sections' rects once and fills `out`. */
 export function measure(out: Frame = emptyFrame()): Frame {
   const sections = document.querySelectorAll<HTMLElement>("[data-section]");
   const vh = window.innerHeight || 1;
+  const phone = window.innerWidth <= PHONE_MAX;
   const c = vh / 2; // the reference line: the viewport's centre
   const band = Math.min(vh * 0.22, 220); // crossfade half-width around each boundary
-  for (const k of SCENE_KEYS) out.weight[k] = 0;
-  let prev: SceneKey = "hero";
+  for (const k of SCENE_KEYS) {
+    out.weight[k] = 0;
+    bestF[k] = -1;
+  }
+  for (const l of STAGE_LAYOUTS) out.layout[l] = 0;
+  out.phone = phone;
+  out.open.top = out.open.bottom = 0;
+  parts.length = 0;
   let total = 0;
-  let nearest: { key: SceneKey; dim: number; d: number } | null = null;
-  const parts: { key: SceneKey; dim: number; f: number }[] = [];
+  let nearest: { key: SceneKey; layout: StageLayout; el: HTMLElement; d: number } | null = null;
+  let openBest = 0;
+
   sections.forEach((el) => {
-    const raw = el.dataset.section;
-    const scene = isScene(raw);
-    const key: SceneKey = scene ? raw : prev;
-    if (scene) prev = raw;
-    const r = el.getBoundingClientRect();
+    // A pinned section stands still inside its spacer: the spacer carries the scroll.
+    const spacer = el.parentElement?.classList.contains("pin-spacer") ? el.parentElement : null;
+    const r = (spacer ?? el).getBoundingClientRect();
     if (r.height <= 0) return;
-    if (scene) out.progress[key] = clamp01((c - r.top) / r.height);
+    const key = sceneOf(el);
+    const stage = el.dataset.stage;
+    const layout: StageLayout = isLayout(stage) ? stage : "left";
+    const progress = spacer ? clamp01(-r.top / Math.max(1, r.height - vh)) : clamp01((c - r.top) / r.height);
     const f = smooth(Math.min(clamp01((c - r.top + band) / (2 * band)), clamp01((r.bottom + band - c) / (2 * band))));
-    const dim = scene ? 1 : INHERIT;
+    // Several sections may share a scene (subpages): the most central one drives it.
+    if (f > bestF[key]) {
+      bestF[key] = f;
+      out.progress[key] = progress;
+    }
     const d = c < r.top ? r.top - c : c > r.bottom ? c - r.bottom : 0;
-    if (!nearest || d < nearest.d) nearest = { key, dim, d };
+    if (!nearest || d < nearest.d) nearest = { key, layout, el, d };
     if (f > 0) {
-      parts.push({ key, dim, f });
+      parts.push({ key, layout, f, el, top: spacer ? el.getBoundingClientRect().top : r.top });
       total += f;
     }
+    // Phones: the opening of a section (above its heading) is where the scene may shine.
+    if (phone && r.bottom > 0 && r.top < vh) {
+      const head = headOf(el);
+      const headTop = head ? head.getBoundingClientRect().top - KEY_W : r.bottom;
+      const top = Math.max(0, r.top);
+      const bottom = Math.min(vh, headTop);
+      if (bottom - top > Math.max(openBest, vh * 0.1)) {
+        openBest = bottom - top;
+        out.open.top = top / vh;
+        out.open.bottom = bottom / vh;
+      }
+    }
   });
+
+  if (total === 0 && nearest) {
+    const n = nearest as { key: SceneKey; layout: StageLayout; el: HTMLElement };
+    parts.push({ key: n.key, layout: n.layout, f: 1, el: n.el, top: n.el.getBoundingClientRect().top });
+    total = 1;
+  }
+
+  const comp = out.comp;
+  for (const k of Object.keys(comp) as (keyof Composition)[]) comp[k] = 0;
+  let bandW = 0;
+  let bandTop = 0;
+  let bandBottom = 0;
   if (total > 0) {
     // Gaps between sections (or a short page) renormalise, so weights never sag.
-    const norm = total < 1 ? 1 / total : 1;
-    for (const p of parts) out.weight[p.key] += p.f * norm * p.dim;
-  } else if (nearest) {
-    const n = nearest as { key: SceneKey; dim: number };
-    out.weight[n.key] = n.dim;
+    const norm = 1 / total;
+    for (const p of parts) {
+      const w = p.f * norm;
+      out.weight[p.key] += w;
+      out.layout[p.layout] += w;
+      compositionFor(p.layout, p.key, phone, tmpComp);
+      for (const k of Object.keys(comp) as (keyof Composition)[]) comp[k] += tmpComp[k] * w;
+      if (!phone && p.layout === "band") {
+        const head = headOf(p.el);
+        const top = clamp(p.top / vh, BAND_TOP, 1);
+        const bottom = clamp(head ? (head.getBoundingClientRect().top - KEY_W) / vh : BAND_BOTTOM, top, BAND_BOTTOM);
+        bandTop += top * w;
+        bandBottom += bottom * w;
+        bandW += w;
+      }
+    }
   } else {
-    out.weight.hero = 1; // no sections at all: show the hero
+    // No sections at all: a calm field.
+    out.weight.ambient = 1;
+    out.layout.full = 1;
+    compositionFor("full", "ambient", phone, comp);
   }
+  out.band.top = bandW > 0 ? bandTop / bandW : BAND_TOP;
+  out.band.bottom = bandW > 0 ? bandBottom / bandW : BAND_BOTTOM;
   for (const k of SCENE_KEYS) out.weight[k] = clamp01(out.weight[k]);
   return out;
 }
 
-/** The scene with the highest weight (ties go to the earlier one). */
-export function activeScene(f: Frame): SceneKey {
-  let best: SceneKey = "hero";
-  for (const k of SCENE_KEYS) if (f.weight[k] > f.weight[best]) best = k;
+function argmax<K extends string>(rec: Record<K, number>, keys: readonly K[]): K {
+  let best = keys[0];
+  for (const k of keys) if (rec[k] > rec[best]) best = k;
   return best;
 }
 
@@ -78,6 +176,7 @@ export class SceneStore {
   private snaps = {} as Record<SceneKey, SceneSnap>;
   private readonly listeners = new Map<SceneKey, Set<() => void>>();
   active: SceneKey = "hero";
+  layout: StageLayout = "left";
   private marked = false;
 
   constructor() {
@@ -87,12 +186,16 @@ export class SceneStore {
   /** Re-measure; notifies only the scenes whose quantized weight/progress changed. */
   update() {
     measure(this.frame);
-    const active = activeScene(this.frame);
-    if (active !== this.active || !this.marked) {
+    const active = argmax(this.frame.weight, SCENE_KEYS);
+    const layout = argmax(this.frame.layout, STAGE_LAYOUTS);
+    if (active !== this.active || layout !== this.layout || !this.marked) {
       this.active = active;
+      this.layout = layout;
       this.marked = true;
-      // Exposed for QA and CSS hooks: the scene the stage is showing.
-      document.querySelector("[data-neural-stage]")?.setAttribute("data-scene", active);
+      // Exposed for QA and CSS hooks: the scene and composition the stage is showing.
+      const stage = document.querySelector("[data-neural-stage]");
+      stage?.setAttribute("data-scene", active);
+      stage?.setAttribute("data-stage-layout", layout);
     }
     for (const k of SCENE_KEYS) {
       const weight = q(this.frame.weight[k], 100);

@@ -5,15 +5,17 @@ import type { NeuralData } from "./types";
 import { NeuralPoster } from "./poster";
 import { NeuralIsland } from "./stage-island";
 
-export type { NeuralData, SceneKey, SceneProps, ScenePalette, SkillLayer } from "./types";
-export { SCENE_KEYS } from "./types";
+export type { NeuralData, SceneKey, SceneProps, ScenePalette, SkillLayer, StageLayout } from "./types";
+export { SCENE_KEYS, STAGE_LAYOUTS } from "./types";
 export { toNeuralData, isAiProject } from "./neural-data";
 export { NeuralMotif } from "./motif";
 
 /**
- * Fixed full-viewport 3D stage for the home page (mount once, first child of <main>).
- * Server HTML: an animated SVG poster of the hero network. On capable devices, after
- * `load` + idle, one WebGL canvas fades in over it and follows the [data-section]s.
+ * Fixed full-viewport 3D stage for any page (mount once, first child of <main>).
+ * Server HTML: an animated SVG poster (the hero network, or the ambient field on pages
+ * without a hero scene). On capable devices, after `load` + idle, one WebGL canvas fades
+ * in over it and follows the page's [data-section]s: data-scene picks a scene (default:
+ * the section name when it is a scene key, else "ambient"), data-stage frames it.
  */
 export function NeuralStage({ data }: { data: NeuralData }) {
   return (

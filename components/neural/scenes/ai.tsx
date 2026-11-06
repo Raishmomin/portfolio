@@ -5,15 +5,17 @@
 // through the LLM's neural cluster and leave orange (the answer). `progress` steps
 // through the projects in equal slices and `focus` (a project slug) jumps to one; the
 // stage sets morph smoothly (shared stages glide, missing ones grow/shrink in place).
-// Text: aria-hidden <Html> stage names + project title that duplicate the DOM section.
-import { Html } from "@react-three/drei";
+// Text: aria-hidden screen-space labels (stage names + project title) that duplicate the
+// DOM section; they follow the shared label rules (active scene only, never over content).
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import type { Group, Mesh } from "three";
+import { fitFree } from "../framing";
 import type { SceneProps } from "../types";
 import { buildPipeline, PATH_W, type StageKind } from "./ai/pipeline";
 import { AiRig, emptyRegistry, type AiRegistry } from "./ai/rig";
-import { isLight, useAfterFirstFrame } from "./ai/shared";
+import { isLight } from "./ai/shared";
+import { LabelLayer } from "./stack/labels";
 
 /** Label distance below (landscape) / beside (portrait) each stage, in stage units. */
 const LABEL_OFFSET: Record<StageKind, number> = { llm: 0.98, rag: 0.5, io: 0.56, speech: 0.56, agent: 0.6, generic: 0.56 };
@@ -98,28 +100,81 @@ function StageBody({ rig, kind, out, active }: { rig: AiRig; kind: StageKind; ou
 }
 
 export default function AiScene({ data, progress, weight, pointer, focus, palette, quality }: SceneProps) {
-  const model = useMemo(() => buildPipeline(data.ai), [data.ai]);
+  const model = useMemo(() => buildPipeline(data.ai ?? []), [data.ai]);
   const light = isLight(palette.bg);
   const rig = useMemo(() => new AiRig(light), [light]);
   useEffect(() => () => rig.dispose(), [rig]);
   useEffect(() => rig.setPalette(palette, model), [rig, palette, model]);
   useEffect(() => rig.setQuality(quality), [rig, quality]);
 
-  const viewport = useThree((s) => s.viewport);
-  const portrait = viewport.aspect < 0.85;
-  const fit = portrait
-    ? Math.min(viewport.width / 4.4, viewport.height / (PATH_W + 3.6))
-    : Math.min(viewport.width / 13.4, viewport.height / 5);
-  const scale = Math.min(fit, 1.1);
+  const portrait = useThree((s) => s.size.width / Math.max(1, s.size.height) < 0.85);
   const active = weight > 0;
   const llm = model.vocab.findIndex((v) => v.kind === "llm");
-  const showText = useAfterFirstFrame() && active && !model.generic;
-
   const reg = useRef<AiRegistry>(emptyRegistry());
-  useFrame((state, dt) => rig.frame(state, dt, { model, progress, weight, pointer, focus, scale, yaw: portrait ? 0 : -0.32 }, reg.current));
+
+  // Labels: stage names under each stage, the current project's title above the pipe, in
+  // the shared screen-space layer (active scene only, hidden over content, clamped).
+  // Rebuilt when the theme changes; the layer itself is cheap plain DOM.
+  const host = useThree((s) => s.gl.domElement.parentElement);
+  const labels = useRef<{ layer: LabelLayer; stage: number[]; title: number[] } | null>(null);
+  useEffect(() => {
+    if (!host || model.generic) return;
+    const layer = new LabelLayer(host);
+    const chip = `color-mix(in srgb, ${palette.bg} 78%, transparent)`;
+    const stage = model.vocab.map((v) => {
+      const id = layer.add(
+        v.name,
+        "",
+        "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase leading-none tracking-[0.14em]",
+        portrait ? { x: 0, y: -0.5 } : { x: -0.5, y: 0 },
+      );
+      layer.style(id, {
+        color: v.kind === "llm" ? palette.ai : palette.fg,
+        background: chip,
+        borderColor: `color-mix(in srgb, ${v.kind === "llm" ? palette.ai : palette.muted} 45%, transparent)`,
+      });
+      return id;
+    });
+    const title = model.projects.map((p) => {
+      const id = layer.add(`\u25CF ${p.title}`, "", "font-mono text-xs uppercase tracking-[0.16em]", { x: -0.5, y: -0.5 });
+      layer.style(id, { color: palette.fg, textShadow: `0 0 10px ${palette.bg}, 0 0 4px ${palette.bg}` });
+      return id;
+    });
+    labels.current = { layer, stage, title };
+    return () => {
+      labels.current = null;
+      layer.dispose();
+    };
+  }, [host, model, portrait, palette]);
+
+  useFrame((state, dt) => {
+    const ids = labels.current;
+    const layer = ids?.layer;
+    if (!active) {
+      layer?.hideAll();
+      return;
+    }
+    // Fitted into the free part of the viewport (a full-width band on the home page).
+    const scale = portrait
+      ? fitFree(state.camera, state.size, 2.2, (PATH_W + 3.6) / 2, 1.1)
+      : fitFree(state.camera, state.size, 6.7, 2.5, 1.1, 1.3);
+    const r = reg.current;
+    rig.frame(state, dt, { model, progress, weight, pointer, focus, scale, yaw: portrait ? 0 : -0.32 }, r);
+    if (!layer || !ids || !r.root || !layer.begin(weight)) return;
+    const { width: w, height: h } = state.size;
+    r.root.updateMatrixWorld(true);
+    model.vocab.forEach((v, i) => {
+      const g = r.stages[i];
+      if (!g || !g.visible) return layer.hide(ids.stage[i]);
+      const off = LABEL_OFFSET[v.kind];
+      layer.place(ids.stage[i], 0, portrait ? off : -off, 0, g.matrixWorld, state.camera, w, h, r.labelO[i]);
+    });
+    model.projects.forEach((_, j) => {
+      layer.place(ids.title[j], 0, portrait ? PATH_W / 2 + 0.75 : 1.75, 0, r.root!.matrixWorld, state.camera, w, h, r.titleO[j]);
+    });
+  });
   const { geo, mats } = rig;
 
-  const chip = `color-mix(in srgb, ${palette.bg} 78%, transparent)`;
   return (
     <group
       ref={(g) => {
@@ -141,50 +196,9 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
             visible={false}
           >
             <StageBody rig={rig} kind={v.kind} out={llm >= 0 && i > llm} active={active} />
-            {showText ? (
-              <Html position={[0, portrait ? LABEL_OFFSET[v.kind] : -LABEL_OFFSET[v.kind], 0]} zIndexRange={[20, 0]} pointerEvents="none">
-                <div
-                  aria-hidden="true"
-                  ref={(el) => {
-                    reg.current.labels[i] = el;
-                  }}
-                  className="pointer-events-none select-none whitespace-nowrap rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase leading-none tracking-[0.14em]"
-                  style={{
-                    opacity: 0,
-                    transform: portrait ? "translate(0,-50%)" : "translate(-50%,0)",
-                    color: v.kind === "llm" ? palette.ai : palette.fg,
-                    background: chip,
-                    borderColor: `color-mix(in srgb, ${v.kind === "llm" ? palette.ai : palette.muted} 45%, transparent)`,
-                  }}
-                >
-                  {v.name}
-                </div>
-              </Html>
-            ) : null}
           </group>
         ))}
       </group>
-      {showText ? (
-        <Html position={portrait ? [0, PATH_W / 2 + 0.75, 0] : [0, 1.75, 0]} center zIndexRange={[20, 0]} pointerEvents="none">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none grid select-none text-center font-mono text-xs uppercase tracking-[0.16em]"
-            style={{ color: palette.fg }}
-          >
-            {model.projects.map((p, j) => (
-              <span
-                key={p.slug}
-                ref={(el) => {
-                  reg.current.titles[j] = el;
-                }}
-                className="whitespace-nowrap [grid-area:1/1]" style={{ opacity: 0 }}>
-                <span style={{ color: palette.ai }}>● </span>
-                {p.title}
-              </span>
-            ))}
-          </div>
-        </Html>
-      ) : null}
     </group>
   );
 }

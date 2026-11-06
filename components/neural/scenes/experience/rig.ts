@@ -416,8 +416,8 @@ export class ExperienceRig {
     if (!layer) return;
     this.label0 = -1;
     this.tl.milestones.forEach((m) => {
-      const a = layer.add(`${m.company} · ${m.years}`, "font-size:11px;line-height:14px;letter-spacing:0.02em;translate:-50% calc(-100% - 15px);");
-      layer.add(m.role, "font-size:10px;line-height:13px;letter-spacing:0.02em;translate:-50% -100%;");
+      const a = layer.add(`${m.company} · ${m.years}`, "font-size:11px;line-height:14px;letter-spacing:0.02em;", "font-mono", { x: -0.5, y: -1, dy: -15 });
+      layer.add(m.role, "font-size:10px;line-height:13px;letter-spacing:0.02em;", "font-mono", { x: -0.5, y: -1 });
       if (this.label0 < 0) this.label0 = a;
     });
     this.styleLabels();
@@ -451,7 +451,7 @@ export class ExperienceRig {
     this.root.visible = true;
     const d = Math.min(dt, 0.1);
     const e = smooth01(weight);
-    const s = (0.92 + 0.08 * e) * fitScale(camera, size, 4.2, 3);
+    const s = (0.92 + 0.08 * e) * fitScale(camera, size, 4.2, 2.4, 1.15);
     this.root.scale.setScalar(s);
 
     // Trail head: eased toward the scroll position (first frame snaps).
@@ -574,7 +574,7 @@ export class ExperienceRig {
 
     // Labels: above each ring; upcoming roles are quieter.
     const layer = this.labels;
-    if (layer) {
+    if (layer?.begin(weight)) {
       this.root.updateMatrixWorld(true);
       for (let i = 0; i < M; i++) {
         const a = this.anchors[i];

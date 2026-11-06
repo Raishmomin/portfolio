@@ -21,7 +21,7 @@ import { clamp01, damp, pointScale, rng, smooth } from "./shared";
 export const PARTICLES = { high: 1200, low: 450 } as const;
 const TAU = Math.PI * 2;
 const X_AXIS = new Vector3(1, 0, 0);
-const MAX_TITLES = 64;
+export const MAX_TITLES = 64;
 
 function buildGeometry() {
   const rand = rng(11);
@@ -78,22 +78,26 @@ export type AiFrameInput = {
   yaw: number;
 };
 
-/** Scene objects and labels, registered by the component's callback refs. */
+/** Scene objects (registered by the component's callback refs) and the labels' opacities. */
 export type AiRegistry = {
   root: Group | null;
   stages: (Group | null)[];
-  labels: (HTMLElement | null)[];
-  titles: (HTMLElement | null)[];
+  /** Per stage label / per project title, written by frame() (0 = hidden). */
+  labelO: Float32Array;
+  titleO: Float32Array;
 };
-export const emptyRegistry = (): AiRegistry => ({ root: null, stages: [], labels: [], titles: [] });
+export const emptyRegistry = (): AiRegistry => ({
+  root: null,
+  stages: [],
+  labelO: new Float32Array(MAX_STAGES),
+  titleO: new Float32Array(MAX_TITLES),
+});
 
 export class AiRig {
   readonly U = makeUniforms();
   readonly geo = buildGeometry();
   readonly cluster = buildCluster();
   readonly mats;
-  private shown = new Float32Array(MAX_STAGES + MAX_TITLES).fill(-1);
-  private shownEl: (HTMLElement | null)[] = [];
   private cur = -1;
   private rx = 0.24;
   private ry = -0.3;
@@ -134,18 +138,6 @@ export class AiRig {
     });
     col.needsUpdate = size.needsUpdate = true;
     this.cluster.paint(U.uAi.value, U.uFg.value);
-  }
-
-  /** Write an element's opacity only when it changed visibly (no style churn per frame). */
-  private fade(el: HTMLElement | null, slot: number, o: number) {
-    if (!el) return;
-    if (this.shownEl[slot] !== el) {
-      this.shownEl[slot] = el;
-      this.shown[slot] = -1;
-    }
-    if (Math.abs(this.shown[slot] - o) < 0.01) return;
-    this.shown[slot] = o;
-    el.style.opacity = o.toFixed(2);
   }
 
   frame(state: RootState, delta: number, f: AiFrameInput, r: AiRegistry) {
@@ -196,14 +188,13 @@ export class AiRig {
         sg.scale.setScalar(Math.max(1e-4, smooth(0, 1, pres)));
         sg.visible = pres > 0.01;
       }
-      this.fade(r.labels[v], v, pres * pres * f.weight);
+      r.labelO[v] = pres * pres * f.weight;
     }
     halo.needsUpdate = haloA.needsUpdate = true;
     if (!llmSeen) U.uLlmT.value = 2; // no model stage: the whole stream stays blue
     U.uStart.value = start;
     U.uEnd.value = end;
-    for (let j = 0; j < n && j < MAX_TITLES; j++)
-      this.fade(r.titles[j], MAX_STAGES + j, Math.max(0, 1 - Math.abs(this.cur - j) * 2.2) * f.weight);
+    for (let j = 0; j < n && j < MAX_TITLES; j++) r.titleO[j] = Math.max(0, 1 - Math.abs(this.cur - j) * 2.2) * f.weight;
 
     // Turned a little so the stream flows toward the viewer: input far left, the answer near right.
     this.ry = damp(this.ry, f.yaw + f.pointer.x * 0.2 + Math.sin(time * 0.17) * 0.05, 2.4, dt);

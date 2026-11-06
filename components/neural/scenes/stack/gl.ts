@@ -20,9 +20,8 @@ import {
   ZeroFactor,
   type Camera,
   type Material,
-  type OrthographicCamera,
-  type PerspectiveCamera,
 } from "three";
+import { fitFree } from "../../framing";
 import type { ScenePalette } from "../../types";
 
 export const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -208,18 +207,10 @@ export function layerColors(p: ScenePalette) {
 }
 
 /**
- * Scale (≤ 1) that fits a scene of the given half extents (world units, centred on the
- * origin) into whatever camera the stage uses, e.g. a narrow phone viewport.
+ * Scale that fits a scene of the given half extents (world units, centred on the origin)
+ * into the free part of the viewport the stage's composition leaves it (framing.ts):
+ * ≤ 1 normally, up to `capFull` when the section is a "full" composition.
  */
-export function fitScale(camera: Camera, size: { width: number; height: number }, halfWidth: number, halfHeight: number): number {
-  let halfH: number;
-  if ((camera as PerspectiveCamera).isPerspectiveCamera) {
-    const c = camera as PerspectiveCamera;
-    halfH = (c.position.length() * Math.tan((c.fov * Math.PI) / 360)) / c.zoom;
-  } else if ((camera as OrthographicCamera).isOrthographicCamera) {
-    const c = camera as OrthographicCamera;
-    halfH = (c.top - c.bottom) / 2 / c.zoom;
-  } else return 1;
-  const aspect = size.width / Math.max(1, size.height);
-  return Math.min(1, (halfH * aspect) / halfWidth, halfH / halfHeight);
+export function fitScale(camera: Camera, size: { width: number; height: number }, halfWidth: number, halfHeight: number, capFull = 1): number {
+  return fitFree(camera, size, halfWidth, halfHeight, 1, capFull);
 }

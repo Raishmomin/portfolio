@@ -104,9 +104,23 @@ export function heroLayout(sizes: readonly number[] = LAYERS.high, routeCount = 
   return { nodes, layer, edges: Uint16Array.from(edges), routes, layers: sizes.length };
 }
 
-/** Hero framing: camera distance, and the share of the half-width the network sits right of centre. */
+/** Hero framing: camera distance. The network is centred and stretched along its layer axis. */
 export const HERO_DISTANCE = 16.5;
-export const HERO_SHIFT = 0.36;
+/** Scale across the layers' depth/height axes (the layer axis gets heroStretch). */
+export const HERO_YZ = 1.08;
+/** Half-extent of the network along its layer axis after the resting yaw (world units). */
+const HERO_HALF = 5.4;
+
+/**
+ * Landscape: the network spans the full width behind and around the headline (input
+ * layer behind the text on the left, the orange output on the right), so the layer axis
+ * is stretched to ~92% of the visible half-width. Portrait keeps its upright layout.
+ */
+export function heroStretch(aspect: number): number {
+  if (isPortrait(aspect)) return 1;
+  const halfW = Math.tan(((FOV / 2) * Math.PI) / 180) * HERO_DISTANCE * aspect;
+  return Math.min(1.85, Math.max(1, (0.92 * halfW) / HERO_HALF));
+}
 
 export type CameraTarget = { px: number; py: number; pz: number; lx: number; ly: number; lz: number };
 
@@ -117,17 +131,15 @@ export const DEFAULT_DISTANCE = 14;
 export const isPortrait = (aspect: number) => aspect < 0.95;
 
 /**
- * Hero camera: on wide screens the camera slides left so the network fills the right
- * side and the h1 sits over calm space; it pulls back as the visitor scrolls on.
+ * Hero camera: centred on the full-width network (the stage's dimmer keeps the headline
+ * side quiet); it pulls back and rises a little as the visitor scrolls on.
  */
-export function heroCamera(aspect: number, progress: number, out: CameraTarget): CameraTarget {
+export function heroCamera(_aspect: number, progress: number, out: CameraTarget): CameraTarget {
   const dist = HERO_DISTANCE + progress * 7;
-  const halfW = Math.tan(((FOV / 2) * Math.PI) / 180) * dist * aspect;
-  const shift = isPortrait(aspect) ? 0 : -halfW * Math.min(HERO_SHIFT, 0.16 + (aspect - 0.95) * 0.3);
-  out.px = shift;
+  out.px = 0;
   out.py = progress * 1.2;
   out.pz = dist;
-  out.lx = shift;
+  out.lx = 0;
   out.ly = progress * 0.6;
   out.lz = 0;
   return out;

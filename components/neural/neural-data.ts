@@ -17,11 +17,11 @@ const AI_TECH =
 
 /** Factual AI flag: tagged "ai" in the DB category, or built with real AI technology. */
 export const isAiProject = (p: Pick<Project, "technologies" | "category">) =>
-  p.category.some((c) => /\bai\b/i.test(c)) || p.technologies.some((t) => AI_TECH.test(t));
+  (p.category ?? []).some((c) => /\bai\b/i.test(c)) || (p.technologies ?? []).some((t) => AI_TECH.test(t));
 
 /** Readable pipeline stages for an AI project, derived from its real technologies/description. */
 function aiStages(p: Project): string[] {
-  const text = `${p.title} ${p.description} ${p.technologies.join(" ")} ${p.features.join(" ")}`.toLowerCase();
+  const text = `${p.title} ${p.description ?? ""} ${(p.technologies ?? []).join(" ")} ${(p.features ?? []).join(" ")}`.toLowerCase();
   const stages = ["Input"];
   if (/speech|voice|audio|whisper|stt/.test(text)) stages.push("Speech-to-text");
   if (/rag|retriev|vector|embedding|qdrant|pinecone|pgvector/.test(text)) stages.push("Retrieval (RAG)");
@@ -38,10 +38,11 @@ export function toNeuralData(input: {
   projects: Project[];
   featured: Project[];
 }): NeuralData {
-  const layerOf = (category: string): SkillLayer => LAYER.find(([, re]) => re.test(category))?.[0] ?? "backend";
-  const projectKeys = input.projects.map((p) => new Set(p.technologies.map(techKey)));
-  const skills = input.skills.flatMap((g) =>
-    g.skills.map((s) => ({
+  const layerOf = (category: string): SkillLayer => LAYER.find(([, re]) => re.test(category ?? ""))?.[0] ?? "backend";
+  const projects = input.projects ?? [];
+  const projectKeys = projects.map((p) => new Set((p.technologies ?? []).map(techKey)));
+  const skills = (input.skills ?? []).flatMap((g) =>
+    (g.skills ?? []).map((s) => ({
       id: techKey(s.name),
       name: s.name,
       layer: layerOf(g.category),
@@ -55,7 +56,7 @@ export function toNeuralData(input: {
       const w = projectKeys.filter((k) => k.has(ids[i]) && k.has(ids[j])).length;
       if (w > 0) links.push({ a: ids[i], b: ids[j], weight: w });
     }
-  const experience = [...input.experience].reverse().map((e) => ({
+  const experience = [...(input.experience ?? [])].reverse().map((e) => ({
     company: e.company,
     role: e.title,
     period: e.period,
@@ -66,7 +67,7 @@ export function toNeuralData(input: {
     skills,
     links,
     experience,
-    ai: input.projects.filter(isAiProject).map((p) => ({ slug: slugify(p.title), title: p.title, stages: aiStages(p) })),
-    work: input.featured.map((p) => ({ slug: slugify(p.title), title: p.title, techCount: p.technologies.length, ai: isAiProject(p) })),
+    ai: projects.filter(isAiProject).map((p) => ({ slug: slugify(p.title), title: p.title, stages: aiStages(p) })),
+    work: (input.featured ?? []).map((p) => ({ slug: slugify(p.title), title: p.title, techCount: (p.technologies ?? []).length, ai: isAiProject(p) })),
   };
 }

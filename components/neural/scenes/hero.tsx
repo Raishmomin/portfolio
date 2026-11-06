@@ -5,6 +5,7 @@
 // signal particles stream along real routes, turning from AI blue to orange as they
 // near the output. Nodes near the cursor are drawn toward it and brighten; the network
 // leans toward the pointer and breathes slowly over a soft aura and drifting dust.
+// Landscape: stretched along its layers to span the full width behind the headline.
 // Four draw calls; all motion is in shaders (no per-frame allocation or node loops).
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
@@ -24,7 +25,7 @@ import {
   type Texture,
 } from "three";
 import { isLight, makeGlowTexture, setColor, setGlowBlending } from "../fx";
-import { BASE_PITCH, BASE_YAW, heroLayout, isPortrait, LAYERS, PARTICLES, type HeroLayout } from "../hero-layout";
+import { BASE_PITCH, BASE_YAW, HERO_YZ, heroLayout, heroStretch, isPortrait, LAYERS, PARTICLES, type HeroLayout } from "../hero-layout";
 import type { SceneProps } from "../types";
 
 const COMMON = /* glsl */ `
@@ -389,7 +390,9 @@ class HeroNet {
     const o = this.group;
     o.rotation.y = BASE_YAW + Math.sin(time * 0.12) * 0.16 + this.lean + progress * 0.5;
     o.rotation.x = (portrait ? 0.55 : BASE_PITCH) + Math.sin(time * 0.09) * 0.05 + this.tilt;
-    o.scale.setScalar((portrait ? 0.8 : 1) * (0.94 + 0.06 * weight));
+    const base = (portrait ? 0.8 : 1) * (0.94 + 0.06 * weight);
+    const yz = portrait ? 1 : HERO_YZ;
+    o.scale.set(base * heroStretch(aspect), base * yz, base * yz);
     this.inner.rotation.z = portrait ? -Math.PI / 2 : 0;
 
     // Pointer → a point on the z = 0 plane → the network's local space.
@@ -404,8 +407,8 @@ class HeroNet {
     }
   }
 
+  /** GPU resources only: React (StrictMode included) owns attaching/detaching the group. */
   dispose() {
-    this.group.removeFromParent();
     this.net.dispose();
     this.map.dispose();
   }
@@ -423,6 +426,6 @@ export default function Hero(props: SceneProps) {
     net.frame(s.camera, delta, size.width / Math.max(1, size.height), props);
   });
 
-  if (weight === 0) return null;
-  return <primitive object={net.group} />;
+  // Stays mounted while hidden: re-attaching a primitive after an unmount is not reliable.
+  return <primitive object={net.group} visible={weight > 0} />;
 }

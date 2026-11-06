@@ -1,5 +1,4 @@
 // Small helpers shared by the scenes-b scenes (ai, work, contact).
-import { useEffect, useState } from "react";
 import { AdditiveBlending, Color, NormalBlending, type Blending } from "three";
 
 export const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -113,18 +112,4 @@ export function pointScale(
     ? (heightPx * dpr * 0.5 * scale) / Math.tan((((camera.fov ?? 45) * Math.PI) / 180) * 0.5)
     : camera.zoom * dpr * scale;
   out.uPersp.value = persp ? 1 : 0;
-}
-
-/**
- * True from the frame after mount. drei <Html> mounted in the same commit as the
- * <Canvas> loses its first label (its portal target changes once R3F connects its
- * events, and the deferred root unmount wipes the re-created root), so labels wait a frame.
- */
-export function useAfterFirstFrame(): boolean {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return ready;
 }
