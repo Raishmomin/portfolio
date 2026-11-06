@@ -7,7 +7,7 @@ import { resolveNav, type ResolvedNavItem } from "./nav-items";
 
 /**
  * One header link. Home anchors are plain <a> (in-page jumps) whose aria-current is
- * owned by the cluster SectionSpy, so React never renders that attribute for them.
+ * owned by the home NavSpy (components/home/nav-spy.tsx), so React never renders that attribute for them.
  */
 export function NavLink({
   item,

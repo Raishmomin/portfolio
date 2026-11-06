@@ -1,58 +1,31 @@
 // Pure, server-safe derivations for the home page. Every figure shown on "/" is
-// computed here from DB data (app/lib/data.ts) — never typed by hand.
-import type { Project, SkillGroup } from "@/lib/data";
-import type { SkillGroupKey } from "../cluster";
-import { projectUsage } from "@/lib/derive";
+// computed here or in components/neural/neural-data.ts from DB data — never typed by hand.
+import type { Project } from "@/lib/data";
+import type { NeuralData, SkillLayer } from "../neural";
 
-export const GROUP_ORDER: readonly SkillGroupKey[] = ["frontend", "backend", "database", "devops"];
-export const GROUP_LABEL: Record<SkillGroupKey, string> = {
+const LAYER_LABEL: Record<SkillLayer, string> = {
   frontend: "Frontend",
   backend: "Backend",
   database: "Data",
   devops: "DevOps",
+  ai: "AI",
 };
 
-const GROUP_ALIASES: Record<SkillGroupKey, RegExp> = {
-  frontend: /front/i,
-  backend: /back|api|server/i,
-  database: /data|db/i,
-  devops: /devops|cloud|infra|ops/i,
-};
+export type SkillLayerGroup = { layer: SkillLayer; label: string; skills: NeuralData["skills"] };
 
-export function groupKey(category: string): SkillGroupKey | null {
-  const exact = GROUP_ORDER.find((k) => k === category.toLowerCase());
-  return exact ?? GROUP_ORDER.find((k) => GROUP_ALIASES[k].test(category)) ?? null;
+/** The stack constellation's nodes grouped by layer, in DB order (same ids as the 3D nodes). */
+export function skillLayers(skills: NeuralData["skills"]): SkillLayerGroup[] {
+  const groups = new Map<SkillLayer, NeuralData["skills"]>();
+  for (const s of skills) groups.set(s.layer, [...(groups.get(s.layer) ?? []), s]);
+  return [...groups].map(([layer, list]) => ({ layer, label: LAYER_LABEL[layer], skills: list }));
 }
 
-export type StackGroup = {
-  key: SkillGroupKey;
-  label: string;
-  items: { name: string; level: number; used: number }[];
-};
-
-/** Skill groups in display order, each item with its "used in N projects" count (rule: techKey in @/lib/derive). */
-export function stackMap(skills: SkillGroup[], projects: Project[]): StackGroup[] {
-  const usage = projectUsage(projects);
-  const groups: StackGroup[] = [];
-  for (const key of GROUP_ORDER) {
-    const items = skills
-      .filter((g) => groupKey(g.category) === key)
-      .flatMap((g) => g.skills)
-      .map((s) => ({ name: s.name, level: s.level, used: usage(s.name) }));
-    if (items.length) groups.push({ key, label: GROUP_LABEL[key], items });
-  }
-  return groups;
-}
-
-/** Proof ticker skills: per group, the two most-used in projects (ties: higher DB level). */
-export function tickerSkills(groups: StackGroup[], perGroup = 2): string[] {
-  return groups.flatMap((g) =>
-    [...g.items]
-      .filter((i) => i.used > 0)
-      .sort((a, b) => b.used - a.used || b.level - a.level)
-      .slice(0, perGroup)
-      .map((i) => i.name),
-  );
+/** Months as "1 yr 5 mos" / "8 mos". */
+export function durationLabel(months: number): string {
+  const y = Math.floor(months / 12);
+  const m = months % 12;
+  const parts = [y ? `${y} yr${y > 1 ? "s" : ""}` : "", m ? `${m} mo${m > 1 ? "s" : ""}` : ""].filter(Boolean);
+  return parts.join(" ") || "1 mo";
 }
 
 const DOMAIN_ORDER = ["ai", "web3", "devops", "fullstack", "backend", "frontend"] as const;
