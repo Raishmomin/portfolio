@@ -122,9 +122,10 @@ export class LabelLayer {
       py = ((1 - v.y) / 2) * h + a.y * bh + (a.dy ?? 0);
       px = Math.min(Math.max(px, EDGE), Math.max(EDGE, w - EDGE - bw));
       py = Math.min(Math.max(py, EDGE), Math.max(EDGE, h - EDGE - bh));
-      // Over content: fade out quickly (and back in once clear).
+      // Over content: hide at once, so a label is never seen over text even while it
+      // slides onto it (a fade-out left it at ~0.1 over headings); ease back in once clear.
       const clearT = occluders.hits(px, py, px + bw, py + bh) ? 0 : 1;
-      if (this.o[i] === 0) this.clear[i] = clearT; // appearing: never flash over content
+      if (this.o[i] === 0 || clearT === 0) this.clear[i] = clearT; // appearing / covered: never over content
       else this.clear[i] += (clearT - this.clear[i]) * 0.35;
       if (Math.abs(clearT - this.clear[i]) < 0.02) this.clear[i] = clearT;
       target *= this.clear[i];

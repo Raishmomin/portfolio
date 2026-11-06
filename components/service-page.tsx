@@ -40,9 +40,10 @@ function splitHeadline(text: string): [string, string] {
 }
 
 /**
- * One service page in the home design language: intro (left), the brief as three floating
- * cards (full), the approach as steps on a drawn line (right), deliverables under the scene
- * band (band), related writing (left), FAQ (right) and the closing call to action (full).
+ * One service page in the home design language: intro (left, the stack network), the brief
+ * as three floating cards (full), the approach as steps on a drawn line (right),
+ * deliverables under a band of shipped projects (band, the work wall), related writing
+ * (left), FAQ (right) and the closing call to action (full).
  */
 export async function ServicePage({ config }: { config: ServiceConfig }) {
   const relatedPosts = await getRelatedPosts(config.relatedBlogTags);
@@ -56,7 +57,8 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
       <PageIntro
         crumbs={[{ name: "Home", href: "/" }, { name: "Services", href: "/services" }, { name: config.h1 }]}
         kicker={`service · ${nn(position)} / ${nn(SERVICE_SLUGS.length)}`}
-        scene="ambient"
+        scene="stack"
+        note="The network on the right is the stack I build with: one node per skill, one ring per layer, linked wherever two tools shipped together."
         wide
         title={
           <>
@@ -211,7 +213,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
       </PageSection>
 
       {/* Deliverables + stack */}
-      <PageSection id="deliverables-section" section="deliverables" scene="ambient" stage="band" labelledBy="deliverables">
+      <PageSection id="deliverables-section" section="deliverables" scene="work" stage="band" labelledBy="deliverables">
         <div data-card-group="" className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
           <div {...card()} className="panel p-6 md:p-8 lg:col-span-7">
             <SectionHead
@@ -223,6 +225,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
                   What you <Accent>get.</Accent>
                 </>
               }
+              scene="The floating windows above are projects I have shipped end to end: the same kind of work you get."
             />
             <ul className="mt-8 divide-y divide-border border-y border-border">
               {config.deliverables.map((d) => (

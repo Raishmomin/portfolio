@@ -74,7 +74,8 @@ export default async function ServicesIndex() {
         <PageIntro
           crumbs={[{ name: "Home", href: "/" }, { name: "Services" }]}
           kicker={`~/services · ${services.length} engagements`}
-          scene="ambient"
+          scene="stack"
+          note="The network on the right is the stack behind these services: one node per skill, one ring per layer, linked wherever two tools shipped together."
           title={
             <>
               How I help <Accent>teams ship.</Accent>
