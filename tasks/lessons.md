@@ -6,3 +6,4 @@
 - In chrome-headless-shell, `--use-gl=swiftshader` DISABLES WebGL instead of enabling it (caught by the scout). For screenshotting 3D pages use the default GL or `--use-angle=swiftshader --enable-unsafe-swiftshader`, and assert `getContext('webgl2')` succeeds before trusting a blank capture.
 - `lsof -ti tcp:<port>` can miss processes started by other agents/sandboxes; fall back to `ss -ltnp | grep :<port>` for the PID before assuming a port is free.
 - tsconfig alias `@/*` maps to `app/*` only — `@/components/...` does NOT resolve. Import components by relative path (or add an alias deliberately, repo-wide).
+- /tmp (scratchpad) is wiped on reboot. Anything a later phase depends on (rulebooks, checkers, specs) must live in the repo (tasks/), and every agent's work must be committed to a branch before the session can end. Commits in git worktrees survive because they live in the main repo's .git.

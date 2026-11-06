@@ -41,12 +41,16 @@ Rule: borrow patterns, never clone any single portfolio's design, copy, or asset
 ## Phase 2 — Build (PARALLEL: 4 lanes in git worktrees, user-approved for speed)
 - [x] Foundation verified (3 rounds) + checkpoint commit 57c8d76 (local, not pushed)
 - [x] Lead pre-built shared pieces: palette tokens, Geist/Geist Mono/Instrument Serif, components/ui/primitives.tsx, cluster contract (types, toFormationData, stub API), slugify
-- [ ] lane-ui: header/footer shell + home page (wt-ui)
-- [ ] lane-3d: Cluster Monitor R3F module + SVG poster (wt-3d)
-- [ ] lane-pages-a: /about /skills /experience /contact (wt-pages-a)
-- [ ] lane-pages-b: /projects /services /blog /404 (wt-pages-b)
-- [ ] Lead merges lanes -> redesign-3d, build
+- [x] lane-ui: header/footer shell + home page (wt-ui)
+- [x] lane-3d: Cluster Monitor R3F module + SVG poster (wt-3d)
+- [x] lane-pages-a: /about /skills /experience /contact (wt-pages-a)
+- [x] lane-pages-b: /projects /services /blog /404 (wt-pages-b)
+- [x] Lead merges lanes -> redesign-3d, build
 - [ ] Parallel verification (crawler/SEO, perf/CWV, a11y+no-JS+reduced-motion, visual vs spec, code health) + fixer
+
+## Recovery after reboot (2026-11-06)
+- [x] Branches intact (integration b84fcc4); rulebook + checker recovered from agent transcripts -> tasks/seo-audit.md, tasks/qa/seo_check.py
+- [x] Worktrees, tools, baseline snapshot (68 × 200) rebuilt; verification panel relaunched
 
 ## Phase 3 — QA (1 agent + lead)
 - [ ] build, lint, typecheck clean
