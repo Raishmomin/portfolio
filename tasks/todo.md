@@ -88,7 +88,7 @@ Branch `redesign-3d` (local, not pushed) = verified integration build + docs. ts
 | Initial JS gzip | / 165 KB, subpages 153–157 KB | / 145 KB, subpages 138 KB (3D chunk 254 KB lazy, capable devices only) |
 
 Open / owner follow-ups:
-- [ ] Headshot photo -> Person.image, OG, author bio (currently the generated OG card)
+- [x] Headshot: studio-retouched photo in public/images, Person ImageObject, OG/Twitter card (author bio + home/about placement after the neural lanes merge)
 - [ ] Review/rewrite the 12 remaining AI-written blog posts (some technically wrong); cron is paused (BLOG_AUTOGEN_ENABLED)
 - [ ] Confirm Cybersurf role title (DB vs description mismatch flagged by verifiers)
 - [ ] Phone number is now server-rendered on /contact (was client-only before) — keep or remove
@@ -103,4 +103,5 @@ Open / owner follow-ups:
 - [ ] 6 parallel lanes: engine+hero, scenes-a (stack, experience), scenes-b (ai, work, contact), motion (GSAP scroll system), home, pages
 - [ ] Merge lanes -> delete components/cluster -> build
 - [ ] Verify: SEO parity (bots), perf budgets, a11y/reduced-motion/no-JS, visual review on owner-like hardware (4 threads, no core spoofing)
+- [ ] After merge: place PROFILE.photo in home About, /about and AuthorBio (next/image, priority=false)
 - [ ] Owner: add the AI tutor (live speaking) project to MongoDB `projects` (category ["AI"], technologies incl. speech/TTS) — it appears in the AI section automatically
