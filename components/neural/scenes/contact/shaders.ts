@@ -83,13 +83,15 @@ void main() {
 
   // Availability beacon: rings spreading from the city; the landing shockwave.
   float rings = 0.0;
-  for (int k = 0; k < 3; k++) {
-    float f = fract(uTime * 0.42 + float(k) / 3.0);
-    float rr = 0.012 + f * 0.2;
-    rings += exp(-pow((ang - rr) * 75.0, 2.0)) * (1.0 - f) * (1.0 - f);
+  if (ang < 0.26) {
+    for (int k = 0; k < 3; k++) {
+      float f = fract(uTime * 0.42 + float(k) / 3.0);
+      float rr = 0.012 + f * 0.2;
+      rings += exp(-pow((ang - rr) * 75.0, 2.0)) * (1.0 - f) * (1.0 - f);
+    }
   }
   float shock = 0.0;
-  if (uShock >= 0.0 && uShock <= 1.0) {
+  if (uShock >= 0.0 && uShock <= 1.0 && ang < 0.85) {
     float rr = 0.02 + uShock * 0.75;
     shock = exp(-pow((ang - rr) * 40.0, 2.0)) * (1.0 - uShock) * (1.0 - uShock);
   }
@@ -121,7 +123,7 @@ void main() {
 }
 `;
 
-/** Atmosphere: a camera-facing glow ring hugging the limb (behind the planet). */
+/** Atmosphere: a camera-facing glow ring hugging the limb (behind the planet), in globe radii. */
 export const ATMO_VERT = /* glsl */ `
 uniform float uSize;
 varying vec2 vP;

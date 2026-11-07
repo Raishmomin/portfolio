@@ -23,9 +23,9 @@ import {
   Matrix4,
   Mesh,
   NearestFilter,
-  PlaneGeometry,
   Quaternion,
   RedFormat,
+  RingGeometry,
   ShaderMaterial,
   SphereGeometry,
   UnsignedByteType,
@@ -294,7 +294,7 @@ export class ContactRig {
       vertexShader: ATMO_VERT,
       fragmentShader: ATMO_FRAG,
       uniforms: {
-        uSize: { value: 3.2 },
+        uSize: { value: 1 },
         uColor: { value: new Color() },
         uWarm: { value: new Color() },
         uOpacity: { value: 1 },
@@ -306,7 +306,9 @@ export class ContactRig {
       depthTest: false,
       toneMapped: false,
     });
-    this.atmo = new Mesh(new PlaneGeometry(1, 1), this.atmoMat);
+    // An annulus, not a quad: the planet covers the inside and the glow is gone by 1.55
+    // radii, so no fragment is shaded where nothing shows (fill rate at 1920 px wide).
+    this.atmo = new Mesh(new RingGeometry(0.84, 1.56, 72, 1), this.atmoMat);
     this.atmo.renderOrder = 1;
     this.atmo.frustumCulled = false;
 
