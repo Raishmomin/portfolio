@@ -2,12 +2,14 @@ import type { ReactNode } from "react";
 import { Accent, StatusDot } from "../../ui/primitives";
 import { TEXT_LINK } from "../about/subpage";
 import { CopyEmail } from "../../copy-email";
+import { LocalTime } from "./local-time";
 import { SectionHead, card, lit, part } from "../ui";
 import { PROFILE } from "@/lib/profile";
 import type { Personal } from "@/lib/data";
 
 /** India has a single time zone, so this follows from the profile location. */
 const TIMEZONE_LABEL = "IST (UTC+5:30)";
+const IST_OFFSET_MIN = 330;
 
 const PROFILES = [
   ["GitHub", PROFILE.social.github],
@@ -15,7 +17,11 @@ const PROFILES = [
   ["X", PROFILE.social.x],
 ] as const;
 
-/** Direct contact details: identity facts from profile.ts via getPersonal(), phone from the DB. */
+/**
+ * Direct contact details: identity facts from profile.ts via getPersonal(), phone from the DB.
+ * The channel links carry data-focus-id="contact:<channel>": the contact globe lights that
+ * channel's satellite while one is pointed at or focused.
+ */
 export function ContactChannels({ personal }: { personal: Personal }) {
   const { email, phone, location } = personal;
 
@@ -30,7 +36,14 @@ export function ContactChannels({ personal }: { personal: Personal }) {
       ),
     },
     { label: "Location", value: location },
-    { label: "Time zone", value: TIMEZONE_LABEL },
+    {
+      label: "Time zone",
+      value: (
+        <>
+          {TIMEZONE_LABEL} <LocalTime offsetMin={IST_OFFSET_MIN} zone="IST" />
+        </>
+      ),
+    },
     ...(phone
       ? [
           {
@@ -50,7 +63,13 @@ export function ContactChannels({ personal }: { personal: Personal }) {
         <ul className="flex flex-wrap gap-x-6">
           {PROFILES.map(([label, url]) => (
             <li key={label}>
-              <a href={url} target="_blank" rel="noopener noreferrer" className={`-my-2 inline-flex min-h-11 min-w-11 items-center ${TEXT_LINK}`}>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-focus-id={`contact:${label.toLowerCase()}`}
+                className={`-my-2 inline-flex min-h-11 min-w-11 items-center ${TEXT_LINK}`}
+              >
                 {label} ↗<span className="sr-only"> (opens in a new tab)</span>
               </a>
             </li>
@@ -76,6 +95,7 @@ export function ContactChannels({ personal }: { personal: Personal }) {
         <div {...part} className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3">
           <a
             href={`mailto:${email}`}
+            data-focus-id="contact:email"
             className="inline-flex min-h-11 items-center break-all text-[clamp(1.25rem,2.4vw,1.75rem)] font-medium tracking-[-0.02em] text-foreground underline decoration-foreground/30 decoration-1 underline-offset-[6px] transition-colors duration-150 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {email}
