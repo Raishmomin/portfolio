@@ -140,6 +140,7 @@ export class FaqRig {
   private readonly ys = new Float32Array(QMAX);
   private readonly docY = new Float32Array(QMAX);
   private layoutDirty = true;
+  private followUntil = 0;
   private listX = 0;
   private cTop = 0;
   private wl = 0;
@@ -249,6 +250,9 @@ export class FaqRig {
         if (el.open) this.openOrder.push(i);
         this.openIdx = this.openOrder.length ? this.openOrder[this.openOrder.length - 1] : -1;
       }
+      // The cards slide while answers open and close (one opening, another closing may leave
+      // the page height unchanged): follow them until the accordion settles.
+      this.followUntil = performance.now() + 900;
       relayout();
     };
     window.addEventListener("scroll", schedule, { passive: true });
@@ -470,6 +474,10 @@ export class FaqRig {
     this.cam = camera;
     this.W = size.width;
     this.H = size.height;
+    if (this.followUntil > 0) {
+      if (performance.now() < this.followUntil) this.layoutDirty = true;
+      else this.followUntil = 0;
+    }
     if (this.dirty || this.layoutDirty) this.measure(canvas);
     const n = this.items.length;
     const sy = window.scrollY + this.cTop;
