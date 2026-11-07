@@ -2,7 +2,8 @@
 // as a card with its real pipeline stages, input → output. Each card focuses its 3D
 // system (data-focus-id = slug; its stage pills, data-ai-stage, light as the 3D request
 // passes) and links to the project's full card below. On desktop the cards stack as a
-// deck while you scroll (data-deck), like the home AI section.
+// deck while you scroll (data-deck), like the home AI section; on phones the section opens
+// with a window onto the 3D system (pt-[34svh]), as the home scene sections do.
 import type { NeuralData } from "../../neural";
 import { Accent } from "../../ui/primitives";
 import { NeuralGlyph } from "../ai-badge";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number }) {
   if (!ai.length) return null;
   return (
-    <PageSection id="ai" section="ai" scene="ai" stage="left" labelledBy="ai-heading">
+    <PageSection id="ai" section="ai" scene="ai" stage="left" labelledBy="ai-heading" className="pt-[34svh] lg:pt-28">
       <div className={column.left}>
         <div {...card()} className="panel p-6 md:p-8">
           <SectionHead
