@@ -238,7 +238,7 @@ export class ContactRig {
   private sparkAt = -1e9;
   private deliveredAt = -1e9;
   private sunAt = -1e9;
-  private clockText = "";
+  private clockMin = -1;
   private focusK = -1;
 
   // labels (in the canvas): 0 = city + clock, 1 = "Delivered", 2.. = channels
@@ -1000,7 +1000,11 @@ export class ContactRig {
     const tags = this.tags;
     const g = framing.phone ? 0 : smooth01((weight - 0.6) / 0.18);
     const lo = g * e * show;
-    tags.setText(0, `${this.city} · ${clockAt(now, this.offsetMin)} ${zoneName(this.offsetMin)}`);
+    const minute = Math.floor(now / 60_000);
+    if (minute !== this.clockMin) {
+      this.clockMin = minute; // the clock label is rebuilt once a minute, not every frame
+      tags.setText(0, `${this.city} · ${clockAt(now, this.offsetMin)} ${zoneName(this.offsetMin)}`);
+    }
     if (this.hasPin && lo > 0) tags.set(0, pinW.x, pinW.y, pinW.z, -12 - tags.w[0], 8, this.colFg, lo * pinVis);
     else tags.hide(0);
     const sinceDone = time - this.deliveredAt;
