@@ -90,12 +90,16 @@ export type CareerStop = ExperienceItem & { months: number; current: boolean };
 
 /**
  * "band" composition: the 3D career path owns the top of the viewport and the roles
- * travel underneath it. On desktop the section pins and the track scrolls sideways
- * ([data-hscroll]): a rail lights stop by stop and each role swings in from depth. Without
- * motion (and on phones) it is a plain grid / vertical timeline, every word in the HTML.
+ * travel underneath it. On desktop the section sticks and the track scrolls sideways
+ * ([data-hscroll]): each role's stop rises on a stem from the rail at the card tops (later
+ * roles stand higher), the 3D milestone sits on that dot ([data-exp-node]) and the trail
+ * draws with the scroll. Cards stay compact so the band keeps ~40% of the viewport.
+ * Without motion (and on phones) it is a plain grid / vertical timeline, every word in the
+ * HTML.
  */
 export function ExperienceSection({ items, years }: { items: CareerStop[]; years: number }) {
   const longest = Math.max(1, ...items.map((e) => e.months));
+  const last = Math.max(1, items.length - 1);
   return (
     <HomeSection
       id="experience"
@@ -105,8 +109,8 @@ export function ExperienceSection({ items, years }: { items: CareerStop[]; years
       labelledBy="experience-heading"
       data-hscroll=""
     >
-      <div data-hscroll-track="" data-card-group="" className="flex flex-col gap-5 lg:grid lg:grid-cols-3">
-        <div data-card="" className={cn(panel, "p-6 md:p-8 lg:col-span-3")} style={hsWidth("27rem")}>
+      <div data-hscroll-track="" data-stage-content="" data-card-group="" className="flex flex-col gap-5 lg:grid lg:grid-cols-3">
+        <div data-card="" className={cn(panel, "p-6 md:p-8 lg:col-span-3 lg:p-7")} style={hsWidth("30rem")}>
           <SectionHead
             id="experience-heading"
             index="02"
@@ -116,28 +120,35 @@ export function ExperienceSection({ items, years }: { items: CareerStop[]; years
                 Career path, <Accent>milestone by milestone.</Accent>
               </>
             }
-            scene="The glowing path is my career from oldest to newest. Each milestone is a company, spaced by how long I worked there, and the current role pulses."
+            scene="The glowing path above the cards is my career from oldest to newest. Each milestone stands on its role's stop, the ticks count the quarters I spent there, and the current role pulses green."
           />
           <p
             aria-hidden="true"
-            className="hs-hint mt-6 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground"
+            className="hs-hint mt-5 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground"
           >
             Scroll to travel the path <span className="text-primary">→</span>
           </p>
         </div>
 
-        {items.map((e) => (
+        {items.map((e, i) => (
           <article
             key={`${e.company}-${e.period}`}
             data-card=""
             aria-label={`${e.title} at ${e.company}`}
             className="relative flex flex-col pl-7 lg:pl-0"
-            style={hsWidth("30rem")}
+            style={hsWidth("34rem")}
           >
-            {/* Desktop rail through every stop (lit while the track scrolls). */}
-            <div aria-hidden="true" className="exp-rail hidden lg:block">
+            {/* Desktop rail through every stop (lit while the track scrolls); live, the stop
+                rises on a stem into the band and the 3D milestone sits on its dot. */}
+            <div
+              aria-hidden="true"
+              className="exp-rail hidden lg:block"
+              data-current={e.current ? "" : undefined}
+              style={{ "--rise": (i / last).toFixed(3) } as CSSProperties}
+            >
               <span className="exp-rail-fill" />
-              <span className="exp-node" data-current={e.current ? "" : undefined} />
+              <span className="exp-stem" />
+              <span className="exp-node" data-exp-node={i} data-current={e.current ? "" : undefined} />
             </div>
             {/* Phone timeline: drawn as you scroll. */}
             <svg
@@ -156,10 +167,10 @@ export function ExperienceSection({ items, years }: { items: CareerStop[]; years
                 e.current ? "border-ok bg-ok" : "border-primary bg-primary",
               )}
             />
-            <div data-spotlight="" className={cn(panel, "flex flex-1 flex-col p-5 md:p-6 lg:mt-3")}>
+            <div data-spotlight="" className={cn(panel, "flex flex-1 flex-col p-5 md:p-6 lg:mt-3 lg:px-5 lg:py-4")}>
               <p
                 data-card-part=""
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs uppercase leading-6 tracking-[0.14em] text-muted-foreground tabular-nums"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs uppercase leading-6 tracking-[0.14em] text-muted-foreground tabular-nums lg:text-[11px] lg:leading-5"
               >
                 {formatPeriod(e.period)}
                 <span aria-hidden="true">·</span>
@@ -170,34 +181,37 @@ export function ExperienceSection({ items, years }: { items: CareerStop[]; years
                   </span>
                 ) : null}
               </p>
-              <h3 data-card-part="" className="mt-2 text-xl font-semibold leading-7 tracking-[-0.015em] text-foreground">
+              <h3
+                data-card-part=""
+                className="mt-2 text-xl font-semibold leading-7 tracking-[-0.015em] text-foreground lg:mt-1.5 lg:text-[17px] lg:leading-6"
+              >
                 {e.title} <span className="font-normal text-muted-foreground">· {e.company}</span>
               </h3>
-              {/* Tenure ∝ months, as on the 3D path. */}
-              <span data-card-part="" aria-hidden="true" className="mt-3 block h-0.5 rounded-full bg-border">
+              {/* Tenure ∝ months, as the ticks on the 3D path. */}
+              <span data-card-part="" aria-hidden="true" className="mt-3 block h-0.5 rounded-full bg-border lg:mt-2.5">
                 <span
                   className={cn("block h-full rounded-full", e.current ? "bg-ok" : "bg-primary/70")}
                   style={{ width: `${Math.round((e.months / longest) * 100)}%` }}
                 />
               </span>
               {e.description ? (
-                <p data-card-part="" className="mt-3 text-[15px] leading-6 text-muted-foreground">
+                <p data-card-part="" className="mt-3 text-[15px] leading-6 text-muted-foreground lg:mt-2.5 lg:text-sm lg:leading-5">
                   <WithFigures text={e.description} />
                 </p>
               ) : null}
               {e.achievements.length ? (
-                <ul data-card-part="" className="mt-3 space-y-1.5">
+                <ul data-card-part="" className="mt-3 space-y-1.5 lg:mt-2 lg:space-y-1">
                   {e.achievements.map((a) => (
-                    <li key={a} className="dash-item text-[15px] leading-6 text-muted-foreground">
+                    <li key={a} className="dash-item text-[15px] leading-6 text-muted-foreground lg:text-sm lg:leading-5">
                       <WithFigures text={a} />
                     </li>
                   ))}
                 </ul>
               ) : null}
               {e.technologies.length ? (
-                <ul data-card-part="pop" aria-label="Technologies" className="mt-auto flex flex-wrap gap-1.5 pt-4">
+                <ul data-card-part="pop" aria-label="Technologies" className="mt-auto flex flex-wrap gap-1.5 pt-4 lg:gap-1 lg:pt-3">
                   {e.technologies.map((t) => (
-                    <li key={t} className="pill">
+                    <li key={t} className="pill lg:px-2 lg:text-[10px]">
                       {t}
                     </li>
                   ))}
@@ -209,7 +223,7 @@ export function ExperienceSection({ items, years }: { items: CareerStop[]; years
 
         <div
           data-card=""
-          className={cn(panel, "flex flex-col justify-between gap-6 p-6 md:p-8 lg:col-span-3 lg:mt-9")}
+          className={cn(panel, "flex flex-col justify-between gap-6 p-6 md:p-8 lg:col-span-3 lg:mt-9 lg:p-7")}
           style={hsWidth("21rem")}
         >
           <p data-card-part="" className="text-[clamp(1.25rem,2vw,1.625rem)] font-medium leading-snug tracking-[-0.02em] text-foreground">
