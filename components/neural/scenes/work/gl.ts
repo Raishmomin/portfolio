@@ -269,7 +269,7 @@ void main() {
     col = mix(col, uReq, p * uPackets);
   } else if (k < 2.5) {
     float p = comet(s, 1.0, 1.0, 0.8, vSeed) * (1.0 - smoothstep(0.0, 0.7, u));
-    a = a * 0.6 + p * uPackets;
+    a = a * mix(0.6, 0.32, uLight) + p * uPackets;
     col = mix(col, mix(uAi, vec3(1.0), 0.35 * (1.0 - uLight)), p * uPackets);
   } else {
     // Infra container edge: a dashed line marching slowly.

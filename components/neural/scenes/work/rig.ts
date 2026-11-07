@@ -128,7 +128,8 @@ export class ArchRig {
     for (let i = 0; i < this.v; i++) {
       const o = i * 3;
       if (L.on[i]) {
-        const was = this.alpha[i] > 0.04 && this.talpha[i] > 0;
+        // Still visible (even mid-dissolve): glide to the new slot instead of re-spawning.
+        const was = this.alpha[i] > 0.04;
         this.tgt[o] = L.slot[o];
         this.tgt[o + 1] = L.slot[o + 1];
         this.tgt[o + 2] = L.slot[o + 2];

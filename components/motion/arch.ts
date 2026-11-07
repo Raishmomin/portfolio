@@ -14,6 +14,8 @@ import type { Binding } from "./shared";
 const ITEM = "[data-arch-item]";
 const TECH = "[data-arch-tech]";
 
+const HOLD_MS = 140;
+
 const slugOf = (el: Element | null) => (el as HTMLElement | null)?.dataset.focusId ?? null;
 
 export function arch(el: HTMLElement): Binding {
@@ -24,6 +26,7 @@ export function arch(el: HTMLElement): Binding {
   let current: Element | null = null;
   let sent = "";
   let raf = 0;
+  let hold = 0;
 
   const pick = () => {
     raf = 0;
@@ -42,8 +45,17 @@ export function arch(el: HTMLElement): Binding {
         best = it;
       }
     }
-    scrolled = best;
-    emit();
+    // A fast scroll would flick through projects every few frames: the reading line's
+    // project takes over once it has held for a moment (hover and focus switch at once).
+    window.clearTimeout(hold);
+    if (best === scrolled) return;
+    hold = window.setTimeout(
+      () => {
+        scrolled = best;
+        emit();
+      },
+      scrolled ? HOLD_MS : 0,
+    );
   };
   const schedule = () => {
     if (!raf) raf = requestAnimationFrame(pick);
@@ -100,6 +112,7 @@ export function arch(el: HTMLElement): Binding {
   return {
     revert() {
       cancelAnimationFrame(raf);
+      window.clearTimeout(hold);
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
       el.removeEventListener("pointerover", over);
