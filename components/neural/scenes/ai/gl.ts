@@ -28,7 +28,9 @@ import { MAX_RINGS, MAX_SLOTS } from "./layout";
 
 export const MAX_COND = 8;
 export const SEG = 22;
-export const MAX_TOK = 20;
+export const MAX_TOK = 24;
+/** The arrival pulse: one ring sprite right after the tokens. */
+export const PULSE = MAX_TOK;
 
 /** Panel shapes (aK.x). */
 export const SHAPE = { card: 0, bubble: 1, pill: 2, ring: 3, disc: 4, hex: 5, face: 6 } as const;
@@ -37,7 +39,13 @@ export const ROLE = { none: 0, text: 1, tool: 2, ring: 3, wave: 4, body: 5 } as 
 /** Link kinds (aK.x). */
 export const LINK = { conduit: 0, synapse: 1, spoke: 2, query: 3, line: 4 } as const;
 /** Sprite kinds (aK.x). */
-export const SPRITE = { neuron: 0, embed: 1, token: 2, halo: 3, orb: 4, ringNode: 5 } as const;
+export const SPRITE = { neuron: 0, embed: 1, token: 2, halo: 3, orb: 4, ringNode: 5, pulse: 6 } as const;
+/**
+ * Variant gate (panels aK.z, sprites aK.z): 0 always; 1 / 2 / 3 while the project's input
+ * is chat / code / voice; 4 unless it is code. The output object reads the same weights
+ * (a code system answers with an edit, the others with an answer).
+ */
+export const VAR = { all: 0, chat: 1, code: 2, voice: 3, notCode: 4 } as const;
 
 const COMMON = /* glsl */ `
 #define SLOTS ${MAX_SLOTS}
@@ -45,6 +53,7 @@ uniform vec4 uSlot[SLOTS];   // live centre (layout units) + scale
 uniform vec4 uSlotB[SLOTS];  // yaw, presence, activity, phase (0..1 through its stage)
 uniform vec4 uVar[SLOTS];    // input weights (chat, code, voice), model rings
 uniform float uTime;
+uniform float uLow;          // 1 on the low quality tier (small screens): denser-looking core
 uniform float uOpacity;
 uniform float uLight;
 uniform float uScale;        // world units per layout unit (camera-facing widths)
@@ -63,6 +72,10 @@ vec3 toRoot(float g, vec3 p) {
 vec4 slotB(float g) { return g < -0.5 ? vec4(0.0, 1.0, 0.0, 0.0) : uSlotB[slotOf(g)]; }
 float slotScale(float g) { return g < -0.5 ? 1.0 : uSlot[slotOf(g)].w; }
 float hash(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
+float gate(float v, vec4 Va) {
+  if (v < 0.5) return 1.0;
+  return v < 1.5 ? Va.x : (v < 2.5 ? Va.y : (v < 3.5 ? Va.z : 1.0 - Va.y));
+}
 `;
 
 // ---------- panels ----------
@@ -85,6 +98,7 @@ varying vec3 vColor;
 varying float vA;
 varying float vShape;
 varying float vGlow;
+varying float vNeutral;
 void main() {
   vec4 B = slotB(aGroup);
   vec3 color = aColor;
@@ -92,7 +106,7 @@ void main() {
   float role = aK.y;
   float variant = aK.z;
   float a = aAlpha * B.y;
-  if (variant > 0.5) a *= variant < 1.5 ? Va.x : (variant < 2.5 ? Va.y : Va.z);
+  a *= gate(variant, Va);
   vec3 U = aU;
   vec3 W = aV;
   vec3 P = aPos;
@@ -121,6 +135,13 @@ void main() {
   } else if (role > 4.5) {
     glow = B.z;
   }
+  if (aK.x > 5.5) {
+    // A tool-cube face seen edge-on would draw as a hairline (its rim and glow): fade it.
+    vec3 n = normalize(normalMatrix * rotY(B.x, normalize(cross(aU, aV))));
+    vec4 c = modelViewMatrix * vec4(toRoot(aGroup, aPos), 1.0);
+    a *= smoothstep(0.14, 0.34, abs(dot(n, normalize(-c.xyz))));
+  }
+  vNeutral = role > 4.5 ? aP.x : 0.0;
   vec2 h = vec2(length(U), length(W));
   vec2 k = (h + uPad) / max(h, vec2(1e-4));
   vec3 local = P + U * position.x * k.x + W * position.y * k.y;
@@ -145,6 +166,7 @@ varying vec3 vColor;
 varying float vA;
 varying float vShape;
 varying float vGlow;
+varying float vNeutral;
 float sdBox(vec2 p, vec2 b, float r) {
   vec2 q = abs(p) - b + r;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
@@ -206,7 +228,7 @@ void main() {
   }
   float w = fwidth(d);
   float body = 1.0 - smoothstep(-w, w, d);
-  float rim = 1.0 - smoothstep(0.0, w * 1.5, abs(d) - 0.011);
+  float rim = 1.0 - smoothstep(0.0, w * 1.5, abs(d) - mix(0.011, 0.019, uLight));
   // Outer glow, gone before the quad's edge (no boxy halo).
   float od = clamp(max(d, 0.0) / uPad, 0.0, 1.0);
   float halo = (1.0 - od) * (1.0 - od) * exp(-od * 2.5) * (1.0 - body);
@@ -218,15 +240,22 @@ void main() {
     col = mix(vColor * (1.1 + 0.6 * g), mix(vColor, uFg, 0.15), uLight);
     a = body * mix(0.92, 0.9, uLight) + halo * mix(0.35 + 0.5 * g, 0.06, uLight);
   } else {
-    // Glass: tinted fill, bright rim, soft outer glow (a contact shade on paper).
-    vec3 fillD = mix(uBg, vColor, 0.05 + 0.06 * g);
-    vec3 fillL = mix(vec3(1.0), vColor, 0.04 + 0.1 * g);
+    // Glass: tinted fill, bright rim, soft outer glow (a drop shadow on paper). A neutral
+    // body keeps its colour for the rim and takes it into the fill only while active.
+    vec3 tint = mix(vColor, mix(uFg, vColor, g * 0.6), vNeutral);
+    vec3 fillD = mix(uBg, tint, 0.05 + 0.06 * g);
+    vec3 fillL = mix(vec3(1.0), tint, 0.04 + 0.1 * g);
     float fa = body * mix(0.66 + 0.16 * g, 0.86, uLight);
     vec3 rimC = mix(vColor * (1.15 + 0.5 * g), mix(vColor, uFg, 0.3), uLight);
     col = mix(fillD, fillL, uLight);
     col = mix(col, rimC, max(rim, inner * 0.55));
     fa = max(fa, max(rim * 0.95, inner * body * 0.5));
     float oa = halo * mix(0.12 + 0.4 * g, 0.07, uLight);
+    if (uLight > 0.5 && s < 1.5) {
+      // Paper: a soft shadow under windows and cards.
+      float ds = sdBox(vP + vec2(0.0, 0.07), h, s < 0.5 ? min(0.16, m) : 0.2);
+      oa = max(oa, (1.0 - smoothstep(-0.05, 0.17, ds)) * 0.15 * (1.0 - body));
+    }
     vec3 oc = mix(vColor, uFg, uLight);
     a = fa + oa * (1.0 - fa);
     col = (col * fa + oc * oa * (1.0 - fa)) / max(a, 1e-4);
@@ -311,29 +340,33 @@ void main() {
   vec3 col = vColor;
   float k = vKind;
   if (k < 0.5) {
-    // Conduit: dashes drift toward the next stage; the request's head glows as it passes,
-    // and while the model answers, a stream of tokens runs to the answer card.
+    // Conduit: dashes drift toward the next stage; the request leaves a lit wake behind
+    // it (the line swells and glows), and while the model answers, a stream of tokens
+    // runs to the answer card.
     float len = vC.w;
     float s = vS * len;
-    float dash = smoothstep(0.25, 0.5, fract(s * 2.6 - uTime * 0.9)) * (1.0 - smoothstep(0.5, 0.75, fract(s * 2.6 - uTime * 0.9)));
-    a = a * 0.55 + core * dash * mix(0.22, 0.18, uLight);
+    float ph = fract(s * 2.6 - uTime * 0.9);
+    float dash = smoothstep(0.25, 0.5, ph) * (1.0 - smoothstep(0.5, 0.75, ph));
     vec3 hotC = mix(mix(uAi, uHot, 0.35), uAccent, vC.z);
     float head = 0.0;
     if (vC.x > -0.5) {
       float dh = (vS - vC.x) * len;
-      head = dh > 0.0 ? exp(-dh * dh * 30.0) : exp(dh * 2.4);
+      head = dh > 0.0 ? exp(-dh * dh * 30.0) : 0.25 + 0.75 * exp(dh * 1.4);
       head *= step(vS, vC.x + 0.25);
     }
-    float stream = vC.y * smoothstep(0.55, 0.95, fract(s * 1.6 - uTime * 2.4));
+    float stream = vC.y * (0.35 + 0.65 * smoothstep(0.55, 0.95, fract(s * 1.6 - uTime * 2.4)));
     float hot = clamp(head + stream, 0.0, 1.0);
-    a = max(a, (core * 0.9 + soft * 0.5) * hot);
+    float cw = mix(0.16, 0.42, hot);
+    float line = 1.0 - smoothstep(cw, cw + w * 2.0, u);
+    a = line * mix(0.36, 0.62, uLight) + soft * mix(0.06, 0.03, uLight) + line * dash * mix(0.2, 0.16, uLight);
+    a = max(a, (line * 0.95 + soft * 0.45) * hot);
     col = mix(col, hotC, hot);
   } else if (k < 1.5) {
     // Synapse: a signal fires along it while the model thinks.
     float p = fract(uTime * (0.45 + 0.4 * fract(vSeed * 7.13)) + vSeed);
     float sig = exp(-pow((vT - p) * 7.0, 2.0)) * vAct;
     float ends = smoothstep(0.0, 0.12, vT) * smoothstep(1.0, 0.88, vT);
-    a = a * (0.32 + 0.4 * vAct) * ends + sig * core * 1.2;
+    a = a * (0.32 + 0.4 * vAct) * mix(1.0, 1.7, uLight) * ends + sig * core * 1.2;
     col = mix(col, uHot, sig);
   } else if (k < 2.5) {
     // Spoke to tool vSeed: the call runs out to the tool and back.
@@ -381,7 +414,7 @@ void main() {
   vec4 Va = aGroup < -0.5 ? vec4(0.0) : uVar[slotOf(aGroup)];
   float kind = aK.x;
   vec3 local = aPos;
-  float a = aAlpha * B.y;
+  float a = aAlpha * B.y * gate(aK.z, Va);
   float size = aSize;
   vec3 col = aColor;
   float core = 0.55;
@@ -397,8 +430,8 @@ void main() {
     float e = clamp(act * (wave * 1.3 + spark) + 0.18 * spark, 0.0, 1.0);
     local *= 1.0 + 0.025 * sin(uTime * 1.3 + r * 2.0);
     col = mix(aColor, uHot, e);
-    a *= 0.5 + 0.35 * act + e * 0.9;
-    size *= 1.0 + e * 0.8;
+    a *= (0.5 + 0.35 * act + e * 0.9) * (1.0 + 0.3 * uLow) * (1.0 + 0.6 * uLight);
+    size *= (1.0 + e * 0.8) * (1.0 + 0.3 * uLow);
   } else if (kind < 1.5) {
     float rank = aK.y;
     float ph = B.w;
@@ -437,6 +470,9 @@ void main() {
       size *= 1.0 + 0.18 * B.z * sin(uTime * 6.0);
     }
     core = 0.85;
+  } else if (kind > 5.5) {
+    // The arrival pulse: a ring (written per frame).
+    core = -1.0;
   } else {
     // A model provider riding its ring.
     int r = int(aK.y + 0.5);
@@ -464,6 +500,13 @@ varying float vCore;
 void main() {
   float r2 = dot(vUv, vUv);
   if (r2 > 1.0 || vA < 0.004) discard;
+  if (vCore < -0.5) {
+    float r = sqrt(r2);
+    float ring = exp(-pow((r - 0.8) * 9.0, 2.0)) + 0.35 * exp(-pow((r - 0.8) * 3.5, 2.0));
+    gl_FragColor = vec4(vColor, clamp(ring * vA * mix(1.0, 0.8, uLight), 0.0, 1.0));
+    #include <colorspace_fragment>
+    return;
+  }
   float core = exp(-r2 * 16.0) * vCore;
   float halo = exp(-r2 * 3.5) * (1.0 - r2);
   if (uLight < 0.5) {
@@ -558,6 +601,7 @@ export function makeUniforms() {
     uLight: { value: 0 },
     uScale: { value: 1 },
     uClear: { value: 0 },
+    uLow: { value: 0 },
     uPad: { value: 0.2 },
     uBg: { value: new Color() },
     uFg: { value: new Color() },

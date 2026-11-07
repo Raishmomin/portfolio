@@ -6,9 +6,13 @@
 // calling its tools in turn, a dense neural core (one orbit ring per model provider) that
 // streams the answer token by token, and an answer card whose lines assemble. One request
 // runs through the system on a clock; the stage chips of the project's DOM card light in
-// sync (data-ai-lit / data-ai-done, and a bubbling "cp:ai-stage" event). The project comes
-// from a hovered card, else the top card of the AI deck ("cp:deck"), else scroll progress;
-// switching projects rebuilds the system (shared stages glide, others grow or dissolve).
+// sync (data-ai-lit / data-ai-done, and a bubbling "cp:ai-stage" event); hovering or
+// focusing a stage chip holds the request in that stage. The project comes from a hovered
+// card, else the top card of the AI deck ("cp:deck"), else the card nearest the viewport's
+// centre (phones: the first card while the section opens); switching projects rebuilds the
+// system (shared stages glide, others grow or dissolve). The system's free area is cut to
+// the part of its section in view, so it shrinks, slides and fades with the section and
+// never draws over the neighbouring sections' content.
 // Names are aria-hidden labels in the shared layer that duplicate the DOM cards.
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
@@ -17,6 +21,7 @@ import { fitFree, framing, sceneFrames } from "../framing";
 import type { SceneProps } from "../types";
 import { buildModel } from "./ai/layout";
 import { AiRig, type AiRegistry } from "./ai/rig";
+import { smooth } from "./ai/shared";
 import { LabelLayer, type Align } from "./stack/labels";
 
 /** A section that shows this scene (home: data-section="ai"; subpages: data-scene="ai"). */
@@ -26,6 +31,10 @@ const CAP = 1.25;
 const MIN_RECT = 140;
 /** How far the nearest parts come toward the camera (layout units), for the perspective fit. */
 const NEAR_Z = 1.3;
+/** Clearance (px) kept between the system and its section's top / bottom edge. */
+const EDGE = 28;
+/** The system fades out as the section's part in view drops from FADE[1] to FADE[0] px tall. */
+const FADE = [90, 210] as const;
 const BELOW: Align = { x: -0.5, y: 0 };
 const ABOVE: Align = { x: -0.5, y: -1 };
 
@@ -43,6 +52,8 @@ function toWorld(camera: Camera, px: number, py: number, w: number, h: number, o
 
 type Labels = { layer: LabelLayer; name: number[]; chip: HTMLElement[]; tech: HTMLElement[]; title: number[]; plan: number; lit: number };
 type Chips = { project: number; lit: number; els: HTMLElement[]; sections: HTMLElement[] };
+/** The driving section's edges (canvas px) and the project of the card nearest the viewport's centre. */
+type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; near: number };
 
 export default function AiScene({ data, progress, weight, pointer, focus, palette, quality }: SceneProps) {
   const model = useMemo(() => buildModel(data.ai ?? [], data.work ?? []), [data.ai, data.work]);
@@ -67,6 +78,84 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     const id = top?.dataset.focusId ?? top?.querySelector<HTMLElement>("[data-focus-id]")?.dataset.focusId;
     if (live && id && model.index.has(id)) deck.current = { el: live, id };
     return () => document.removeEventListener("cp:deck", onDeck);
+  }, [model]);
+
+  // The section in view: measured in the scroll / resize handlers themselves (they run
+  // before this frame renders), so the cut follows the page without a frame of lag.
+  const gl = useThree((s) => s.gl);
+  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, near: -1 });
+  useEffect(() => {
+    const read = () => {
+      const st = sec.current;
+      const own = sceneFrames.ai.el;
+      const el = own?.isConnected ? own : document.querySelector<HTMLElement>(AI_SECTION);
+      st.el = el;
+      if (!el || !el.isConnected) {
+        st.ok = false;
+        st.near = -1;
+        return;
+      }
+      const c = gl.domElement.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      st.ok = r.height > 0;
+      st.top = r.top - c.top;
+      st.bottom = r.bottom - c.top;
+      // The card nearest the viewport's centre (the first one until any card is in view).
+      const vh = c.height || window.innerHeight;
+      let best = Infinity;
+      let near = -1;
+      let first = -1;
+      el.querySelectorAll<HTMLElement>("[data-focus-id]").forEach((card) => {
+        const j = model.index.get(card.dataset.focusId ?? "");
+        if (j === undefined) return;
+        if (first < 0) first = j;
+        const b = card.getBoundingClientRect();
+        if (b.bottom < c.top || b.top > c.top + vh) return;
+        const d = Math.abs((b.top + b.bottom) / 2 - c.top - vh / 2);
+        if (d < best) {
+          best = d;
+          near = j;
+        }
+      });
+      st.near = near >= 0 ? near : first;
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(document.body);
+    window.addEventListener("scroll", read, { passive: true });
+    window.addEventListener("resize", read, { passive: true });
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", read);
+      window.removeEventListener("resize", read);
+    };
+  }, [gl, model]);
+
+  // A hovered / focused stage chip (data-ai-stage inside a project's card) holds the request there.
+  const hold = useRef<{ slug: string; stage: string } | null>(null);
+  useEffect(() => {
+    const chipOf = (t: EventTarget | null) => (t instanceof Element ? t.closest<HTMLElement>("[data-ai-stage]") : null);
+    const enter = (e: Event) => {
+      const chip = chipOf(e.target);
+      if (!chip || !chip.closest(AI_SECTION)) return;
+      const slug = chip.closest<HTMLElement>("[data-focus-id]")?.dataset.focusId;
+      const stage = chip.dataset.aiStage;
+      if (slug && stage && model.index.has(slug)) hold.current = { slug, stage };
+    };
+    const leave = (e: Event) => {
+      const from = chipOf(e.target);
+      if (from && from !== chipOf((e as PointerEvent | FocusEvent).relatedTarget) && hold.current?.stage === from.dataset.aiStage) hold.current = null;
+    };
+    document.addEventListener("pointerover", enter, { passive: true });
+    document.addEventListener("pointerout", leave, { passive: true });
+    document.addEventListener("focusin", enter);
+    document.addEventListener("focusout", leave);
+    return () => {
+      document.removeEventListener("pointerover", enter);
+      document.removeEventListener("pointerout", leave);
+      document.removeEventListener("focusin", enter);
+      document.removeEventListener("focusout", leave);
+    };
   }, [model]);
 
   // The DOM side of the clock: the shown project's stage chips (data-ai-stage="<name>").
@@ -160,10 +249,12 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     }
     const { camera, size } = state;
     const n = model.plans.length;
-    // Which project: hover/focus wins, then the live deck's top card, else equal scroll slices.
+    // Which project: hover/focus wins, then the live deck's top card, then the card nearest
+    // the viewport's centre, else equal scroll slices.
     const d = deck.current;
     const deckId = d && d.el.hasAttribute("data-deck-live") ? d.id : null;
-    const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined);
+    const st = sec.current;
+    const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined) ?? (st.near >= 0 ? st.near : undefined);
     live.current.project = picked ?? Math.min(n - 1, Math.floor(Math.max(0, Math.min(1, progress)) * n));
 
     // Where: the scene's own free rect (unblended, from the director), else the blended framing.
@@ -172,14 +263,36 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     const hh = box[3];
     const sf = sceneFrames.ai;
     const rl = sf.rect.l * size.width;
-    const rt = sf.rect.t * size.height;
+    let rt = sf.rect.t * size.height;
+    let rb = sf.rect.b * size.height;
     const rw = (sf.rect.r - sf.rect.l) * size.width;
-    const rh = (sf.rect.b - sf.rect.t) * size.height;
     const fit = lastFit.current;
     let room = 1;
-    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×).
+    // Desktop: only the part of the free rect inside the section (less a clearance) is the
+    // system's; as the section scrolls in or out the system shrinks and slides with it, and
+    // fades before that part gets too small. It never reaches the next section's heading.
+    let clip = false;
+    if (!framing.phone && st.ok) {
+      const top = st.top + EDGE;
+      const bottom = st.bottom - EDGE;
+      const cutTop = top > rt;
+      const cutBottom = bottom < rb;
+      clip = cutTop || cutBottom;
+      if (cutTop) rt = top;
+      if (cutBottom) rb = bottom;
+      room = smooth(FADE[0], FADE[1], rb - rt);
+      // Keep fitting a smallest frame on the side that is still open while it fades.
+      if (rb - rt < MIN_RECT) {
+        if (cutBottom) rt = rb - MIN_RECT;
+        else rb = rt + MIN_RECT;
+      }
+    }
+    const rh = rb - rt;
+    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×);
+    // from the whole area, so the system keeps its shape while a section edge cuts it.
     const own = model.plans[live.current.project].box;
-    const stretch = rw > 0 && rh > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh))) : 1;
+    const rh0 = (sf.rect.b - sf.rect.t) * size.height;
+    const stretch = rw > 0 && rh0 > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh0))) : 1;
     if (sf.el && rw >= MIN_RECT && rh >= MIN_RECT) {
       camera.updateMatrixWorld();
       toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
@@ -199,13 +312,21 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       const dist = Math.max(4, camera.position.z);
       fit.scale = (s * dist) / (dist + NEAR_Z * s);
     }
-    rig.frame(state, dt, { project: live.current.project, weight, room, stretch, pointer, x: fit.x, y: fit.y, scale: fit.scale }, reg.current);
+    // A held chip of the shown project: its stage index.
+    const h = hold.current;
+    const plan0 = rig.cur >= 0 ? model.plans[rig.cur] : null;
+    const held = h && plan0 && plan0.slug === h.slug ? plan0.stages.indexOf(h.stage) : -1;
+    rig.frame(state, dt, { project: live.current.project, weight, room, stretch, pointer, x: fit.x, y: fit.y, scale: fit.scale, clip, hold: held }, reg.current);
     syncChips(rig.cur, rig.lit);
 
     const r = reg.current;
     if (!ids || !r.inner || rig.cur < 0) return;
     const { layer } = ids;
     if (!layer.begin(weight)) return;
+    if (room < 0.05) {
+      layer.hideAll();
+      return;
+    }
     const plan = model.plans[rig.cur];
     // After a project switch: technology lines, label sides.
     if (ids.plan !== rig.cur) {
@@ -247,7 +368,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
         continue;
       }
       rig.labelAt(g, plan.label[g] > 0 ? 1 : -1, at);
-      layer.place(ids.name[g], at[0], at[1], at[2], M, camera, W, H, pr * pr);
+      layer.place(ids.name[g], at[0], at[1], at[2], M, camera, W, H, pr * pr * room);
     }
     const k = Math.min(1, dt * 6);
     const B = rig.box;
@@ -256,7 +377,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     for (let j = 0; j < n; j++) {
       tO[j] += ((j === rig.cur ? 1 : 0) - tO[j]) * k;
       if (tO[j] < 0.02) layer.hide(ids.title[j]);
-      else layer.place(ids.title[j], B[0] - B[2], B[1] + B[3], 0, M, camera, W, H, tO[j]);
+      else layer.place(ids.title[j], B[0] - B[2], B[1] + B[3], 0, M, camera, W, H, tO[j] * room);
     }
   });
 

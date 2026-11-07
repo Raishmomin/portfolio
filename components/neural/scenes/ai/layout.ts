@@ -4,8 +4,9 @@
 // technology lines say, how its links run and the timeline one request takes through it.
 // Layout: the model core is the hub; the stages before it arc over it from the left and
 // the stages after it leave on the right, so the system fills a roughly square free area.
-// Each project gets one of three arrangements (by its position in the list), so switching
-// projects visibly rebuilds the system even when two projects share their stage names.
+// Each project gets one of four arrangements, chosen so that projects with the same stage
+// list never share one (and neighbours in the deck differ), so switching projects visibly
+// rebuilds the system even when two projects share their stage names.
 import type { NeuralData } from "../../types";
 import { aiRoles, stageKind, stageTech, type InputKind, type StageKind } from "./system";
 
@@ -85,12 +86,43 @@ function mergeVocab(lists: string[][]): string[] {
 const RAD = Math.PI / 180;
 const RX = 3.0;
 const RY = 2.25;
-/** Arrangements: m = 1 arcs over the core ("M"), -1 under it ("W"); a0/a1 = arc of the stages before the core. */
+/**
+ * Arrangements: m = 1 arcs over the core ("M"), -1 under it ("W"); a0/a1 = arc of the
+ * stages before the core; post = the single stage after it; core = side of the core's
+ * label (-1 below, 1 above). The fourth hooks down the left and leaves up to the right ("J").
+ */
 const VARIANTS = [
-  { m: 1, a0: 205, a1: 52, post: -30, hub: [0.05, -0.12], depth: (a: number) => -0.55 * Math.sin(a) + 0.12 * Math.cos(a) },
-  { m: -1, a0: 200, a1: 55, post: -28, hub: [0, 0.12], depth: (a: number) => 0.5 * Math.cos(a) - 0.2 * Math.sin(a) },
-  { m: 1, a0: 168, a1: 28, post: -46, hub: [-0.25, -0.3], depth: (a: number) => -0.35 * Math.sin(a) - 0.4 * Math.cos(a) },
+  { m: 1, a0: 205, a1: 52, post: -30, core: -1, hub: [0.05, -0.12], depth: (a: number) => -0.55 * Math.sin(a) + 0.12 * Math.cos(a) },
+  { m: -1, a0: 200, a1: 55, post: -28, core: 1, hub: [0, 0.12], depth: (a: number) => 0.5 * Math.cos(a) - 0.2 * Math.sin(a) },
+  { m: 1, a0: 168, a1: 28, post: -46, core: -1, hub: [-0.25, -0.3], depth: (a: number) => -0.35 * Math.sin(a) - 0.4 * Math.cos(a) },
+  { m: 1, a0: 140, a1: 272, post: 26, core: 1, hub: [0.15, 0.05], depth: (a: number) => 0.4 * Math.cos(a) - 0.3 * Math.sin(a) },
 ];
+
+/**
+ * One arrangement per project: never one an earlier project with the same stage list
+ * already has (while any is left), else the least used by that list; never the previous
+ * project's when avoidable; from the project's own position onward otherwise.
+ */
+function arrangements(lists: string[][]): number[] {
+  const n = VARIANTS.length;
+  const out: number[] = [];
+  lists.forEach((stages, i) => {
+    const sig = stages.join("|");
+    const same = (v: number) => lists.slice(0, i).filter((l, j) => out[j] === v && l.join("|") === sig).length;
+    let best = -1;
+    let score = Infinity;
+    for (let k = 0; k < n; k++) {
+      const v = (i + k) % n;
+      const s = same(v) * 10 + (i > 0 && out[i - 1] === v ? 5 : 0) + k * 0.1;
+      if (s < score) {
+        score = s;
+        best = v;
+      }
+    }
+    out.push(best);
+  });
+  return out;
+}
 
 function spread(a: number, b: number, n: number): number[] {
   if (n <= 0) return [];
@@ -113,8 +145,8 @@ function plan(
   const nPre = hub;
   const nPost = order.length - hub - 1;
   // Few stages before the core: a shorter arc, so they do not crowd one side.
-  const preEnd = nPre >= 3 ? V.a1 : nPre === 2 ? (V.a0 + V.a1) / 2 - 8 : V.a0;
-  const pre = spread(nPre === 1 ? V.a0 - 15 : V.a0, preEnd, nPre);
+  const preEnd = nPre >= 3 ? V.a1 : nPre === 2 ? (V.a0 + V.a1) / 2 - 8 * Math.sign(V.a0 - V.a1) : V.a0;
+  const pre = spread(nPre === 1 ? V.a0 - 15 * Math.sign(V.a0 - V.a1) : V.a0, preEnd, nPre);
   const post = nPost === 1 ? [V.post] : spread(-12, -78, nPost);
   const angles = [...pre, NaN, ...post];
 
@@ -139,7 +171,7 @@ function plan(
     yaw[slot] = centre ? 0 : -0.16 * (x / RX);
     // Labels go outward: above the stages that sit high, below the others; the core's
     // label goes to the open side (below in "M", above in "W").
-    label[slot] = centre ? (V.m > 0 ? -1 : 1) : V.m * Math.sin(a) > 0.3 ? 1 : -1;
+    label[slot] = centre ? V.core : V.m * Math.sin(a) > 0.3 ? 1 : -1;
     const [ex, ey] = EXT[slots[slot].kind];
     const lab = 0.62; // label chip + technology line
     l = Math.min(l, x - ex);
@@ -187,6 +219,8 @@ export function buildModel(ai: NeuralData["ai"], work: NeuralData["work"]): AiMo
   const slots = names.map((name) => ({ name, kind: stageKind(name) }));
   const stack = new Map(work.map((w) => [w.slug, w.stack.map((t) => t.name)]));
   // Every project keeps only the stages that made it into the slots.
-  const plans = list.map((p, i) => plan({ ...p, stages: p.stages.filter((s) => names.includes(s)) }, stack.get(p.slug) ?? [], slots, i));
+  const kept = list.map((p) => p.stages.filter((s) => names.includes(s)));
+  const variant = arrangements(kept);
+  const plans = list.map((p, i) => plan({ ...p, stages: kept[i] }, stack.get(p.slug) ?? [], slots, variant[i]));
   return { slots, plans, index: new Map(list.map((p, i) => [p.slug, i])), generic };
 }
