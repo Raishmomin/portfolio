@@ -9,6 +9,7 @@
 // question's node), so switching visuals morphs one into the next. Units: CSS px in the
 // scene's local space (the rig scales the root group to world units). No per-frame allocation.
 import {
+  DoubleSide,
   DynamicDrawUsage,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
@@ -148,7 +149,8 @@ const ARC_FRAG = /* glsl */ `
       dash = smoothstep(0.0, de, f) * (1.0 - smoothstep(duty - de, duty + de, f));
     }
     float tail = mix(1.0, u * u, vA.z);
-    float a = (core + glow) * dash * tail * vA.x * uOpacity;
+    // Paper needs more ink than light needs on dark.
+    float a = min(1.0, (core + glow) * dash * tail * vA.x * (uLight > 0.5 ? 1.45 : 1.0)) * uOpacity;
     if (a < 0.002) discard;
     vec3 c = uLight > 0.5 ? vCol : vCol * (1.0 + 0.35 * core);
     ${GLOW_OUT}
@@ -210,7 +212,7 @@ const SEG_FRAG = /* glsl */ `
       hot = smoothstep(0.0, 0.08, f) * (1.0 - smoothstep(0.08, 0.32, f));
       base = 0.42 + 1.5 * hot;
     }
-    float a = (core + glow) * base * vP.x * uOpacity;
+    float a = min(1.0, (core + glow) * base * vP.x * (uLight > 0.5 ? 1.6 : 1.0)) * uOpacity;
     if (a < 0.002) discard;
     vec3 c = uLight > 0.5 ? vCol : mix(vCol, vec3(1.0), hot * 0.35);
     ${GLOW_OUT}
@@ -268,6 +270,7 @@ export class FaqGL {
       depthWrite: false,
       depthTest: false,
       toneMapped: false,
+      side: DoubleSide,
     });
     this.arcMesh = new Mesh(this.arcGeo, this.arcMat);
     this.arcMesh.frustumCulled = false;
@@ -291,6 +294,7 @@ export class FaqGL {
       depthWrite: false,
       depthTest: false,
       toneMapped: false,
+      side: DoubleSide,
     });
     this.segMesh = new Mesh(this.segGeo, this.segMat);
     this.segMesh.frustumCulled = false;
@@ -298,7 +302,10 @@ export class FaqGL {
     this.sprites.material.depthTest = false;
   }
 
+  private light = false;
+
   setLight(light: boolean) {
+    this.light = light;
     for (const m of [this.arcMat, this.segMat, this.sprites.material]) {
       setGlowBlending(m, light);
       m.uniforms.uLight.value = light ? 1 : 0;
@@ -359,7 +366,7 @@ export class FaqGL {
       sp.size[i] = d[o + 6];
       sp.alpha[i] = d[o + 7];
     }
-    sp.material.uniforms.uSize.value = perPx;
+    sp.material.uniforms.uSize.value = perPx * (this.light ? 1.35 : 1);
     sp.flush();
 
     const a = this.arcs.cur;

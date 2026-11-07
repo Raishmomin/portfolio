@@ -526,7 +526,7 @@ export class FaqRig {
     const R = Math.max(70, Math.min(w * 0.36, h * 0.4));
     const vx = side * Math.min(w * 0.06, 34);
     const vy = 0;
-    const railX = side * (-w / 2 + 12);
+    const railX = side * (-w / 2 + (rail ? 12 : 30));
     const half = h / 2 - 16;
     const coreX = vx + side * R * 0.36;
     const hot = this.hoverIdx >= 0 ? 1 : 0;
@@ -569,11 +569,37 @@ export class FaqRig {
       // Satellite (idle only).
       const so = time * 1.3 + i * 2.1;
       dot(gl, D0 + i, x + Math.cos(so) * 22, y + Math.sin(so) * 7, z + Math.sin(so) * 22, col.fg, 7, answer ? 0 : 0.55 * inView);
-      // Halo and orbit.
-      if (!answer || isSub) {
-        const pulse = answer ? (time * 0.7) % 1 : 0;
-        arc(gl, i, x, y, z, 0, 0, time * 0.3 + i, (answer ? 14 : isHover ? 22 : 13) + 22 * pulse, isSub || isHover ? 1.8 : 1.1, 0, 1, lit ? col.accent : col.ai, (answer ? 0.9 * (1 - pulse) : isHover ? 0.95 : 0.45) * inView, 0, 0, 0.5);
-        arc(gl, QMAX + i, x, y, z, 1.25, time * 0.5 + i, 0, isHover || isSub ? 30 : 21, 1, 0, 1, lit ? col.accent : col.muted, (answer ? 0.5 : isHover ? 0.7 : 0.32) * inView, dashes(16, 0.5), 0, 0);
+      // Halo and orbit. Idle, each node previews its answer's shape (rings, a dial, a
+      // globe, a beacon's ground, an orbit); answering, the active node pulses.
+      if (answer && isSub) {
+        const pulse = (time * 0.7) % 1;
+        arc(gl, i, x, y, z, 0, 0, 0, 14 + 22 * pulse, 1.8, 0, 1, col.accent, 0.9 * (1 - pulse) * inView, 0, 0, 0.5);
+        arc(gl, QMAX + i, x, y, z, 1.25, time * 0.5 + i, 0, 30, 1, 0, 1, col.accent, 0.5 * inView, dashes(16, 0.5), 0, 0);
+      } else if (!answer) {
+        const k = this.items[i].kind;
+        const hc = lit ? col.accent : col.ai;
+        const oc = lit ? col.accent : col.muted;
+        const s = isHover ? 1.5 : 1;
+        const ha = (isHover ? 0.95 : 0.55) * inView;
+        const oa = (isHover ? 0.8 : 0.4) * inView;
+        const wob = time * 0.5 + i;
+        if (k === "career") {
+          arc(gl, i, x, y, z, -0.3, 0, 0, 12 * s, 1.6, 0, 1, hc, ha, 0, 0, 0.4);
+          arc(gl, QMAX + i, x, y, z, -0.3, 0, 0, 19 * s, 1.2, 0.05, 0.8, oc, oa, 0, 0, 0);
+        } else if (k === "figures") {
+          arc(gl, i, x, y, z, 0, 0, 0, 13 * s, 2.2, 0.625, 0.625 + 0.75 * (0.55 + 0.25 * Math.sin(wob)), hc, ha, 0, 0, 0.4);
+          arc(gl, QMAX + i, x, y, z, 0, 0, 0, 19 * s, 1, 0.625, 1.375, oc, oa, dashes(24, 0.3), 0, 0);
+        } else if (k === "clock") {
+          arc(gl, i, x, y, z, 0, 0, 0, 13 * s, 1.4, 0, 1, hc, ha, 0, 0, 0.4);
+          arc(gl, QMAX + i, x, y, z, 0.3, wob, 0, 13 * s, 1, 0, 1, oc, oa, 0, 0, 0);
+        } else if (k === "beacon") {
+          const p = (time * 0.5 + i * 0.3) % 1;
+          arc(gl, i, x, y, z, 1.2, 0, 0, (10 + 14 * p) * s, 1.4, 0, 1, col.ok, ha * (1 - p), 0, 0, 0.4);
+          arc(gl, QMAX + i, x, y, z, 1.2, 0, wob, 20 * s, 1, 0, 1, lit ? col.accent : col.ok, oa, dashes(12, 0.5), 0, 0);
+        } else {
+          arc(gl, i, x, y, z, 0, 0, wob * 0.6, 13 * s, isHover ? 1.8 : 1.1, 0, 1, hc, ha, 0, 0, 0.5);
+          arc(gl, QMAX + i, x, y, z, 1.25, wob, 0, 21 * s, 1, 0, 1, oc, oa, dashes(16, 0.5), 0, 0);
+        }
       } else {
         hideArc(gl, i);
         hideArc(gl, QMAX + i);

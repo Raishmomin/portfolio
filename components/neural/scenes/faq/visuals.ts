@@ -452,8 +452,10 @@ export function figures(c: Ctx): Used {
   const figs = item?.figures ?? [];
   if (!figs.length) return verdict(c);
   frame(c, R * 1.02, 0.2);
+  // A window left of its cards mirrors the dials (they run anticlockwise), so their ends,
+  // where the labels sit, always face away from the rail.
   const ex = -0.22;
-  const ey = 0.2 * Math.sin(t * 0.25);
+  const ey = 0.2 * Math.sin(t * 0.25) + (c.side < 0 ? Math.PI : 0);
   const n = figs.length;
   let a = c.A + 1;
   let d = c.D;
@@ -491,9 +493,8 @@ export function figures(c: Ctx): Used {
     // dial's end, on the side away from the rail (they stack with the dials).
     if (n === 1) c.label(f.t, "big", vx, vy, 0, -0.5, -0.5, 1, color);
     else {
-      const away = c.side > 0;
-      onRing(vx, vy, 2, r, away ? G0 + GS : G0, ex, ey, 0);
-      c.label(f.t, "fig", rot.x, rot.y, rot.z, away ? 0 : -1, -0.5, 1, color);
+      onRing(vx, vy, 2, r, G0 + GS, ex, ey, 0);
+      c.label(f.t, "fig", rot.x, rot.y, rot.z, c.side > 0 ? 0 : -1, -0.5, 1, color);
     }
     // The scale, along the outermost dial.
     const ticks = f.k === "time" ? TIME_TICKS : f.k === "money" ? MONEY_TICKS : null;
