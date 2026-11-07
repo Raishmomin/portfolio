@@ -44,10 +44,10 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
               >
                 <span aria-hidden="true" className="svc-bar" />
                 <span data-card-part="" className="flex items-baseline justify-between gap-4 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground tabular-nums">
-                  <span className="svc-num">
+                  <span className="svc-num shrink-0 whitespace-nowrap">
                     {nn(i + 1)} / {nn(services.length)}
                   </span>
-                  <span className="truncate">{s.serviceType}</span>
+                  <span className="min-w-0 truncate">{s.serviceType}</span>
                 </span>
                 <h3
                   data-card-part=""

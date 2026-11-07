@@ -36,7 +36,7 @@ export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
               <article {...lit} className="panel group relative flex w-full flex-col p-6 transition-colors duration-150 hover:border-foreground/30 md:p-8">
                 <span aria-hidden="true" className="svc-bar" />
                 <p {...part} className="flex items-baseline justify-between gap-4 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
-                  <span className="svc-num">
+                  <span className="svc-num shrink-0 whitespace-nowrap">
                     <span className="text-foreground">{nn(i + 1)}</span> / {nn(services.length)}
                   </span>
                   <span>{s.serviceType}</span>
