@@ -16,6 +16,12 @@
 //   free part of the viewport that the section's data-stage leaves (framing.ts); size the
 //   scene with fitFree()/fitScale() so it fills that space and never sits under content.
 //   A full-screen dimmer drawn last keeps the scene quiet wherever content sits.
+// - Band sections are measured: the band runs down to where the content starts
+//   ([data-stage-content], else the first h1/h2), and the camera frames the scene into it.
+//   A scene that wants its OWN section's frame, unaffected by the blend with the previous
+//   section, reads framing.sceneFrames[key] (free rect + section element) and may pass it
+//   through framing.clearRect(), the visibility guard that shrinks a rect until no opaque
+//   content covers it (the experience scene lays itself out this way).
 import { Canvas, useFrame, useThree, type GLProps } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import {

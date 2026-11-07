@@ -18,8 +18,9 @@ export function CareerJourney({ experience }: { experience: ExperienceItem[] }) 
   const roles = [...sortRoles(experience)].reverse();
   if (!roles.length) return null;
   return (
-    <PageSection id="journey" section="journey" scene="experience" stage="band" labelledBy="journey-heading">
-      <div className="panel p-6 md:p-8 lg:max-w-[46rem]" {...card()}>
+    <PageSection id="journey" section="journey" scene="experience" stage="band" labelledBy="journey-heading" className="lg:pt-[46vh]">
+      {/* The band above this panel is the 3D path's: the scene is framed into it. */}
+      <div data-stage-content="" className="panel p-6 md:p-8 lg:max-w-[46rem]" {...card()}>
         <SectionHead
           id="journey-heading"
           index="02"
@@ -29,7 +30,7 @@ export function CareerJourney({ experience }: { experience: ExperienceItem[] }) 
               {roles.length} roles, <Accent>one path.</Accent>
             </>
           }
-          scene="The glowing path above is my career from oldest to newest; each milestone is a company, spaced by how long I worked there."
+          scene="The glowing path above is my career from oldest to newest: each milestone is a company, lined up with its stop below, and the ticks count the quarters I spent there."
         />
       </div>
 
@@ -58,13 +59,14 @@ export function CareerJourney({ experience }: { experience: ExperienceItem[] }) 
           <line x1="1" y1="0" x2="1" y2="100" stroke="currentColor" strokeWidth="2" />
         </svg>
 
-        {roles.map((role) => {
+        {roles.map((role, i) => {
           const { current } = periodParts(role.period);
           const duration = durationLabel(periodMonths(role.period));
           return (
             <li key={`${role.company}-${role.period}`} {...card()} className="relative">
               <span
                 aria-hidden="true"
+                data-exp-node={i}
                 className={cn(
                   "absolute -left-7 top-5 h-[10px] w-[10px] rounded-full border lg:-top-[25px] lg:left-5",
                   current ? "border-ok bg-ok shadow-[0_0_0_4px_hsl(var(--ok)/0.18)]" : "border-primary bg-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.16)]",

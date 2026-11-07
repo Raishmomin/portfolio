@@ -19,8 +19,9 @@ export function durationLabel(months: number | null): string | null {
  */
 export function ExperienceTimeline({ roles }: { roles: ExperienceItem[] }) {
   return (
-    <PageSection id="timeline" section="timeline" scene="experience" stage="band" labelledBy="timeline-heading">
-      <div {...card()} className="panel p-6 md:p-8 lg:max-w-[46rem]">
+    <PageSection id="timeline" section="timeline" scene="experience" stage="band" labelledBy="timeline-heading" className="lg:pt-[46vh]">
+      {/* The band above this panel is the 3D path's: the scene is framed into it. */}
+      <div {...card()} data-stage-content="" className="panel p-6 md:p-8 lg:max-w-[46rem]">
         <SectionHead
           id="timeline-heading"
           index="01"
@@ -30,7 +31,7 @@ export function ExperienceTimeline({ roles }: { roles: ExperienceItem[] }) {
               Every role, <Accent>newest first.</Accent>
             </>
           }
-          scene="The glowing path above is my career from oldest to newest: each milestone is a company, spaced by how long I worked there, and the current role pulses."
+          scene="The glowing path above is my career from oldest to newest: each milestone is a company, the ticks count the quarters I spent there, and the current role pulses green."
         />
       </div>
 

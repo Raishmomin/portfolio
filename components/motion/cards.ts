@@ -213,9 +213,15 @@ function deck(el: HTMLElement): Binding {
 // fixed-position pin is reported by Chrome as a full-viewport layout shift where it starts
 // and ends, sticky is not, and it scrolls on the compositor. Cards on the first screen
 // rise in with the section; the rest swing in from depth as the track brings them in.
-// Exposes --hscroll-progress (0..1) and --hscroll-fill (share of the track behind the
-// reading line) on the section, data-lit on track items behind that line, and a bubbling
-// "cp:hscroll" event { progress }.
+// The frame runs full-bleed and fades the track out at the viewport edges (app/globals.css),
+// so items enter and leave softly and the first / last item rest fully inside at the start
+// / end. The reading line sits at 50% of the viewport and sweeps to 92% over the last part
+// of the journey, so the final items light up too. Exposes on the section:
+// --hscroll-progress (0..1), --hscroll-fill (share of the track behind the reading line),
+// --hscroll-line (the reading line, px from the viewport's left), --hscroll-band (px of
+// free frame above the track), --hscroll-edge (px faded at each viewport edge); on track
+// items data-lit once the line passes their start and --hs-lit (0..1, how far the line has
+// crossed them); and a bubbling "cp:hscroll" event { progress, line }.
 function hscroll(el: HTMLElement): Binding {
   const track = el.querySelector<HTMLElement>("[data-hscroll-track]");
   if (!track) return NOOP;
@@ -236,19 +242,24 @@ function hscroll(el: HTMLElement): Binding {
     let width = 1;
     let view = 1;
     let lefts: number[] = [];
-    let mids: number[] = [];
+    let widths: number[] = [];
     const measure = () => {
-      pad = frame.getBoundingClientRect().left - el.getBoundingClientRect().left + (parseFloat(getComputedStyle(frame).paddingLeft) || 0);
+      const fs = getComputedStyle(frame);
+      pad = frame.getBoundingClientRect().left - el.getBoundingClientRect().left + (parseFloat(fs.paddingLeft) || 0);
       const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
       let x = 0;
-      lefts = items.map((c) => {
+      widths = items.map((c) => c.offsetWidth);
+      lefts = widths.map((w) => {
         const at = x;
-        x += c.offsetWidth + gap;
+        x += w + gap;
         return at;
       });
-      mids = items.map((c, i) => lefts[i] + c.offsetWidth * 0.5);
       width = Math.max(1, track.offsetWidth);
       view = el.clientWidth;
+      // Free frame above the track (the 3D band) and the faded edge (never wider than the
+      // inset, so the first and last items rest fully visible at the ends).
+      el.style.setProperty("--hscroll-band", `${Math.max(0, Math.round(track.offsetTop - (parseFloat(fs.paddingTop) || 0)))}px`);
+      el.style.setProperty("--hscroll-edge", `${Math.round(clamp(Math.min(pad - 8, view * 0.08), 24, 140))}px`);
     };
     const dist = () => Math.max(0, width + 2 * pad - view);
     // The section's extra height is exactly the horizontal distance to travel.
@@ -263,12 +274,19 @@ function hscroll(el: HTMLElement): Binding {
     const paint = (p: number) => {
       if (Math.abs(p - last) < 0.0005) return;
       last = p;
-      // The reading line sits at 62% of the viewport: an item lights once its centre passes it.
-      const line = p * dist() + view * 0.62 - pad;
+      // The reading line: 50% of the viewport, sweeping to 92% over the last 45% of the
+      // journey. An item lights once the line passes its start (its rail stop).
+      const k = clamp((p - 0.55) / 0.45, 0, 1);
+      const screen = view * (0.5 + 0.42 * k * k * (3 - 2 * k));
+      const line = p * dist() + screen - pad;
       el.style.setProperty("--hscroll-progress", p.toFixed(4));
       el.style.setProperty("--hscroll-fill", clamp(line / width, 0, 1).toFixed(4));
-      items.forEach((c, i) => c.toggleAttribute("data-lit", mids[i] <= line));
-      el.dispatchEvent(new CustomEvent("cp:hscroll", { bubbles: true, detail: { progress: p } }));
+      el.style.setProperty("--hscroll-line", `${screen.toFixed(1)}px`);
+      items.forEach((c, i) => {
+        c.toggleAttribute("data-lit", lefts[i] <= line);
+        c.style.setProperty("--hs-lit", clamp((line - lefts[i]) / Math.max(1, widths[i]), 0, 1).toFixed(3));
+      });
+      el.dispatchEvent(new CustomEvent("cp:hscroll", { bubbles: true, detail: { progress: p, line: screen } }));
     };
     tween = gsap.to(track, {
       x: () => -dist(),
@@ -328,7 +346,11 @@ function hscroll(el: HTMLElement): Binding {
       el.style.removeProperty("--hscroll-length");
       el.style.removeProperty("--hscroll-progress");
       el.style.removeProperty("--hscroll-fill");
-      for (const c of items) c.removeAttribute("data-lit");
+      for (const p of ["--hscroll-line", "--hscroll-band", "--hscroll-edge"]) el.style.removeProperty(p);
+      for (const c of items) {
+        c.removeAttribute("data-lit");
+        c.style.removeProperty("--hs-lit");
+      }
     };
   });
   return { revert: () => mm.revert() };
