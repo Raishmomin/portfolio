@@ -219,7 +219,7 @@ void main() {
     a = body * mix(0.92, 0.9, uLight) + halo * mix(0.35 + 0.5 * g, 0.06, uLight);
   } else {
     // Glass: tinted fill, bright rim, soft outer glow (a contact shade on paper).
-    vec3 fillD = mix(uBg, vColor, 0.055 + 0.11 * g);
+    vec3 fillD = mix(uBg, vColor, 0.05 + 0.06 * g);
     vec3 fillL = mix(vec3(1.0), vColor, 0.04 + 0.1 * g);
     float fa = body * mix(0.66 + 0.16 * g, 0.86, uLight);
     vec3 rimC = mix(vColor * (1.15 + 0.5 * g), mix(vColor, uFg, 0.3), uLight);

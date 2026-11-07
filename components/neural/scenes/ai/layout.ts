@@ -26,10 +26,10 @@ export const EXT: Record<StageKind, readonly [number, number]> = {
 export const PORT: Record<StageKind, number> = { input: 0.8, stt: 0.7, rag: 0.7, agent: 0.86, llm: 1.08, tts: 0.7, output: 0.72, generic: 0.42 };
 
 /** Seconds a request spends inside each kind of stage, and between two stages. */
-const DWELL: Record<StageKind, number> = { input: 1.4, stt: 1.3, rag: 1.9, agent: 2.3, llm: 1.7, tts: 1.3, output: 2.2, generic: 1.1 };
-export const TRAVEL = 0.75;
+const DWELL: Record<StageKind, number> = { input: 1.15, stt: 1.2, rag: 1.65, agent: 2.0, llm: 1.45, tts: 1.2, output: 1.9, generic: 1.0 };
+export const TRAVEL = 0.65;
 /** After the answer is complete: hold it, then clear it before the next request. */
-export const HOLD = 1.6;
+export const HOLD = 1.5;
 export const CLEAR = 0.55;
 
 export type Slot = { name: string; kind: StageKind };
@@ -89,7 +89,7 @@ const RY = 2.25;
 const VARIANTS = [
   { m: 1, a0: 205, a1: 52, post: -30, hub: [0.05, -0.12], depth: (a: number) => -0.55 * Math.sin(a) + 0.12 * Math.cos(a) },
   { m: -1, a0: 200, a1: 55, post: -28, hub: [0, 0.12], depth: (a: number) => 0.5 * Math.cos(a) - 0.2 * Math.sin(a) },
-  { m: 1, a0: 168, a1: 28, post: -62, hub: [-0.2, -0.3], depth: (a: number) => -0.35 * Math.sin(a) - 0.4 * Math.cos(a) },
+  { m: 1, a0: 168, a1: 28, post: -46, hub: [-0.25, -0.3], depth: (a: number) => -0.35 * Math.sin(a) - 0.4 * Math.cos(a) },
 ];
 
 function spread(a: number, b: number, n: number): number[] {
