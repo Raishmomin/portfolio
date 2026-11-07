@@ -6,13 +6,16 @@ import { SceneNote, aiText, reveal } from "./ui";
 export type HeroStat = { value: number; suffix?: string; label: string; ai?: boolean };
 
 /**
- * Home hero, "full" composition: the 3D neural network spans the whole viewport and the
- * text sits on its calm left side (a CSS gradient scrim keeps it readable over any glow).
+ * Home hero, "left" composition: the text column on the left, the 3D neural core (a brain
+ * of particle-neurons) in the free right side, sized to the empty [data-hero-core] box; on
+ * phones that box is a band above the text. The stage and the server poster both draw
+ * into that box, so the visual never sits under the copy.
  * The h1, the positioning line and the intro are the LCP candidates: plain
  * server-rendered text, never animated. What moves in the DOM: the stat tiles rise in
  * as a wave (CSS reveal, before gsap loads), then the calls to action and the caption
  * chip. Stats carry data-count; the server HTML already holds the final numbers.
  */
+const CORE_LEFT = "lg:left-[calc(max(0px,(100%-1280px)/2)+47rem)]";
 export function Hero({
   intro,
   resumeUrl,
@@ -26,17 +29,23 @@ export function Hero({
     <section
       id="top"
       data-section="hero"
-      data-stage="full"
+      data-stage="left"
       aria-labelledby="hero-heading"
       className="relative"
     >
-      {/* Scrim: solid behind the text column, clear over the network on the right. */}
+      {/* Scrim: solid behind the text column, clear over the neural core. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-background/75 lg:bg-transparent lg:bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/0.92)_30%,hsl(var(--background)/0.5)_48%,transparent_64%)]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 top-[34svh] bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.8)_3rem)] lg:top-0 lg:bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/0.88)_36%,transparent_56%)]"
       />
-      <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center py-12 md:py-16">
-        <div className="max-w-[44rem]">
+      {/* The neural core's box (empty): the 3D brain and its poster fill it. A band on phones. */}
+      <div
+        aria-hidden="true"
+        data-hero-core=""
+        className={`pointer-events-none absolute inset-x-4 top-4 h-[calc(34svh-1.5rem)] lg:inset-x-auto lg:right-4 lg:top-6 lg:h-[calc(100svh-4rem-1px-9.5rem)] ${CORE_LEFT}`}
+      />
+      <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center pb-6 pt-[34svh] lg:py-16">
+        <div data-stage-content="" className="max-w-[44rem]">
           <Kicker>Full Stack Developer · DevOps Engineer · AI products</Kicker>
 
           <h1 id="hero-heading" className="mt-5 text-display font-semibold text-foreground">
@@ -87,14 +96,14 @@ export function Hero({
             {PROFILE.location.locality}, {PROFILE.location.countryCode} · IST (UTC+5:30) <LocalTime />
           </p>
         </div>
-
-        <SceneNote
-          {...reveal(900)}
-          className="mt-10 max-w-[30rem] lg:absolute lg:bottom-10 lg:right-8 lg:mt-0 lg:max-w-[22rem] lg:rounded-xl lg:border lg:border-border lg:bg-background/85 lg:p-4">
-          Behind this text is a neural network: signals travel layer by layer from input to output, and the network
-          leans toward your cursor.
-        </SceneNote>
       </Container>
+      <div
+        className={`mx-auto max-w-[1280px] px-4 pb-12 md:px-8 lg:absolute lg:right-4 lg:top-[calc(100svh-4rem-1px-7rem)] lg:flex lg:max-w-none lg:justify-center lg:p-0 ${CORE_LEFT}`}>
+        <SceneNote {...reveal(900)} className="mt-4 max-w-[30rem] lg:mt-0 lg:max-w-[25rem]">
+          The 3D brain is a neural network of thousands of glowing neurons: signals fire along its connections, and
+          it turns toward your cursor.
+        </SceneNote>
+      </div>
     </section>
   );
 }
