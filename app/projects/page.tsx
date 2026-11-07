@@ -10,7 +10,7 @@ import { ProjectFilter } from "../../components/pages/projects/project-filter";
 import { AiPipelines } from "../../components/pages/projects/ai-pipelines";
 import { categoryChips } from "../../components/pages/projects/categories";
 import { CtaSection } from "../../components/pages/cta";
-import { PageIntro, PageSection, SectionHead, StatTiles, reveal } from "../../components/pages/ui";
+import { PageIntro, PageSection, SectionHead, StatTiles, column, reveal } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
 import { NeuralStage, isAiProject } from "../../components/neural";
 import { projectTechCount, topTechnologies } from "@/lib/derive";
@@ -67,6 +67,8 @@ export default async function ProjectsPage() {
     ]),
   ];
 
+  // Each project's real stack, grouped by tier (the same groups the work scene draws).
+  const stacks = new Map(neural.work.map((w) => [w.slug, w.stack]));
   const live = projects.filter((p) => p.liveUrl).length;
   // Distinct technologies across the projects (same matching rule as every stack count).
   const techCount = projectTechCount(projects);
@@ -92,7 +94,7 @@ export default async function ProjectsPage() {
           kicker={`~/projects · ${projects.length} shipped`}
           scene="work"
           side="right"
-          note="The floating cards on the left are my featured projects; hover a project below to bring its 3D twin forward."
+          note="The 3D is a project's architecture, built from its real tech stack. Scroll the projects below and it rebuilds for each one."
           title={
             <>
               Projects with <Accent>sharp edges.</Accent>
@@ -115,34 +117,39 @@ export default async function ProjectsPage() {
 
         <AiPipelines ai={neural.ai} total={projects.length} />
 
-        <PageSection id="archive" section="archive" scene="work" stage="full" labelledBy="archive-heading">
-          <SectionHead
-            id="archive-heading"
-            index={neural.ai.length ? "02" : "01"}
-            kicker="archive"
-            center
-            title={
-              <>
-                Every project, <Accent>end to end.</Accent>
-              </>
-            }
-            lead="Filter by domain; every card lists the problem, the features I shipped and the stack."
-          />
-          <div data-marquee="" className="mt-10" aria-label={`The ${stack.length} most used technologies across the projects`} role="group">
-            <ul className="flex flex-wrap justify-center">
-              {stack.map((t) => (
-                <li key={t.name} className="px-1 py-1">
-                  <span className="pill whitespace-nowrap">
-                    {t.name} <span className="ml-1 text-foreground tabular-nums">×{t.count}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+        {/* "right" composition: every card in one column on the right; the stage frames the
+            active project's architecture in the free left half (the card at the reading
+            line, or the hovered one, is the active project). */}
+        <PageSection id="archive" section="archive" scene="work" stage="right" labelledBy="archive-heading">
+          <div className={column.right}>
+            <SectionHead
+              id="archive-heading"
+              index={neural.ai.length ? "02" : "01"}
+              kicker="archive"
+              title={
+                <>
+                  Every project, <Accent>end to end.</Accent>
+                </>
+              }
+              scene="The 3D draws the project you are reading as its architecture: client, server and data layers, plus AI and infra when it uses them, each node one technology from its stack. Scroll and it rebuilds project by project; hover a technology to light its node."
+              lead="Filter by domain; every card lists the problem, the features I shipped and the stack, layer by layer."
+            />
+            <div data-marquee="" className="mt-8" aria-label={`The ${stack.length} most used technologies across the projects`} role="group">
+              <ul className="flex flex-wrap justify-center">
+                {stack.map((t) => (
+                  <li key={t.name} className="px-1 py-1">
+                    <span className="pill whitespace-nowrap">
+                      {t.name} <span className="ml-1 text-foreground tabular-nums">×{t.count}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="mb-6 mt-8">
+              <ProjectFilter chips={categoryChips(projects)} total={projects.length} />
+            </div>
+            <ProjectIndex projects={projects} stacks={stacks} />
           </div>
-          <div className="mb-6 mt-10">
-            <ProjectFilter chips={categoryChips(projects)} total={projects.length} />
-          </div>
-          <ProjectIndex projects={projects} />
         </PageSection>
 
         <CtaSection

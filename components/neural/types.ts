@@ -20,6 +20,16 @@ export const STAGE_LAYOUTS: readonly StageLayout[] = ["left", "right", "full", "
 
 export type SkillLayer = "frontend" | "backend" | "database" | "devops" | "ai";
 
+/**
+ * Architecture tier of one technology in a project's stack (work scene, project cards):
+ * client = frontend, server = backend/API, data = databases/ORM/cache/storage,
+ * infra = cloud/containers/CI/testing, ai = models/vector/RAG/speech.
+ */
+export type ArchTier = "client" | "server" | "data" | "infra" | "ai";
+export const ARCH_TIERS: readonly ArchTier[] = ["client", "server", "data", "infra", "ai"];
+/** One technology of a project, exactly as the DB lists it, with its matching key and tier. */
+export type ArchTech = { key: string; name: string; tier: ArchTier };
+
 export type NeuralData = {
   /** Skills as graph nodes. `uses` = number of projects listing it (shared counter). */
   skills: { id: string; name: string; layer: SkillLayer; uses: number }[];
@@ -29,8 +39,22 @@ export type NeuralData = {
   experience: { company: string; role: string; period: string; months: number; current: boolean }[];
   /** AI projects (category "AI" or AI terms in title/description/technologies), display order. */
   ai: { slug: string; title: string; stages: string[] }[];
-  /** Featured projects for the work scene (display order). */
-  work: { slug: string; title: string; techCount: number; ai: boolean }[];
+  /**
+   * Every project (display order: the featured ones first, as on the home page), each with
+   * its real stack classified into tiers (DB order inside a tier). The work scene builds
+   * the active project's architecture from `stack`.
+   */
+  work: {
+    slug: string;
+    title: string;
+    techCount: number;
+    ai: boolean;
+    /** One of the home page's featured projects. */
+    featured: boolean;
+    /** DB categories (fullstack, frontend, devops, ai, ...). */
+    category: string[];
+    stack: ArchTech[];
+  }[];
 };
 
 /**
