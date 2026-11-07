@@ -56,6 +56,22 @@ function toWorld(camera: Camera, px: number, py: number, w: number, h: number, o
   out[1] = v1.y + v0.y * t;
 }
 
+/**
+ * The visibility guard, widened: when content (a wide heading's box, say) covers the side
+ * of the free rect that faces the content column, step that side away (up to 30%) before
+ * giving up. side: -1 = content on the right of the rect, 1 = on its left.
+ */
+function roomFor(px: Rect, minH: number, out: Rect, side: number): Rect | null {
+  const step = (px.r - px.l) * 0.1;
+  for (let k = 0; k < 4; k++) {
+    if (clearRect(px, minH, out)) return out;
+    if (side < 0) px.r -= step;
+    else if (side > 0) px.l += step;
+    else return null;
+  }
+  return null;
+}
+
 /** Does this section list service cards (then scroll / the spy pick the service)? */
 const hasCards = new WeakMap<Element, boolean>();
 function listsCards(el: Element) {
@@ -159,7 +175,8 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     px.r = sf.rect.r * W;
     px.t = Math.max(sf.rect.t * H, phone ? 56 : HEADER_PX);
     px.b = Math.min(sf.rect.b * H, H - 8);
-    const room = sec ? clearRect(px, phone ? MIN_H.phone : MIN_H.desk, clear) : null;
+    const mid = (sf.rect.l + sf.rect.r) / 2;
+    const room = sec ? roomFor(px, phone ? MIN_H.phone : MIN_H.desk, clear, phone ? 0 : mid < 0.45 ? -1 : mid > 0.55 ? 1 : 0) : null;
     const d = rig.designs[rig.current >= 0 ? rig.current : idx];
     if (room) {
       camera.updateMatrixWorld();

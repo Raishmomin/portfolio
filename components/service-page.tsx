@@ -5,6 +5,8 @@ import { Accent, ButtonLink, Kicker } from "./ui/primitives";
 import { TEXT_LINK } from "./pages/about/subpage";
 import { CtaSection } from "./pages/cta";
 import { PageIntro, PageSection, PopPills, SectionHead, card, column, lit, nn, part } from "./pages/ui";
+import { SERVICES_SCENE } from "./pages/services/service-index";
+import { serviceSceneNote } from "./pages/services/scene-note";
 import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import { SERVICE_SLUGS, type ServiceConfig } from "@/lib/services";
@@ -53,12 +55,13 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
   const next = () => nn(++n);
 
   return (
-    <article>
+    // data-service-pin: the services scene shows this page's own service.
+    <article data-service-pin={config.slug}>
       <PageIntro
         crumbs={[{ name: "Home", href: "/" }, { name: "Services", href: "/services" }, { name: config.h1 }]}
         kicker={`service · ${nn(position)} / ${nn(SERVICE_SLUGS.length)}`}
-        scene="stack"
-        note="The network on the right is the stack I build with: one node per skill, one ring per layer, linked wherever two tools shipped together."
+        scene={SERVICES_SCENE}
+        note={serviceSceneNote(config.slug)}
         wide
         title={
           <>
@@ -225,7 +228,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
                   What you <Accent>get.</Accent>
                 </>
               }
-              scene="The floating windows above are projects I have shipped end to end: the same kind of work you get."
+              scene="Above: the architecture of a project I have shipped end to end, built from its real tech stack."
             />
             <ul className="mt-8 divide-y divide-border border-y border-border">
               {config.deliverables.map((d) => (

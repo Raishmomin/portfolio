@@ -72,7 +72,7 @@ void main() {
   vP = q;
   // Upright in the XY plane, or lying flat (XZ, y = depth toward the viewer).
   vec3 p = aPos + (aFlat > 0.5 ? vec3(q.x, 0.0, -q.y) : vec3(q, 0.0));
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);  if (aAlpha < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
 
@@ -204,6 +204,8 @@ void main() {
   vGlow = aGlow;
   vSides = aSides;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p + aPos, 1.0);
+  // Solids write depth: an invisible one must not rasterise at all (it would punch holes).
+  if (aAlpha < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
 
@@ -263,6 +265,7 @@ void main() {
   vec3 col = mix(colD, colL, uLight);
   float a = mix(aD, aL, uLight);
   col = mix(col, mix(vTint * 1.6 + 0.2, vTint, uLight), vGlow * 0.6);
+  if (a * vAlpha * uOpacity < 0.02) discard;
   gl_FragColor = vec4(col, a * vAlpha * uOpacity);
   #include <colorspace_fragment>
 }
@@ -308,7 +311,7 @@ void main() {
   vSpeed = aSpeed;
   vDraw = aDraw;
   vColor = aColor;
-  gl_Position = projectionMatrix * p;
+  gl_Position = projectionMatrix * p;  if (aAlpha < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
 
@@ -394,7 +397,7 @@ void main() {
   vHi = aHi;
   vec4 mv = modelViewMatrix * vec4(aPos, 1.0);
   mv.xy += position.xy * aSize * uScale;
-  gl_Position = projectionMatrix * mv;
+  gl_Position = projectionMatrix * mv;  if (aAlpha < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
 
