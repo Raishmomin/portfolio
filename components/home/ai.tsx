@@ -35,7 +35,7 @@ export function AiSection({ steps, total }: { steps: AiStep[]; total: number }) 
                 AI products, <Accent>stage by stage.</Accent>
               </>
             }
-            scene="The 3D draws the current project's AI system answering one request: the prompt is typed, retrieval lights the closest matches in the vector store, an agent calls its tools, the model writes the answer token by token and the answer card fills in. The card's stage chips light in step."
+            scene="The 3D draws the current project's AI system answering one request: the prompt is typed, retrieval lights the closest matches in the vector store, an agent calls its tools, the model writes the answer token by token and the answer card fills in. The card's stage chips light in step; hover a stage to hold the request there."
             lead={
               <>
                 <span data-count={steps.length}>{steps.length}</span> of my {total} projects involve AI. Each card lists its

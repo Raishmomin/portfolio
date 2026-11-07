@@ -81,11 +81,12 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
   }, [model]);
 
   // The section in view: measured in the scroll / resize handlers themselves (they run
-  // before this frame renders), so the cut follows the page without a frame of lag.
+  // before this frame renders), so the cut follows the page without a frame of lag; only
+  // while this scene shows (and once as it starts showing).
   const gl = useThree((s) => s.gl);
   const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, near: -1 });
-  useEffect(() => {
-    const read = () => {
+  const measure = useMemo(
+    () => () => {
       const st = sec.current;
       const own = sceneFrames.ai.el;
       const el = own?.isConnected ? own : document.querySelector<HTMLElement>(AI_SECTION);
@@ -118,8 +119,18 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
         }
       });
       st.near = near >= 0 ? near : first;
+    },
+    [gl, model],
+  );
+  const on = useRef(false);
+  useEffect(() => {
+    on.current = active;
+    if (active) measure();
+  }, [active, measure]);
+  useEffect(() => {
+    const read = () => {
+      if (on.current) measure();
     };
-    read();
     const ro = new ResizeObserver(read);
     ro.observe(document.body);
     window.addEventListener("scroll", read, { passive: true });
@@ -129,7 +140,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       window.removeEventListener("scroll", read);
       window.removeEventListener("resize", read);
     };
-  }, [gl, model]);
+  }, [measure]);
 
   // A hovered / focused stage chip (data-ai-stage inside a project's card) holds the request there.
   const hold = useRef<{ slug: string; stage: string } | null>(null);
