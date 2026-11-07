@@ -551,7 +551,8 @@ function api(slug: string, tech: string[]): Design {
   let last = -1;
   let spawned = 0;
   let flash = 0;
-  const EVERY = 0.4;
+  const BURST = 7;
+  const spawnAt = (k: number) => Math.floor(k / BURST) * 3.4 + (k % BURST) * 0.2;
   // Phase lengths: in, gateway → node, node → db, db → node, node → gateway, gateway → client.
   const D = [0.55, 0.42, 0.4, 0.4, 0.42, 0.55];
   const REJECT = 0.6;
@@ -570,15 +571,16 @@ function api(slug: string, tech: string[]): Design {
         for (const r of reqs) r.on = false;
       }
       last = t;
-      tokens = Math.min(CAP, tokens + live.dt * 1.15);
+      tokens = Math.min(CAP, tokens + live.dt * 1.4);
       flash = Math.max(0, flash - live.dt * 3);
-      // Spawn requests round-robin over the clients.
-      while (spawned * EVERY <= t) {
+      // Requests arrive in bursts (round-robin over the clients): the bucket drains during a
+      // burst, the last ones get a 429, and it refills in the lull.
+      while (spawnAt(spawned) <= t) {
         let r: Req | null = null;
         for (let i = 0; i < reqs.length && !r; i++) if (!reqs[i].on) r = reqs[i];
         if (r) {
           r.on = true;
-          r.t0 = spawned * EVERY;
+          r.t0 = spawnAt(spawned);
           r.client = (spawned * 2) % 3;
           r.phase = 0;
           r.ok = true;

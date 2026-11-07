@@ -60,19 +60,28 @@ function toWorld(camera: Camera, px: number, py: number, w: number, h: number, o
 }
 
 /**
- * The visibility guard, widened: when content (a wide heading's box, say) covers the side
- * of the free rect that faces the content column, step that side away (up to 30%) before
- * giving up. side: -1 = content on the right of the rect, 1 = on its left.
+ * The visibility guard, widened: besides the guard's own answer (the rect shrunk from the
+ * bottom until no content covers it), try stepping the side that faces the content column
+ * away (10% at a time, up to 30%), and keep whichever candidate lets the machine (half
+ * extents hw × hh) be drawn largest. side: -1 = content on the right of the rect, 1 = on its left.
  */
-function roomFor(px: Rect, minH: number, out: Rect, side: number): Rect | null {
+const cand: Rect = { l: 0, t: 0, r: 0, b: 0 };
+function roomFor(px: Rect, minH: number, out: Rect, side: number, hw: number, hh: number): Rect | null {
   const step = (px.r - px.l) * 0.1;
+  let best = 0;
   for (let k = 0; k < 4; k++) {
-    if (clearRect(px, minH, out)) return out;
+    if (clearRect(px, minH, cand)) {
+      const score = Math.min((cand.r - cand.l) / hw, (cand.b - cand.t) / hh);
+      if (score > best) {
+        best = score;
+        Object.assign(out, cand);
+      }
+    }
     if (side < 0) px.r -= step;
     else if (side > 0) px.l += step;
-    else return null;
+    else break;
   }
-  return null;
+  return best > 0 ? out : null;
 }
 
 /** Does this section list service cards (then scroll / the spy pick the service)? */
@@ -177,8 +186,9 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     px.t = Math.max(sf.rect.t * H, phone ? 56 : HEADER_PX);
     px.b = Math.min(sf.rect.b * H, H - 8);
     const mid = (sf.rect.l + sf.rect.r) / 2;
-    const room = sec ? roomFor(px, phone ? MIN_H.phone : MIN_H.desk, clear, phone ? 0 : mid < 0.45 ? -1 : mid > 0.55 ? 1 : 0) : null;
     const d = rig.designs[rig.current >= 0 ? rig.current : idx];
+    const side = phone ? 0 : mid < 0.45 ? -1 : mid > 0.55 ? 1 : 0;
+    const room = sec ? roomFor(px, phone ? MIN_H.phone : MIN_H.desk, clear, side, d.hw, d.hh) : null;
     if (room) {
       camera.updateMatrixWorld();
       const cw = room.r - room.l;
