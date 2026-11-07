@@ -177,7 +177,7 @@ void main() {
   vKind = aPh.z;
   if (aPh.z < 0.5) {
     // The core's aura: a soft light behind the brain that breathes with it.
-    vec4 mv = modelViewMatrix * vec4(0.0, 0.05, -0.05, 1.0);
+    vec4 mv = modelViewMatrix * vec4(0.0, 0.14, -0.05, 1.0);
     mv.xy += position.xy * uRadius * 3.2;
     vA = uWeight * smoothstep(0.1, 1.4, uIntro) * (1.0 - 0.8 * uDisperse) * (0.88 + 0.12 * sin(uTime * 0.8));
     gl_Position = projectionMatrix * mv;
@@ -214,7 +214,7 @@ void main() {
     if (r2 > 1.0) discard;
     float a = exp(-r2 * 4.5) * (1.0 - r2) * vA;
     if (uLight < 0.5) gl_FragColor = vec4(mix(uAi, uHot, 0.12) * a * 0.2, 0.0);
-    else gl_FragColor = vec4(uAi, a * 0.035);
+    else gl_FragColor = vec4(uAi, a * 0.025);
     return;
   }
   float across = 1.0 - abs(vUv.y * 2.0 - 1.0);

@@ -264,8 +264,9 @@ export class HeroCore {
       this.boxEl = null;
       const stage = own?.dataset.stage;
       compositionFor(isLayout(stage) ? stage : "left", "ambient", framing.phone, this.comp);
+      // The free side minus its lower part, where pages put their caption chip.
       const c = this.comp;
-      this.box = { x: (0.5 + c.cx - c.w / 2) * w, y: (0.5 + c.cy - c.h / 2) * h, w: c.w * w, h: c.h * h };
+      this.box = { x: (0.5 + c.cx - c.w / 2) * w, y: (0.5 + c.cy - c.h / 2) * h, w: c.w * w, h: c.h * h * 0.78 };
     }
     // The hand-off target: the free side of the section after the hero, low in the viewport
     // where that section comes in.
@@ -323,7 +324,7 @@ export class HeroCore {
     const scroll = scrollY;
     const b = this.box;
     // The home core scrolls with its section but lags behind it (it lingers while it disperses).
-    let cx = b.x + b.w / 2;
+    const cx = b.x + b.w / 2;
     let cy = b.y + b.h / 2;
     if (this.boxEl) cy = cy - scroll + 0.45 * Math.max(0, scroll - this.sectionTop);
     const fitPx = FIT * Math.min(b.w / (2 * VIEW_HALF.w), b.h / (2 * VIEW_HALF.h));
