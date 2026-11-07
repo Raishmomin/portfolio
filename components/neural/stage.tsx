@@ -46,6 +46,8 @@ import Stack from "./scenes/stack";
 import Experience from "./scenes/experience";
 import Ai from "./scenes/ai";
 import Work from "./scenes/work";
+import Services from "./scenes/services";
+import Faq from "./scenes/faq";
 import Contact from "./scenes/contact";
 import Ambient from "./scenes/ambient";
 
@@ -55,6 +57,8 @@ const SCENES: [SceneKey, ComponentType<SceneProps>][] = [
   ["experience", Experience],
   ["ai", Ai],
   ["work", Work],
+  ["services", Services],
+  ["faq", Faq],
   ["contact", Contact],
   ["ambient", Ambient],
 ];
@@ -533,6 +537,8 @@ export default function Stage({ data, active, onReady, onFallback }: StageProps)
       experience: data?.experience ?? [],
       ai: data?.ai ?? [],
       work: data?.work ?? [],
+      services: data?.services ?? [],
+      facts: data?.facts ?? { years: 0, location: "", city: "", utcOffsetMin: 330, availability: "", channels: [] },
     }),
     [data],
   );

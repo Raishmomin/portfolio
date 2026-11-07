@@ -6,8 +6,8 @@
  * data-scene="<key>" on any [data-section]. Order = scroll order. "ambient" is the calm
  * full-bleed neural field every section without its own scene gets (never the previous one).
  */
-export type SceneKey = "hero" | "stack" | "experience" | "ai" | "work" | "contact" | "ambient";
-export const SCENE_KEYS: readonly SceneKey[] = ["hero", "stack", "experience", "ai", "work", "contact", "ambient"];
+export type SceneKey = "hero" | "stack" | "experience" | "ai" | "work" | "services" | "faq" | "contact" | "ambient";
+export const SCENE_KEYS: readonly SceneKey[] = ["hero", "stack", "experience", "ai", "work", "services", "faq", "contact", "ambient"];
 
 /**
  * Composition of a section (data-stage="<layout>", default "left"): where its content sits,
@@ -31,6 +31,24 @@ export const ARCH_TIERS: readonly ArchTier[] = ["client", "server", "data", "inf
 export type ArchTech = { key: string; name: string; tier: ArchTier };
 
 export type NeuralData = {
+  /**
+   * The engagements from app/lib/services.ts (display order). The services scene builds one
+   * visual per service; DOM cards carry data-focus-id="service:<slug>".
+   */
+  services: { slug: string; title: string; tagline: string; tech: string[]; deliverables: string[] }[];
+  /**
+   * Identity facts for the FAQ and contact scenes (all from app/lib/profile.ts, never typed):
+   * whole years since the first role, the location label, the UTC offset in minutes (IST = 330),
+   * the availability statement and the public contact channels.
+   */
+  facts: {
+    years: number;
+    location: string;
+    city: string;
+    utcOffsetMin: number;
+    availability: string;
+    channels: string[];
+  };
   /** Skills as graph nodes. `uses` = number of projects listing it (shared counter). */
   skills: { id: string; name: string; layer: SkillLayer; uses: number }[];
   /** Undirected edges: two skills used together in at least one project. weight = number of shared projects. */

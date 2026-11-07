@@ -1,6 +1,8 @@
 // Server-safe: turns DB data into NeuralData for the scenes. Pure, deterministic, no three.js.
 import type { ExperienceItem, Project, SkillGroup } from "@/lib/data";
 import { periodMonths, techKey } from "@/lib/derive";
+import { SERVICES } from "@/lib/services";
+import { LOCATION_LABEL, PROFILE, SOCIAL_PROFILES, yearsOfExperience } from "@/lib/profile";
 import { slugify } from "@/lib/utils";
 import type { ArchTech, ArchTier, NeuralData, SkillLayer } from "./types";
 
@@ -104,6 +106,21 @@ export function toNeuralData(input: {
     current: /present|now|current/i.test(e.period),
   }));
   return {
+    services: Object.values(SERVICES).map((s) => ({
+      slug: s.slug,
+      title: s.h1,
+      tagline: s.tagline,
+      tech: s.techStack.map((t) => t.replace(/\s*\(.*?\)/g, "").trim()),
+      deliverables: [...s.deliverables],
+    })),
+    facts: {
+      years: yearsOfExperience(),
+      location: LOCATION_LABEL,
+      city: PROFILE.location.locality,
+      utcOffsetMin: 330, // Asia/Kolkata (IST), no DST
+      availability: PROFILE.availability,
+      channels: ["Email", ...SOCIAL_PROFILES.map((p) => p.label)],
+    },
     skills,
     links,
     experience,
