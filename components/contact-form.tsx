@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, Check } from "lucide-react";
-import { launchPoint, signal } from "./pages/contact/signal";
+import { signal } from "./pages/contact/signal";
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -84,8 +84,7 @@ export function ContactForm() {
 
     setErrors({});
     setSending(true);
-    const at = launchPoint(submitRef.current);
-    signal("send", at);
+    signal("send", submitRef.current);
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
@@ -93,7 +92,7 @@ export function ContactForm() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
-        signal("sent", at);
+        signal("sent", submitRef.current);
         setForm(EMPTY);
         setSent(true);
       } else {
@@ -127,7 +126,7 @@ export function ContactForm() {
     const now = performance.now();
     if (now - typedAt.current > 80) {
       typedAt.current = now;
-      signal("type", launchPoint(e.target));
+      signal("type", e.target);
     }
   }
 
@@ -174,7 +173,7 @@ export function ContactForm() {
           ref={formRef}
           onSubmit={handleSubmit}
           onFocus={(e) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) signal("focus", launchPoint(e.target));
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) signal("focus", e.target);
           }}
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget as Node | null)) signal("blur");

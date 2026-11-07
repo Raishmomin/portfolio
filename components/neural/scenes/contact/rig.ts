@@ -43,7 +43,7 @@ import { LAND_H, LAND_W, decodeLand } from "./land";
 import { ATMO_FRAG, ATMO_VERT, GLOBE_FRAG, GLOBE_VERT, LINES_FRAG, LINES_VERT, ROUTE_FRAG, ROUTE_VERT } from "./shaders";
 
 /** A DOM signal (components/pages/contact/signal.ts): what happened and where (client px). */
-export type ContactSignal = { kind: "focus" | "blur" | "type" | "copy" | "send" | "sent" | "error"; x?: number; y?: number };
+export type ContactSignal = { kind: "focus" | "blur" | "type" | "copy" | "send" | "sent" | "error"; x?: number; y?: number; el?: Element };
 
 const HEADER_PX = 64;
 const SPAN_X = 1.62; // half-width of globe + orbits + labels, in globe radii
@@ -222,6 +222,9 @@ export class ContactRig {
   private gx = 0;
   private gy = 0;
   private gSet = false;
+  /** The focused form field: the guide route leaves the page beside it (re-measured live). */
+  private gEl: Element | null = null;
+  private gAt = 0;
   private lastSpark = -1;
   private shockAt = -1e9;
   private deliveredAt = -1e9;
@@ -453,14 +456,14 @@ export class ContactRig {
     this.light = light;
     const u = this.earthMat.uniforms;
     if (light) {
-      (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.fg, 0.035));
-      (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.1)).lerp(paletteColor(p.fg), 0.07);
-      (u.uDotDay.value as Color).copy(paletteColor(p.fg, p.bg, 0.3));
-      (u.uDotNight.value as Color).copy(paletteColor(p.ai, p.fg, 0.35));
+      (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.07)).lerp(paletteColor(p.fg), 0.03);
+      (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.16)).lerp(paletteColor(p.fg), 0.1);
+      (u.uDotDay.value as Color).copy(paletteColor(p.fg, p.bg, 0.12));
+      (u.uDotNight.value as Color).copy(paletteColor(p.ai, p.fg, 0.4));
       (u.uRim.value as Color).copy(paletteColor(p.ai, p.bg, 0.45));
     } else {
-      (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.13));
-      (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.05));
+      (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.1));
+      (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.035));
       (u.uDotDay.value as Color).copy(paletteColor(p.fg, p.ai, 0.12));
       (u.uDotNight.value as Color).copy(paletteColor(p.ai, p.bg, 0.5));
       (u.uRim.value as Color).copy(paletteColor(p.ai));
@@ -644,10 +647,15 @@ export class ContactRig {
         this.gy = s.y!;
         this.gSet = true;
       }
-      if (s.kind === "focus") this.chargeOn = 1;
-      else if (s.kind === "blur") this.chargeOn = 0;
-      else if (s.kind === "type") {
+      if (s.kind === "focus") {
         this.chargeOn = 1;
+        this.gEl = s.el ?? null;
+      } else if (s.kind === "blur") {
+        this.chargeOn = 0;
+        this.gEl = null;
+      } else if (s.kind === "type") {
+        this.chargeOn = 1;
+        this.gEl = s.el ?? this.gEl;
         if (has && time - this.lastSpark > 0.11) {
           this.lastSpark = time;
           this.spawn(SPARK, s.x!, s.y!, time);
@@ -772,6 +780,18 @@ export class ContactRig {
       this.gx = this.cx + this.r * 1.9;
       this.gy = this.cy;
     }
+    // The focused field may scroll (keyboard focus scrolls it into view): follow it.
+    const nowMs = performance.now();
+    if (this.gEl && nowMs - this.gAt > 90) {
+      this.gAt = nowMs;
+      if (!this.gEl.isConnected) this.gEl = null;
+      else {
+        const r = this.gEl.getBoundingClientRect();
+        const panel = (this.gEl.closest(".panel") ?? this.gEl).getBoundingClientRect();
+        this.gx = panel.left;
+        this.gy = Math.min(Math.max(r.top + r.height / 2, 0), this.H);
+      }
+    }
     const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
     this.lift(this.gx, this.gy, this.Rw * 0.5, v0);
     sp.set(this.sCharge, v0.x, v0.y, v0.z);
@@ -782,6 +802,7 @@ export class ContactRig {
     // Routes: the guide (slot 0) and packets in flight.
     const pos = this.routePos.array as Float32Array;
     const tan = this.routeTan.array as Float32Array;
+    let wrote = false;
     for (let p = 0; p < ROUTES; p++) {
       const R = this.uR[p];
       const pk = this.packets[p];
@@ -813,6 +834,7 @@ export class ContactRig {
       const flying = p > 0 && alpha > 0.001 && pk.land < 0;
       if (alpha <= 0.001) R.z = 0;
       else {
+        wrote = true;
         this.route(sx, sy);
         for (let i = 0; i <= SEG; i++) {
           const t = i / SEG;
@@ -854,8 +876,11 @@ export class ContactRig {
         sp.alpha[i] = 0.65 * fall * fall * this.visible(v0);
       }
     }
-    this.routePos.needsUpdate = true;
-    this.routeTan.needsUpdate = true;
+    // Upload only while a route shows (the shader discards the rest).
+    if (wrote) {
+      this.routePos.needsUpdate = true;
+      this.routeTan.needsUpdate = true;
+    }
 
     // The city: pin + availability beacon; flashes when a message lands.
     const landT = (time - this.shockAt) / 0.7;

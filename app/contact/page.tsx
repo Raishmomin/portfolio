@@ -77,7 +77,15 @@ export default async function ContactPage() {
         </PageIntro>
 
         {/* "right": details and form on the right, the contact globe framed on the left. */}
-        <PageSection id="contact" section="contact" scene="contact" stage="right" label="Contact details and form">
+        {/* Phones: the section opens with a window onto the globe, like the home contact section. */}
+        <PageSection
+          id="contact"
+          section="contact"
+          scene="contact"
+          stage="right"
+          label="Contact details and form"
+          className="pt-[38svh] md:pt-[38svh] lg:pt-28"
+        >
           <div data-card-group="" className={`grid grid-cols-1 gap-4 ${column.right}`}>
             <ContactChannels personal={personal} />
             <div {...card("zoom")} className="panel min-w-0 p-6 md:p-8" role="group" aria-labelledby="message-heading">

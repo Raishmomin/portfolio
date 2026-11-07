@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { cx } from "@/lib/cx";
-import { launchPoint, signal } from "./pages/contact/signal";
+import { signal } from "./pages/contact/signal";
 
 /**
  * "Copy email" island (hero, home contact, /contact): copies the server-provided
@@ -37,7 +37,7 @@ export function CopyEmail({ email, icon = false, className }: { email: string; i
       if (!ok) return;
     }
     setCopied(true);
-    signal("copy", launchPoint(button.current));
+    signal("copy", button.current);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setCopied(false), 2000);
   }

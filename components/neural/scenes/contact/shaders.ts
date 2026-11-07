@@ -91,7 +91,7 @@ void main() {
   float shock = 0.0;
   if (uShock >= 0.0 && uShock <= 1.0) {
     float rr = 0.02 + uShock * 0.75;
-    shock = exp(-pow((ang - rr) * 26.0, 2.0)) * (1.0 - uShock) * (1.0 - uShock);
+    shock = exp(-pow((ang - rr) * 40.0, 2.0)) * (1.0 - uShock) * (1.0 - uShock);
   }
 
   float rim = pow(1.0 - facing, 2.6);
@@ -111,9 +111,9 @@ void main() {
     col = mix(col, uAccent, clamp(shock, 0.0, 1.0));
     a = 1.0;
   } else {
-    col = ocean + uAccent * dusk * 0.07 + uRim * rim * 0.75;
+    col = ocean + uAccent * dusk * 0.06 + uRim * rim * 0.55;
     col = mix(col, dotC, dotA);
-    col += uOk * rings * 0.9 + uAccent * shock * 1.2;
+    col += uOk * rings * 0.9 + uAccent * shock * 0.95;
     a = 0.96;
   }
   gl_FragColor = vec4(col, a * uOpacity);
@@ -142,12 +142,13 @@ varying vec2 vP;
 void main() {
   float r = length(vP);
   float out1 = max(r - 1.0, 0.0);
-  float limb = smoothstep(0.86, 1.0, r) * exp(-out1 * 9.0);
-  float haze = exp(-out1 * 2.6) * smoothstep(0.7, 1.0, r) * 0.22;
+  float limb = smoothstep(0.88, 1.0, r) * exp(-out1 * 10.0);
+  float haze = exp(-out1 * 3.2) * smoothstep(0.8, 1.0, r) * 0.1;
   // The lit side glows a little warmer and brighter.
   float lit = 0.6 + 0.4 * clamp(dot(normalize(vP + 1e-4), uSunXY), -1.0, 1.0);
   vec3 c = mix(uColor, uWarm, 0.18 * max(dot(normalize(vP + 1e-4), uSunXY), 0.0));
-  float a = (limb * 0.75 + haze) * lit * uOpacity;
+  // Fades out well inside the quad (half-size 1.6 radii), so its edge never shows.
+  float a = (limb * 0.62 + haze) * lit * (1.0 - smoothstep(1.25, 1.55, r)) * uOpacity;
   if (uLight > 0.5) {
     gl_FragColor = vec4(c, a * 0.55);
   } else {
@@ -193,7 +194,7 @@ varying float vHot;
 void main() {
   vec3 c = mix(uColor, uHotColor, vHot);
   float a = vA * uOpacity;
-  if (uLight > 0.5) gl_FragColor = vec4(c, a);
+  if (uLight > 0.5) gl_FragColor = vec4(c, min(1.0, a * 1.6));
   else gl_FragColor = vec4(c * a, a);
   #include <colorspace_fragment>
 }
