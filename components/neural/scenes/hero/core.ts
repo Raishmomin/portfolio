@@ -20,7 +20,7 @@ import {
   type IUniform,
   type PerspectiveCamera,
 } from "three";
-import { compositionFor, framing, isLayout, zeroComposition } from "../../framing";
+import { compositionFor, framing, isLayout, sceneFrames, zeroComposition } from "../../framing";
 import { isLight, setColor, setGlowBlending } from "../../fx";
 import { BASE_PITCH, BASE_YAW, brainSteps, COUNTS, FOV, VIEW_HALF, type BrainLayout } from "../../hero-layout";
 import type { SceneProps } from "../../types";
@@ -101,6 +101,8 @@ export class HeroCore {
   private box: Box = { x: 0, y: 0, w: 0, h: 0 };
   private boxEl: HTMLElement | null = null;
   private sectionTop = 0;
+  /** The section driving the hero scene when the boxes were measured. */
+  private ownEl: HTMLElement | null = null;
   private stream = { x: 0.23, y: 0.92 };
   private measured = false;
   private readonly onResize = () => (this.measured = false);
@@ -254,7 +256,9 @@ export class HeroCore {
   private measure(w: number, h: number) {
     this.measured = true;
     const sections = [...document.querySelectorAll<HTMLElement>("[data-section]")];
-    const own = document.querySelector<HTMLElement>(HERO_SECTION);
+    // The section driving the scene (the director's pick, the most central hero section).
+    const own = sceneFrames.hero.el ?? document.querySelector<HTMLElement>(HERO_SECTION);
+    this.ownEl = sceneFrames.hero.el;
     this.boxEl = own?.querySelector<HTMLElement>("[data-hero-core]") ?? null;
     const r = this.boxEl?.getBoundingClientRect();
     if (this.boxEl && r && r.width > 0 && r.height > 0) {
@@ -320,7 +324,7 @@ export class HeroCore {
 
     const W = size.width;
     const H = size.height;
-    if (!this.measured) this.measure(W, H);
+    if (!this.measured || this.ownEl !== sceneFrames.hero.el) this.measure(W, H);
     const scroll = scrollY;
     const b = this.box;
     // The home core scrolls with its section but lags behind it (it lingers while it disperses).

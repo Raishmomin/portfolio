@@ -26,8 +26,9 @@ const CSS = [
   "[data-neural-poster]>svg{position:absolute;inset:0;width:100%;height:100%}",
   // The hero brain fills the same box as the canvas's core ([data-hero-core] in the home
   // hero): the free right side on desktop, a band above the text on phones.
-  "[data-neural-poster=hero]>svg{inset:auto;left:1rem;right:1rem;top:calc(4rem + 1px + 1rem);width:auto;height:calc(36svh - 1.5rem)}",
-  "@media (min-width:1024px){[data-neural-poster=hero]>svg{left:calc(max(0px,(100% - 1280px)/2) + 47rem);top:calc(4rem + 1px + 1.5rem);height:calc(100svh - 4rem - 1px - 9.5rem)}}",
+  "[data-neural-poster=hero]>svg{inset:auto;left:1rem;top:calc(4rem + 1px + 1rem);width:calc(100% - 2rem);height:calc(36svh - 1.5rem)}",
+  "@media (min-width:1024px){[data-neural-poster=hero]>svg{left:calc(max(0px,(100% - 1280px)/2) + 47rem);top:calc(4rem + 1px + 1.5rem);width:calc(100% - max(0px,(100% - 1280px)/2) - 48rem);height:calc(100svh - 4rem - 1px - 9.5rem)}}",
+  ".nw-g{opacity:.4}.dark .nw-g{opacity:1}",
   ".nw-b{transform-box:view-box;transform-origin:50% 50%}",
   "@keyframes nw-breathe{50%{transform:scale(1.025) rotate(-1deg)}}",
   `@media (prefers-reduced-motion:no-preference){html.js:not([data-motion=off]) .nw-b{animation:nw-breathe 9s ease-in-out infinite}}`,
@@ -182,7 +183,7 @@ function HeroPoster() {
             <stop offset="1" stopColor="var(--nw-ai)" stopOpacity="0" />
           </radialGradient>
         </defs>
-        <circle r={hw} fill="url(#nw-aura)" />
+        <circle className="nw-g" r={hw} fill="url(#nw-aura)" />
         <g className="nw-b">
           <path className="nw-e" strokeWidth=".5" d={short} />
           {long.map((d, i) => (
