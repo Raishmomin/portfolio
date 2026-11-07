@@ -94,7 +94,7 @@ export default async function ProjectsPage() {
           kicker={`~/projects · ${projects.length} shipped`}
           scene="work"
           side="right"
-          note="On the left is a project's architecture, built from its real tech stack. Scroll the projects below and it rebuilds for each one."
+          note="The 3D is a project's architecture, built from its real tech stack. Scroll the projects below and it rebuilds for each one."
           title={
             <>
               Projects with <Accent>sharp edges.</Accent>
@@ -131,7 +131,7 @@ export default async function ProjectsPage() {
                   Every project, <Accent>end to end.</Accent>
                 </>
               }
-              scene="On the left, the project you are reading drawn as its architecture: client, server and data layers, plus AI and infra when it uses them, each node one technology from its stack. Scroll and it rebuilds project by project; hover a technology to light its node."
+              scene="The 3D draws the project you are reading as its architecture: client, server and data layers, plus AI and infra when it uses them, each node one technology from its stack. Scroll and it rebuilds project by project; hover a technology to light its node."
               lead="Filter by domain; every card lists the problem, the features I shipped and the stack, layer by layer."
             />
             <div data-marquee="" className="mt-8" aria-label={`The ${stack.length} most used technologies across the projects`} role="group">

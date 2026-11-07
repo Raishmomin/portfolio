@@ -48,7 +48,7 @@ export function WorkSection({ items }: { items: WorkItem[] }) {
                 Selected work, <Accent>end to end.</Accent>
               </>
             }
-            scene="The 3D in the middle is the architecture of the project you are reading, built from its real tech stack: client, server and data layers, plus AI and infra when the project uses them. Scroll or hover a project to rebuild it; hover a technology to light its node."
+            scene="The 3D is the architecture of the project you are reading, built from its real tech stack: client, server and data layers, plus AI and infra when the project uses them. Scroll or hover a project to rebuild it; hover a technology to light its node."
           />
         </div>
 
