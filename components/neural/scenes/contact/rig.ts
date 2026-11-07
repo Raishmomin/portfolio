@@ -88,8 +88,8 @@ const ID = new Matrix4();
 const pxRect: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const clear: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const sun = { lat: 0, lon: 0 };
-const ALIGN_R = { x: 0, y: -0.5, dx: 12 };
-const ALIGN_L = { x: -1, y: -0.5, dx: -12 };
+const ALIGN_R = { x: 0, y: -0.5, dx: 16 };
+const ALIGN_L = { x: -1, y: -0.5, dx: -16 };
 
 const damp = (a: number, b: number, lambda: number, dt: number) => a + (b - a) * (1 - Math.exp(-lambda * dt));
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -227,6 +227,7 @@ export class ContactRig {
   private gAt = 0;
   private lastSpark = -1;
   private shockAt = -1e9;
+  private sparkAt = -1e9;
   private deliveredAt = -1e9;
   private sunAt = -1e9;
   private clockText = "";
@@ -710,9 +711,11 @@ export class ContactRig {
     const e = smooth01(weight) * smooth01(this.room);
     this.handle(time);
 
-    // Arrival: the globe spins in and its land lights up in a wave from the city.
-    if (this.arrived < 0 && weight > 0.35 && this.room > 0.5) this.arrived = time;
+    // Arrival: the globe fades in as it spins round and its land lights up in a wave from
+    // the city (nothing shows before, so a half-blended section never sees an empty ball).
+    if (this.arrived < 0 && weight > 0.15 && this.room > 0.5) this.arrived = time;
     const since = this.arrived < 0 ? -1 : time - this.arrived;
+    const appear = since < 0 ? 0 : smooth01(since / 0.7);
     const show = since < 0 ? 0 : smooth01((since - 0.2) / 0.8);
 
     // Placement: centre lifted to the z = 0 plane, radius in world units.
@@ -758,8 +761,8 @@ export class ContactRig {
     u.uReveal.value = since < 0 ? -1 : since * 1.45 - 0.05;
     const shockT = (time - this.shockAt) / 1.4;
     u.uShock.value = shockT >= 0 && shockT <= 1 ? shockT : -1;
-    u.uOpacity.value = e;
-    this.atmoMat.uniforms.uOpacity.value = e * (since < 0 ? 0.4 : 0.4 + 0.6 * smooth01(since / 1.5));
+    u.uOpacity.value = e * appear;
+    this.atmoMat.uniforms.uOpacity.value = e * appear * smooth01(since / 1.5);
     this.linesMat.uniforms.uOpacity.value = e * (since < 0 ? 0 : smooth01((since - 0.5) / 1.2));
     this.linesMat.uniforms.uTime.value = time;
     this.routeMat.uniforms.uOpacity.value = e;
@@ -824,7 +827,9 @@ export class ContactRig {
         head = easeInOut(Math.min(1, t));
         if (t >= 1 && pk.land < 0) {
           pk.land = time;
-          this.shockAt = time;
+          // A copied email or a sent message lands with a shockwave; a keystroke just blinks the pin.
+          if (kind === SPARK) this.sparkAt = time;
+          else this.shockAt = time;
           if (kind === SEND) this.deliveredAt = time;
         }
         const after = pk.land < 0 ? 0 : (time - pk.land) / (kind === SEND ? 1.6 : 0.6);
@@ -887,10 +892,12 @@ export class ContactRig {
     // The city: pin + availability beacon; flashes when a message lands.
     const landT = (time - this.shockAt) / 0.7;
     const landF = landT >= 0 && landT <= 1 ? 1 - landT : 0;
+    const blinkT = (time - this.sparkAt) / 0.35;
+    const blink = blinkT >= 0 && blinkT <= 1 ? 1 - blinkT : 0;
     const beacon = (time % BEACON_EVERY) / BEACON_EVERY;
     sp.set(this.sPin, pinW.x, pinW.y, pinW.z);
     sp.setColor(this.sPin, this.colOk);
-    sp.size[this.sPin] = (15 + 6 * landF) * px;
+    sp.size[this.sPin] = (15 + 6 * landF + 5 * blink) * px;
     sp.alpha[this.sPin] = pinVis * show;
     sp.set(this.sHalo, pinW.x, pinW.y, pinW.z);
     sp.setColor(this.sHalo, this.colOk);
