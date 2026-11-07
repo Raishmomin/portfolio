@@ -25,7 +25,7 @@ export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number
                 {ai.length} of {total} projects <Accent>use AI.</Accent>
               </>
             }
-            scene="The 3D draws each AI project as a working system: a request runs from the input through its real stages to the answer, and the project's stages light as it passes. Hover a project to rebuild its system."
+            scene="The 3D draws each AI project as a working system: a request runs from the input through its real stages to the answer, and the project's stages light as it passes. Hover a project to rebuild its system, or one of its stages to hold the request there."
           />
         </div>
         <ol aria-label="AI projects" data-deck="" data-card-group="" className="mt-4 flex flex-col gap-4">
