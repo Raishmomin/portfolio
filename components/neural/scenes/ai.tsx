@@ -17,6 +17,9 @@ import { AiRig, emptyRegistry, type AiRegistry } from "./ai/rig";
 import { isLight } from "./ai/shared";
 import { LabelLayer } from "./stack/labels";
 
+/** A section that shows this scene (home: data-section="ai"; subpages: data-scene="ai"). */
+const AI_SECTION = '[data-section="ai"], [data-scene="ai"]';
+
 /** Label distance below (landscape) / beside (portrait) each stage, in stage units. */
 const LABEL_OFFSET: Record<StageKind, number> = { llm: 0.98, rag: 0.5, io: 0.56, speech: 0.56, agent: 0.6, generic: 0.56 };
 
@@ -114,14 +117,15 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
 
   // The card on top of the AI deck (desktop [data-deck] emits "cp:deck"): the pipeline shows
   // that project. Read per frame only while its deck is still live (it reverts on phones).
+  // Only the AI section's deck counts (another section's deck may list AI projects too).
   const deck = useRef<{ el: Element; id: string | null } | null>(null);
   useEffect(() => {
     const onDeck = (e: Event) => {
       const id = (e as CustomEvent<{ id?: string }>).detail?.id ?? null;
-      if (e.target instanceof Element && id && model.index.has(id)) deck.current = { el: e.target, id };
+      if (e.target instanceof Element && e.target.closest(AI_SECTION) && id && model.index.has(id)) deck.current = { el: e.target, id };
     };
     document.addEventListener("cp:deck", onDeck);
-    const live = document.querySelector<HTMLElement>("[data-deck-live][data-deck-index]");
+    const live = document.querySelector<HTMLElement>(`:is(${AI_SECTION}) [data-deck-live][data-deck-index]`);
     const top = live?.querySelector<HTMLElement>("[data-deck-top]");
     const id = top?.dataset.focusId ?? top?.querySelector<HTMLElement>("[data-focus-id]")?.dataset.focusId;
     if (live && id && model.index.has(id)) deck.current = { el: live, id };

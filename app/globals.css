@@ -768,3 +768,124 @@ html.motion-live details.faq::details-content {
 html.motion-live details.faq[open]::details-content {
   block-size: auto;
 }
+
+/* fm2-work */
+/* Work: projects as architectures. Tier colours (client, server, data, infra, AI) shared by
+   the tier chip groups and the 3D (components/neural/scenes/work.tsx). */
+[data-tier="client"] { --tier: var(--foreground); }
+[data-tier="server"] { --tier: var(--primary); }
+[data-tier="data"] { --tier: var(--ok); }
+[data-tier="infra"] { --tier: var(--muted-foreground); }
+[data-tier="ai"] { --tier: var(--ai); }
+.tier-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 9999px;
+  background: hsl(var(--tier, var(--muted-foreground)));
+}
+/* The active project's chips light up in their tier colour, one after another (as its
+   nodes fly in); a hovered chip turns orange with its node. Motion runtime only. */
+html.motion-live [data-arch-item] .arch-chip {
+  transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+html.motion-live [data-arch-active] .arch-chip {
+  border-color: hsl(var(--tier) / 0.6);
+  background-color: hsl(var(--tier) / 0.08);
+  color: hsl(var(--foreground));
+  transition-delay: calc(var(--k, 0) * 45ms);
+}
+html.motion-live [data-arch-item] .arch-chip:hover {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
+  transition-delay: 0s;
+}
+html.motion-live [data-arch-active] > .panel {
+  border-color: hsl(var(--primary) / 0.55);
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 18px 50px -28px hsl(var(--primary) / 0.55);
+}
+
+@media (min-width: 1024px) {
+  /* Home: cards zig-zag down both sides of a clear, sticky centre column (the 3D window). */
+  .arch {
+    --win: clamp(440px, 37vw, 660px);
+  }
+  .arch .arch-zig {
+    grid-template-columns: minmax(0, 1fr) var(--win) minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 0;
+  }
+  .arch .arch-zig > li {
+    grid-column: 1;
+    grid-row: var(--r) / span 2;
+    margin-bottom: 1.25rem;
+  }
+  .arch .arch-zig > li:nth-child(even) {
+    grid-column: 3;
+  }
+  .arch .arch-zig > li.arch-mini {
+    margin-bottom: 0.875rem;
+  }
+  .arch .arch-sub {
+    max-width: calc((100% - var(--win)) / 2);
+  }
+  .arch-win-col {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: var(--win);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  /* The window: an empty sticky box the scene fits itself into, marked by four corners. */
+  .arch-win {
+    --c: hsl(var(--foreground) / 0.2);
+    position: sticky;
+    top: 84px;
+    height: calc(100svh - 108px);
+    margin-inline: 18px;
+    background:
+      linear-gradient(var(--c), var(--c)) left top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 1px 16px no-repeat;
+  }
+  /* The active card points at the window: a short lit connector on its inner edge. */
+  html.motion-live .arch .arch-step {
+    position: relative;
+  }
+  html.motion-live .arch .arch-step::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 26px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .arch .arch-zig > .arch-step:nth-child(odd)::after {
+    right: -26px;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0));
+  }
+  html.motion-live .arch .arch-zig > .arch-step:nth-child(even)::after {
+    left: -26px;
+    background: linear-gradient(270deg, hsl(var(--primary)), hsl(var(--primary) / 0));
+  }
+  html.motion-live .arch .arch-step[data-arch-active]::after {
+    opacity: 1;
+  }
+}
+@media (max-width: 1023px) {
+  .arch-win-col {
+    display: none;
+  }
+}
+/* end fm2-work */

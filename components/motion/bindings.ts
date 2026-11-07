@@ -4,6 +4,7 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { CARD_BINDERS } from "./cards";
+import { arch } from "./arch";
 import { DESKTOP, FINE, NOOP, clamp, seen, type Binding } from "./shared";
 
 export { FINE, type Binding };
@@ -307,4 +308,5 @@ export const BINDERS: Record<string, (el: HTMLElement) => Binding> = {
   "data-pin": pin,
   "data-tilt": tilt,
   "data-magnetic": magnetic,
+  "data-arch": arch,
 };

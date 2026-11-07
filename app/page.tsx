@@ -72,7 +72,6 @@ export default async function Home() {
   ]);
 
   const featured = projects.slice(0, FEATURED_COUNT);
-  const archive = projects.slice(FEATURED_COUNT);
   const timeline = sortRoles(experience); // newest first
   const faqs = homeFaqs();
   const neural = toNeuralData({ skills, experience: timeline, projects, featured });
@@ -83,6 +82,11 @@ export default async function Home() {
   const aiSteps = neural.ai.flatMap((a) => {
     const project = bySlug.get(a.slug);
     return project ? [{ ...a, project }] : [];
+  });
+  // Every project with its tiered stack, featured first (the work scene's order).
+  const workItems = neural.work.flatMap((w) => {
+    const project = bySlug.get(w.slug);
+    return project ? [{ ...w, project }] : [];
   });
   const career = [...timeline].reverse().map((e, i) => ({ ...e, months: neural.experience[i].months, current: neural.experience[i].current }));
 
@@ -135,7 +139,7 @@ export default async function Home() {
         <StackSection layers={skillLayers(neural.skills)} linkCount={neural.links.length} />
         <ExperienceSection items={career} years={yearsOfExperience()} />
         <AiSection steps={aiSteps} total={projects.length} />
-        <WorkSection featured={featured} archive={archive} />
+        <WorkSection items={workItems} />
         <ServicesSection services={Object.values(SERVICES)} />
         <WritingSection posts={posts} />
         <FaqSection faqs={faqs} />
