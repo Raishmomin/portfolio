@@ -1,9 +1,10 @@
-// Home section "ai" (scene: an AI pipeline). Server Component. One card per
+// Home section "ai" (scene: each project's AI system). Server Component. One card per
 // NeuralData.ai entry, in the same order, so the scene's step i is card i; each card's
-// stage chips are exactly the stages drawn in 3D. "left" composition: the pipeline is
-// framed on the right while the cards stack like a deck on the left ([data-deck], desktop):
-// the top card's chips light input → output, the scene shows that project's pipeline.
-// Without JS, with motion off and on phones the cards are a plain list.
+// stage chips (data-ai-stage) are exactly the stages drawn in 3D, and its "Models / Vector
+// DB / Framework" line names the technologies the 3D labels repeat. "left" composition: the
+// system is framed on the right while the cards stack like a deck on the left ([data-deck],
+// desktop): the top card's project is drawn, and its chips light as the request reaches
+// each stage. Without JS, with motion off and on phones the cards are a plain list.
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { Accent, PillList } from "../ui/primitives";
@@ -12,6 +13,7 @@ import type { NeuralData } from "../neural";
 import { cn } from "@/lib/utils";
 import { firstSentence, liveLabel } from "./derive";
 import { HomeSection, NeuralGlyph, SectionHead, aiBorder, aiText, column, panel } from "./ui";
+import { aiRoles } from "../neural/scenes/ai/system";
 
 export type AiStep = NeuralData["ai"][number] & { project: Project };
 
@@ -33,7 +35,7 @@ export function AiSection({ steps, total }: { steps: AiStep[]; total: number }) 
                 AI products, <Accent>stage by stage.</Accent>
               </>
             }
-            scene="Each glowing node is one stage of an AI pipeline, such as speech-to-text, retrieval, the LLM or text-to-speech; the particles are data flowing through it. Scroll, or hover a project, to see its pipeline."
+            scene="The 3D draws the current project's AI system answering one request: the prompt is typed, retrieval lights the closest matches in the vector store, an agent calls its tools, the model writes the answer token by token and the answer card fills in. The card's stage chips light in step; hover a stage to hold the request there."
             lead={
               <>
                 <span data-count={steps.length}>{steps.length}</span> of my {total} projects involve AI. Each card lists its
@@ -46,6 +48,14 @@ export function AiSection({ steps, total }: { steps: AiStep[]; total: number }) 
         <ol aria-label="AI projects" data-deck="" data-card-group="" className="mt-4 flex flex-col gap-6">
           {steps.map((s, i) => {
             const p = s.project;
+            const roles = aiRoles(s.stages, p.technologies ?? []);
+            const llm = s.stages.findIndex((x) => /\bllm\b/i.test(x));
+            const built = [
+              ["Models", roles.models],
+              ["Vector DB", roles.stores],
+              ["Framework", roles.frameworks],
+              ["Speech", roles.speech],
+            ].filter(([, list]) => list.length) as [string, string[]][];
             return (
               <li key={s.slug} data-card="" data-focus-id={s.slug} className="relative">
                 <article
@@ -81,6 +91,8 @@ export function AiSection({ steps, total }: { steps: AiStep[]; total: number }) 
                           </span>
                         ) : null}
                         <span
+                          data-ai-stage={stage}
+                          data-ai-tone={llm >= 0 && j > llm ? "out" : undefined}
                           className={cn(
                             "stage-chip rounded-md border px-2 py-0.5 font-mono text-[11px] leading-5 tracking-[0.02em]",
                             EDGE_STAGES.has(stage) ? "border-border text-muted-foreground" : cn(aiBorder, aiText),
@@ -92,6 +104,17 @@ export function AiSection({ steps, total }: { steps: AiStep[]; total: number }) 
                       </li>
                     ))}
                   </ol>
+
+                  {built.length ? (
+                    <dl data-card-part="" className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] leading-5">
+                      {built.map(([label, list]) => (
+                        <div key={label} className="flex gap-1.5">
+                          <dt className="text-muted-foreground">{label}</dt>
+                          <dd className="text-foreground">{list.join(" · ")}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
 
                   {p.technologies.length ? (
                     <div data-card-part="">

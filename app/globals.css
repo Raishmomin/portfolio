@@ -944,3 +944,39 @@ html.motion-live [data-arch-active] > .panel {
   }
 }
 /* end fm2-work */
+
+/* fm3-ai */
+/* AI: while the 3D system runs (components/neural/scenes/ai.tsx sets [data-ai-sync] on the
+   section), the shown project's stage chips follow its request: data-ai-done for stages
+   it has passed, data-ai-lit for the stage it is in (orange after the model: the answer).
+   Without the 3D the CSS signal above runs instead. */
+html.motion-live [data-ai-sync] .stage-chip::after {
+  animation: none;
+}
+[data-ai-stage] {
+  transition:
+    color 0.25s,
+    border-color 0.25s,
+    background-color 0.25s,
+    box-shadow 0.25s;
+}
+[data-ai-stage][data-ai-done] {
+  border-color: hsl(var(--ai) / 0.7);
+  color: hsl(var(--ai));
+}
+[data-ai-stage][data-ai-lit] {
+  border-color: hsl(var(--ai));
+  background-color: hsl(var(--ai) / 0.16);
+  color: hsl(var(--foreground));
+  box-shadow:
+    0 0 0 1px hsl(var(--ai) / 0.35),
+    0 0 16px hsl(var(--ai) / 0.5);
+}
+[data-ai-stage][data-ai-lit][data-ai-tone="out"] {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.14);
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.35),
+    0 0 16px hsl(var(--primary) / 0.45);
+}
+/* end fm3-ai */
