@@ -519,11 +519,18 @@ export class ContactRig {
 
   /** Lay out the globe in the scene's free rect (px). False when there is no room. */
   private layout(W: number, H: number): boolean {
-    const fr = sceneFrames.contact.rect;
+    const frame = sceneFrames.contact;
+    const fr = frame.rect;
     pxRect.l = fr.l * W;
     pxRect.r = fr.r * W;
     pxRect.t = Math.max(fr.t * H, framing.phone ? 56 : HEADER_PX + 8);
     pxRect.b = Math.min(fr.b * H, H - 8);
+    // The globe stays inside its own section (the footer's band below it is opaque).
+    if (frame.el && !framing.phone) {
+      const sr = frame.el.getBoundingClientRect();
+      pxRect.t = Math.max(pxRect.t, sr.top + 8);
+      pxRect.b = Math.min(pxRect.b, sr.bottom - 8);
+    }
     const ok = clearRect(pxRect, framing.phone ? 150 : 220, clear);
     if (!ok) return false;
     const w = clear.r - clear.l;
