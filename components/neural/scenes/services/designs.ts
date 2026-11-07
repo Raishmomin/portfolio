@@ -437,10 +437,10 @@ function devops(slug: string, tech: string[], low: boolean): Design {
 
   b.label(/GitHub|GitLab/, CX, CY + 1.12, 0, "t");
   b.label(/^Docker/, buildAt[0], buildAt[1] - 0.32, 0, "b");
-  b.label(/Argo|Flux/, 0.95, 0.5, 0.45, "t");
+  b.label(/Argo|Flux/, 0.45, 0.55, 0.4, "t");
   b.label(/Kubernetes|EKS|Helm/, 2.15, FY - 0.1, 1.15, "b");
-  // Infrastructure as code names the outline at its far (right) top corner, clear of the
-  // delivery arrow's Argo CD label.
+  // Infrastructure as code names the outline at its far (right) top corner; Argo CD sits on
+  // the delivery arrow's crest, well clear of it.
   b.label(/Terraform|OpenTofu/, 3.8, 0.2, -1.3, "t");
   b.label(/^AWS/, 0.5, FY - 0.02, 1.3, "l");
   b.label(/Grafana|Prometheus/, MX, MY + 0.58, -0.4, "t");

@@ -1001,7 +1001,7 @@ html.motion-live .svc-item[data-arch-active] .svc-chip {
    frames itself into [data-svc-room]); the intro then starts right under it instead of
    centring in a full screen. */
 .svc-room {
-  height: min(64vw, 300px);
+  height: min(58vw, 260px);
 }
 @media (max-width: 1023px) {
   .svc-room + [data-section="intro"] > div:last-child {

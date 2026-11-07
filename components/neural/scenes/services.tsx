@@ -21,6 +21,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera, type Matrix4 } from "three";
 import { clearRect, framing, sceneFrames, type Rect } from "../framing";
+import { occluders } from "../occluders";
 import type { SceneProps } from "../types";
 import type { Side } from "./services/designs";
 import { emptyRegistry, ServicesRig, stagger, type ServicesFrame, type ServicesRegistry } from "./services/rig";
@@ -130,10 +131,25 @@ function introRoom(sec: HTMLElement, W: number, H: number, out: Rect): number {
   const note = nr && nr.width > 0 && getComputedStyle(it.note as Element).position === "absolute" ? nr : null;
   const gridR = note ? note.right : br.right - 32;
   out.l = textR + 56;
-  out.r = Math.min(W - 20, gridR + (W - gridR) * 0.45);
+  const margin = W - gridR;
+  out.r = Math.min(W - 24, gridR + Math.max(margin * 0.45, Math.min(margin * 0.8, 120)));
   out.t = Math.max(HEADER_PX + 12, br.top + 12);
   out.b = Math.min(H - 12, note ? note.top - 22 : br.bottom - 16);
   if (out.r - out.l < 300) return NaN;
+  // Block boxes (the headline's full-width column) count as content for the labels: start
+  // clear of them, with room for a label hanging off the machine's left side.
+  occluders.sync();
+  if (occluders.hits(out.l, out.t, out.r, out.b)) {
+    let lo = out.l;
+    let hi = out.r - 300;
+    if (occluders.hits(hi, out.t, out.r, out.b)) return NaN;
+    for (let i = 0; i < 10 && hi - lo > 2; i++) {
+      const m = (lo + hi) / 2;
+      if (occluders.hits(m, out.t, out.r, out.b)) lo = m;
+      else hi = m;
+    }
+    out.l = Math.min(hi + 32, out.r - 300);
+  }
   return note ? (note.left + note.right) / 2 : (out.l + out.r) / 2;
 }
 
@@ -151,8 +167,8 @@ function sitOn(room: Rect, x: number, hw: number, hh: number) {
 }
 
 /**
- * Labels never overlap each other: placed in priority order (title, then the machine's own
- * order), each one that would cover an earlier one moves off by its height on its side (up
+ * Labels never overlap each other: placed in priority order (the machine's own order, then
+ * its title), each one that would cover an earlier one moves off by its height on its side (up
  * for "t", down for "b", either way for "l" / "r"), else hides. A moved label returns home
  * only once home is clear by a margin, so labels do not flicker on a boundary.
  */
@@ -297,7 +313,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     return () => document.removeEventListener("cp:arch", onArch);
   }, [index]);
 
-  // Labels: each machine's technology names and its title (slot 0).
+  // Labels: each machine's technology names, then its title.
   const host = useThree((s) => s.gl.domElement.parentElement);
   const labels = useRef<Labels | null>(null);
   useEffect(() => {
@@ -305,9 +321,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     const layer = new LabelLayer(host);
     const chip = `color-mix(in srgb, ${palette.bg} 80%, transparent)`;
     const slots = rig.designs.map((d, k) => {
-      const title = layer.add(`● ${services[k].title}`, "", "font-mono text-xs uppercase tracking-[0.16em]", { x: -0.5, y: -1 });
-      layer.style(title, { color: palette.fg, textShadow: `0 0 10px ${palette.bg}, 0 0 4px ${palette.bg}` });
-      const list: Slot[] = [{ id: title, x: d.title[0], y: d.title[1], z: d.title[2], side: "t", dy0: 0, align: { x: -0.5, y: -1, dy: 0 }, off: 0, w: 0, h: 0, at: 0.25 }];
+      const list: Slot[] = [];
       for (const l of d.labels) {
         const base = ALIGN[l.side];
         const id = layer.add(l.text, "", "rounded-full border px-2 py-[3px] font-mono text-[10.5px] leading-none tracking-[0.02em]", base);
@@ -315,6 +329,10 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
         // A name appears once its part has landed (the machine assembles left to right).
         list.push({ id, x: l.x, y: l.y, z: l.z, side: l.side, dy0: base.dy ?? 0, align: { ...base }, off: 0, w: 0, h: 0, at: stagger(l.x) + 0.25 });
       }
+      // The title goes last: the names keep their places, the title steps up over them.
+      const title = layer.add(`● ${services[k].title}`, "", "font-mono text-xs uppercase tracking-[0.16em]", { x: -0.5, y: -1 });
+      layer.style(title, { color: palette.fg, textShadow: `0 0 10px ${palette.bg}, 0 0 4px ${palette.bg}` });
+      list.push({ id: title, x: d.title[0], y: d.title[1], z: d.title[2], side: "t", dy0: 0, align: { x: -0.5, y: -1, dy: 0 }, off: 0, w: 0, h: 0, at: 0.25 });
       return list;
     });
     const L: Labels = { layer, slots, sized: false };
@@ -402,10 +420,10 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
           el = slot.current.el = document.querySelector<HTMLElement>(ROOM_SEL);
         }
         const r = phone && el ? el.getBoundingClientRect() : null;
-        if (r && r.height > 0 && r.bottom - Math.max(r.top, 56) >= MIN_H.phone && r.top < H - MIN_H.phone) {
+        if (r && r.height > 0 && r.bottom - Math.max(r.top, 64) >= MIN_H.phone && r.top < H - MIN_H.phone) {
           room1.l = 12;
           room1.r = W - 12;
-          room1.t = Math.max(r.top, 56);
+          room1.t = Math.max(r.top, 64);
           room1.b = Math.min(r.bottom, H - 8);
           c.ok = !!clearRect(room1, MIN_H.phone, clear);
           c.doc = true;
