@@ -64,7 +64,9 @@ export function FaqLayout({ side, head, faqs, name }: { side: "left" | "right"; 
         </div>
       </div>
       <div aria-hidden="true" className={cn("faq-win-col hidden lg:block", side === "right" && "lg:col-start-1 lg:row-start-1")}>
-        <div data-faq-window="" className="faq-win" />
+        <div className="faq-win-track">
+          <div data-faq-window="" className="faq-win" />
+        </div>
       </div>
     </div>
   );

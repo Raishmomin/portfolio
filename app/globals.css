@@ -995,14 +995,18 @@ html.motion-live details.faq[open] .faq-a {
   /* The window: an empty sticky box the scene fits itself into, marked by four corners (as Work's). */
   .faq-win-col {
     position: relative;
-    min-height: 100%;
+  }
+  /* The window rides the whole section, padding included (lg:py-28), never past it. */
+  .faq-win-track {
+    position: absolute;
+    inset: -7rem 0;
   }
   .faq-win {
     --c: hsl(var(--foreground) / 0.2);
     position: sticky;
-    top: 96px;
-    height: min(calc(100svh - 150px), 640px);
-    min-height: 380px;
+    top: 88px;
+    height: min(calc(100svh - 124px), 600px);
+    min-height: 360px;
     background:
       linear-gradient(var(--c), var(--c)) left top / 16px 1px no-repeat,
       linear-gradient(var(--c), var(--c)) left top / 1px 16px no-repeat,
@@ -1019,7 +1023,7 @@ html.motion-live details.faq[open] .faq-a {
     content: "";
     position: absolute;
     top: calc(1rem + 12px);
-    width: calc(4.25rem + 13px);
+    width: calc(3rem + 13px);
     height: 1px;
     opacity: 0;
     pointer-events: none;
