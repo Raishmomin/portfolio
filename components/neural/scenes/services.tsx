@@ -84,6 +84,16 @@ function roomFor(px: Rect, minH: number, out: Rect, side: number, hw: number, hh
   return best > 0 ? out : null;
 }
 
+/**
+ * The room is re-measured at most every ROOM_MS while the page scrolls (ROOM_IDLE_MS
+ * otherwise) or when the frame changes: each measurement reads layout (the occluder rects,
+ * the scroll offset), which would force a style recalc on every frame.
+ */
+const ROOM_MS = 100;
+const ROOM_IDLE_MS = 500;
+type RoomCache = { at: number; ok: boolean; key: number };
+const room0: Rect = { l: 0, t: 0, r: 0, b: 0 };
+
 /** Does this section list service cards (then scroll / the spy pick the service)? */
 const hasCards = new WeakMap<Element, boolean>();
 function listsCards(el: Element) {
@@ -149,6 +159,20 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
   const reg = useRef<ServicesRegistry>(emptyRegistry());
   const f = useRef<ServicesFrame>({ active: 0, weight: 0, pointer: { x: 0, y: 0 }, x: 0, y: 0, scale: 1, turn: 0, room: 0 });
   const seen = useRef({ last: -1e9, room: 0 });
+  const cache = useRef<RoomCache>({ at: -1e9, ok: false, key: NaN });
+  // Scrolls mark the room stale (a passive flag: no layout read here).
+  const scrolledAt = useRef(-1e9);
+  useEffect(() => {
+    const on = () => {
+      scrolledAt.current = performance.now();
+    };
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", on);
+      window.removeEventListener("resize", on);
+    };
+  }, []);
   const pt = useMemo(() => [0, 0], []);
 
   useFrame((state, dt) => {
@@ -188,7 +212,16 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     const mid = (sf.rect.l + sf.rect.r) / 2;
     const d = rig.designs[rig.current >= 0 ? rig.current : idx];
     const side = phone ? 0 : mid < 0.45 ? -1 : mid > 0.55 ? 1 : 0;
-    const room = sec ? roomFor(px, phone ? MIN_H.phone : MIN_H.desk, clear, side, d.hw, d.hh) : null;
+    const c = cache.current;
+    const now = performance.now();
+    const key = px.l + px.t * 7 + px.r * 13 + px.b * 17 + W * 19 + H * 23 + (sec ? 1 : 0) + rig.current * 29;
+    if (key !== c.key || now - c.at > (now - scrolledAt.current < 200 ? ROOM_MS : ROOM_IDLE_MS)) {
+      c.key = key;
+      c.at = now;
+      c.ok = !!sec && !!roomFor(px, phone ? MIN_H.phone : MIN_H.desk, clear, side, d.hw, d.hh);
+      if (c.ok) Object.assign(room0, clear);
+    }
+    const room = c.ok ? room0 : null;
     if (room) {
       camera.updateMatrixWorld();
       const cw = room.r - room.l;
