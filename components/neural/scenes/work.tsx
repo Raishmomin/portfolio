@@ -8,13 +8,13 @@
 // Which project: the DOM's architecture spy ([data-arch], components/motion/arch.ts)
 // reports the card at the reading line or under the pointer, and a hovered chip's
 // technology (its node lights up). The scene sits in the section's [data-arch-window]
-// (an empty sticky box in the layout) when there is one, else in the composition's free
-// rect. Names are aria-hidden screen-space labels in the shared layer (they duplicate the
+// (an empty sticky box in the layout) when there is one, else in its own free rect
+// (framing.sceneFrames.work). Names are aria-hidden screen-space labels in the shared layer (they duplicate the
 // DOM cards and follow its rules: active scene only, never over content, clamped).
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera } from "three";
-import { fitFree } from "../framing";
+import { fitFree, sceneFrames } from "../framing";
 import type { SceneProps } from "../types";
 import { STACK, TIER_INDEX } from "./work/layout";
 import { ArchRig, emptyRegistry, type ArchRegistry } from "./work/rig";
@@ -25,11 +25,14 @@ const LEFT: Align = { x: -1, y: -0.5, dx: -11 };
 const RIGHT: Align = { x: 0, y: -0.5, dx: 11 };
 /** Largest scale (world units per layout unit) in a free rect; a window may go a bit bigger. */
 const CAP = 1.2;
+/** Smallest frame (px) worth fitting the system into; below it the blended framing is used. */
+const MIN_RECT = 160;
 
 const short = (title: string) => title.split(/\s+[–—-]\s+|\s*\(/)[0].trim();
 
 type Spy = { el: Element; slug: string | null; tech: string | null };
-type Win = { el: HTMLElement | null; l: number; t: number; w: number; h: number; ok: boolean };
+/** The section's scene window (px, canvas space): shown at all, and the share of it in view. */
+type Win = { el: HTMLElement | null; l: number; t: number; w: number; h: number; ok: boolean; vis: number };
 
 const v0 = new Vector3();
 const v1 = new Vector3();
@@ -79,9 +82,9 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
   }, []);
 
   // The scene window: measured on scroll/resize (one rect read per scroll frame), relative
-  // to the canvas. Hidden (phones) or off screen → the free rect instead.
+  // to the canvas. Hidden (phones) → the scene's free rect instead.
   const gl = useThree((s) => s.gl);
-  const win = useRef<Win>({ el: null, l: 0, t: 0, w: 0, h: 0, ok: false });
+  const win = useRef<Win>({ el: null, l: 0, t: 0, w: 0, h: 0, ok: false, vis: 0 });
   useEffect(() => {
     let raf = 0;
     const read = () => {
@@ -99,7 +102,9 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
       w.w = r.width;
       w.h = r.height;
       const vh = c.height || window.innerHeight;
-      w.ok = r.width > 160 && r.height > 160 && r.bottom > vh * 0.25 && r.top < vh * 0.75;
+      // A shown window always frames the scene (it rides in with the layout from below).
+      w.ok = r.width > MIN_RECT && r.height > MIN_RECT;
+      w.vis = w.ok ? Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0)) / r.height : 0;
     };
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(read);
@@ -171,18 +176,31 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
     if (idx !== undefined) o.active = idx;
     o.tech = report?.tech ?? null;
 
-    // Where: the window, else the free rect (whose centre is the origin).
+    // Where: the section's window; else the scene's own (unblended) free rect from the
+    // director (the left half on /projects, the opening on phones); else the blended
+    // framing, whose centre is the origin.
     const L = rig.L;
     const w = win.current;
-    if (w.ok) {
+    const sf = sceneFrames.work;
+    let rl = w.l;
+    let rt = w.t;
+    let rw = w.w;
+    let rh = w.h;
+    if (!w.ok && sf.el) {
+      rl = sf.rect.l * size.width;
+      rt = sf.rect.t * size.height;
+      rw = (sf.rect.r - sf.rect.l) * size.width;
+      rh = (sf.rect.b - sf.rect.t) * size.height;
+    }
+    if (w.ok || (sf.el && rw >= MIN_RECT && rh >= MIN_RECT)) {
       camera.updateMatrixWorld();
-      toWorld(camera, w.l + w.w / 2, w.t + w.h / 2, size.width, size.height, pt);
+      toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
       o.x = pt[0];
       o.y = pt[1];
-      toWorld(camera, w.l, w.t, size.width, size.height, pt);
+      toWorld(camera, rl, rt, size.width, size.height, pt);
       const halfW = Math.abs(o.x - pt[0]);
       const halfH = Math.abs(pt[1] - o.y);
-      o.scale = Math.min(CAP * 1.15, (halfW * 0.9) / L.hw, (halfH * 0.9) / L.hh);
+      o.scale = Math.min(w.ok ? CAP * 1.15 : CAP, (halfW * 0.9) / L.hw, (halfH * 0.9) / L.hh);
     } else {
       o.x = 0;
       o.y = 0;
@@ -195,7 +213,10 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
 
     if (!ids || !r.tilt) return;
     const { layer } = ids;
-    if (!layer.begin(weight)) return;
+    // Labels wait until most of the window is on screen (an off-screen node's label would
+    // otherwise be clamped to the viewport edge).
+    const shown = w.ok ? Math.min(1, Math.max(0, (w.vis - 0.55) / 0.25)) : 1;
+    if (!layer.begin(weight * (shown > 0 ? 1 : 0))) return;
     // After a relayout: label sides and the "+N" counts.
     const Lr = rig.L;
     if (ids.version !== rig.version) {
@@ -220,25 +241,25 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
     for (let i = 0; i < rig.v; i++) {
       const a = rig.alpha[i];
       if (a < 0.05 || !Lr.on[i]) layer.hide(ids.tech[i]);
-      else layer.place(ids.tech[i], P[i * 3], P[i * 3 + 1], P[i * 3 + 2], M, camera, W, H, (a - 0.05) / 0.95);
+      else layer.place(ids.tech[i], P[i * 3], P[i * 3 + 1], P[i * 3 + 2], M, camera, W, H, ((a - 0.05) / 0.95) * shown);
     }
     for (let k = 0; k < STACK.length; k++) {
       const p = rig.plat[k];
       if (p.a < 0.05) layer.hide(ids.tier[k]);
-      else layer.place(ids.tier[k], -p.w / 2 + 0.1, p.y, p.d / 2, M, camera, W, H, p.a);
+      else layer.place(ids.tier[k], -p.w / 2 + 0.1, p.y, p.d / 2, M, camera, W, H, p.a * shown);
     }
     const inf = rig.infra;
     if (inf.a < 0.05) layer.hide(ids.tier[3]);
-    else layer.place(ids.tier[3], inf.min[0] + 0.05, inf.min[1], inf.max[2], M, camera, W, H, inf.a);
+    else layer.place(ids.tier[3], inf.min[0] + 0.05, inf.min[1], inf.max[2], M, camera, W, H, inf.a * shown);
     if (rig.ai.a < 0.05) layer.hide(ids.tier[4]);
-    else layer.place(ids.tier[4], rig.ai.x - 0.2, rig.ai.y + 0.62, 0, M, camera, W, H, rig.ai.a);
+    else layer.place(ids.tier[4], rig.ai.x - 0.2, rig.ai.y + 0.62, 0, M, camera, W, H, rig.ai.a * shown);
     if (titleO.current.length !== work.length) titleO.current = new Float32Array(work.length);
     const tO = titleO.current;
     const k = Math.min(1, dt * 7);
     for (let j = 0; j < work.length; j++) {
       tO[j] += ((j === o.active ? 1 : 0) - tO[j]) * k;
       if (tO[j] < 0.02) layer.hide(ids.title[j]);
-      else layer.place(ids.title[j], rig.title[0], rig.title[1], rig.title[2], M, camera, W, H, tO[j]);
+      else layer.place(ids.title[j], rig.title[0], rig.title[1], rig.title[2], M, camera, W, H, tO[j] * shown);
     }
   });
 
