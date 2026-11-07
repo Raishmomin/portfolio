@@ -53,7 +53,8 @@ export function ContactSection() {
             <div data-card-part="" className="border-b border-border py-4">
               <dt className={LABEL}>Availability</dt>
               <dd className="mt-2 flex items-start gap-2.5 text-[15px] leading-6 text-foreground">
-                <span aria-hidden="true" className="status-dot mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-ok" />
+                {/* Static: the globe's green beacon pulses for it. */}
+                <span aria-hidden="true" className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-ok" />
                 Open to {PROFILE.availability}
               </dd>
             </div>

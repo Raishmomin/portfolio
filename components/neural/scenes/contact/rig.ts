@@ -20,7 +20,6 @@ import {
   DynamicDrawUsage,
   Group,
   LineSegments,
-  Matrix4,
   Mesh,
   NearestFilter,
   Quaternion,
@@ -37,8 +36,9 @@ import {
 import { clearRect, framing, sceneFrames, type Rect } from "../../framing";
 import type { NeuralData, ScenePalette } from "../../types";
 import { Sprites, clamp01, isLightBg, paletteColor, setGlowBlending, smooth01 } from "../stack/gl";
-import type { LabelLayer } from "../stack/labels";
+import { occluders } from "../../occluders";
 import { CITY_GEO, clockAt, geoDir, subsolar, zoneName } from "./geo";
+import { GlobeLabels } from "./labels";
 import { LAND_H, LAND_W, decodeLand } from "./land";
 import { ATMO_FRAG, ATMO_VERT, GLOBE_FRAG, GLOBE_VERT, LINES_FRAG, LINES_VERT, ROUTE_FRAG, ROUTE_VERT } from "./shaders";
 
@@ -84,12 +84,10 @@ const v2 = new Vector3();
 const v3 = new Vector3();
 const ray = new Vector3();
 const q0 = new Quaternion();
-const ID = new Matrix4();
 const pxRect: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const clear: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const sun = { lat: 0, lon: 0 };
-const ALIGN_R = { x: 0, y: -0.5, dx: 16 };
-const ALIGN_L = { x: -1, y: -0.5, dx: -16 };
+const EDGE = 12; // px kept free at the viewport edges for labels
 
 const damp = (a: number, b: number, lambda: number, dt: number) => a + (b - a) * (1 - Math.exp(-lambda * dt));
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -195,7 +193,6 @@ export class ContactRig {
   private colSend = new Color();
   private colDust = new Color();
   private light = false;
-  private palette: ScenePalette | null = null;
 
   // layout (px, eased) and world placement
   private cx = 0;
@@ -233,13 +230,12 @@ export class ContactRig {
   private clockText = "";
   private focusK = -1;
 
-  // labels
-  private labels: LabelLayer | null = null;
-  private lCity = -1;
-  private lDone = -1;
-  private lSat = -1;
+  // labels (in the canvas): 0 = city + clock, 1 = "Delivered", 2.. = channels
+  private readonly tags: GlobeLabels;
   private readonly satSide = new Int8Array(MAX_SATS);
-  private readonly satLit = new Int8Array(MAX_SATS);
+  private colFg = new Color();
+  private colMuted = new Color();
+  private readonly colTag = new Color();
 
   constructor(data: NeuralData, quality: "high" | "low") {
     const hi = quality === "high";
@@ -448,13 +444,16 @@ export class ContactRig {
       }
     }
 
+    this.tags = new GlobeLabels([this.city, "Delivered", ...this.channels]);
+    this.satSide.fill(1);
+    occluders.retain(); // the visibility guard (framing.clearRect) reads the occluder registry
+
     this.globe.add(this.atmo, this.earth, this.lines);
-    this.root.add(this.globe, this.routes, this.sprites.mesh);
+    this.root.add(this.globe, this.routes, this.sprites.mesh, this.tags.mesh);
     this.root.visible = false;
   }
 
   setPalette(p: ScenePalette) {
-    this.palette = p;
     const light = isLightBg(p.bg);
     this.light = light;
     const u = this.earthMat.uniforms;
@@ -502,35 +501,9 @@ export class ContactRig {
     this.colDust = light ? paletteColor(p.muted, p.bg, 0.2) : paletteColor(p.ai, p.fg, 0.3);
     this.sprites.material.uniforms.uLight.value = light ? 1 : 0;
     setGlowBlending(this.sprites.material, light);
-    this.satLit.fill(-1);
-    this.styleLabels();
-  }
-
-  attachLabels(layer: LabelLayer | null) {
-    this.labels = layer;
-    if (!layer) return;
-    const mono = "letter-spacing:0.08em;text-transform:uppercase;";
-    this.lCity = layer.add(this.city, `font-size:11px;line-height:14px;${mono}`, "font-mono", { x: -1, y: -1, dx: -12, dy: -10 });
-    this.lDone = layer.add("Delivered", `font-size:10px;line-height:13px;${mono}`, "font-mono", { x: -1, y: 0, dx: -12, dy: -6 });
-    this.lSat = -1;
-    this.channels.forEach((c, k) => {
-      const i = layer.add(c, `font-size:10px;line-height:13px;${mono}`, "font-mono", ALIGN_R);
-      if (k === 0) this.lSat = i;
-    });
-    this.satSide.fill(1);
-    this.satLit.fill(-1);
-    this.clockText = "";
-    this.styleLabels();
-  }
-
-  private styleLabels() {
-    const layer = this.labels;
-    const p = this.palette;
-    if (!layer || !p || this.lCity < 0) return;
-    const shadow = `0 0 3px ${p.bg}, 0 0 8px ${p.bg}, 0 0 14px ${p.bg}`;
-    layer.style(this.lCity, { color: p.fg, textShadow: shadow, fontWeight: "500" });
-    layer.style(this.lDone, { color: p.ok, textShadow: shadow, fontWeight: "600" });
-    for (let k = 0; k < this.nSat; k++) layer.style(this.lSat + k, { color: p.muted, textShadow: shadow });
+    this.colFg = paletteColor(p.fg);
+    this.colMuted = paletteColor(p.muted, p.fg, light ? 0.1 : 0.15);
+    (this.tags.material.uniforms.uHalo.value as Color).copy(paletteColor(p.bg));
   }
 
   /** Queue a DOM signal; handled on the next frame. */
@@ -687,7 +660,6 @@ export class ContactRig {
     pointer: { x: number; y: number },
   ): boolean {
     if (weight <= 0.001) {
-      if (this.root.visible) this.labels?.hideAll();
       this.root.visible = false;
       this.queue.length = 0;
       return false;
@@ -702,7 +674,6 @@ export class ContactRig {
     const ok = this.layout(this.W, this.H);
     this.room = damp(this.room, ok ? 1 : 0, 6, d);
     if (!this.placed || (!ok && this.room < 0.01)) {
-      this.labels?.hideAll();
       this.root.visible = false;
       this.queue.length = 0;
       return true;
@@ -990,41 +961,40 @@ export class ContactRig {
     sp.material.uniforms.uOpacity.value = e;
     sp.flush();
 
-    // Labels: the city and its local time, "Delivered" after a sent message lands, and
-    // each channel beside its satellite (all aria-hidden duplicates of the DOM).
-    const layer = this.labels;
-    if (layer?.begin(weight)) {
-      const clock = `${this.city} · ${clockAt(now, this.offsetMin)} ${zoneName(this.offsetMin)}`;
-      if (clock !== this.clockText) {
-        this.clockText = clock;
-        const el = layer.el.children[this.lCity] as HTMLElement | undefined;
-        if (el) el.textContent = clock;
-        layer.style(this.lCity, {});
+    // Labels (in the canvas, behind the content): the city and its local time, "Delivered"
+    // after a sent message lands, each channel beside its satellite. Active scene only
+    // (weight 0.6 → 0.78), never on phones, never past the viewport edges.
+    const tags = this.tags;
+    const g = framing.phone ? 0 : smooth01((weight - 0.6) / 0.18);
+    const lo = g * e * show;
+    tags.setText(0, `${this.city} · ${clockAt(now, this.offsetMin)} ${zoneName(this.offsetMin)}`);
+    if (this.hasPin && lo > 0) tags.set(0, pinW.x, pinW.y, pinW.z, -12 - tags.w[0], 8, this.colFg, lo * pinVis);
+    else tags.hide(0);
+    const sinceDone = time - this.deliveredAt;
+    const done = sinceDone >= 0 && sinceDone < 3.2 ? smooth01(sinceDone / 0.3) * (1 - smooth01((sinceDone - 2.6) / 0.6)) : 0;
+    if (done > 0 && lo > 0) tags.set(1, pinW.x, pinW.y, pinW.z, -12 - tags.w[1], -4 - tags.h[1], this.colOk, lo * done * pinVis);
+    else tags.hide(1);
+    for (let k = 0; k < this.nSat; k++) {
+      const i = 2 + k;
+      if (lo <= 0) {
+        tags.hide(i);
+        continue;
       }
-      const lo = e * show;
-      if (this.hasPin) layer.place(this.lCity, pinW.x, pinW.y, pinW.z, ID, camera, this.W, this.H, lo * pinVis);
-      else layer.hide(this.lCity);
-      const sinceDone = time - this.deliveredAt;
-      const done = sinceDone >= 0 && sinceDone < 3.2 ? smooth01(sinceDone / 0.3) * (1 - smooth01((sinceDone - 2.6) / 0.6)) : 0;
-      if (done > 0) layer.place(this.lDone, pinW.x, pinW.y, pinW.z, ID, camera, this.W, this.H, lo * done * pinVis);
-      else layer.hide(this.lDone);
-      for (let k = 0; k < this.nSat; k++) {
-        const x = this.satX[k];
-        const side = x > this.cx + this.r * 0.15 ? 1 : x < this.cx - this.r * 0.15 ? -1 : this.satSide[k];
-        if (side !== this.satSide[k]) {
-          this.satSide[k] = side;
-          layer.setAlign(this.lSat + k, side > 0 ? ALIGN_R : ALIGN_L);
-        }
-        const lit = this.hot[k] > 0.5 ? 1 : 0;
-        if (lit !== this.satLit[k] && this.palette) {
-          this.satLit[k] = lit;
-          layer.style(this.lSat + k, { color: lit ? this.palette.accent : this.palette.muted });
-        }
-        orbitPoint(k, this.phase[k], v0);
-        this.globe.localToWorld(v0);
-        layer.place(this.lSat + k, v0.x, v0.y, v0.z, ID, camera, this.W, this.H, lo * this.satVis[k] * (0.7 + 0.3 * this.hot[k]));
-      }
+      const x = this.satX[k];
+      const w = tags.w[i];
+      // Beside the satellite, on the side away from the planet, flipped where the edge is near.
+      let side = x > this.cx + this.r * 0.15 ? 1 : x < this.cx - this.r * 0.15 ? -1 : this.satSide[k];
+      if (side < 0 && x - 16 - w < EDGE) side = 1;
+      else if (side > 0 && x + 16 + w > this.W - EDGE) side = -1;
+      this.satSide[k] = side;
+      this.colTag.copy(this.colMuted).lerp(this.colHot, this.hot[k]);
+      orbitPoint(k, this.phase[k], v0);
+      this.globe.localToWorld(v0);
+      tags.set(i, v0.x, v0.y, v0.z, side > 0 ? 16 : -16 - w, -tags.h[i] / 2, this.colTag, lo * this.satVis[k] * (0.75 + 0.25 * this.hot[k]));
     }
+    tags.material.uniforms.uOpacity.value = 1;
+    const cam = camera as PerspectiveCamera;
+    tags.flush((2 * Math.tan(((cam.fov ?? 40) * Math.PI) / 360)) / Math.max(1, this.H));
     this.expose(rPx);
     return true;
   }
@@ -1039,9 +1009,12 @@ export class ContactRig {
     if (!stage) return;
     let live = 0;
     for (let p = 1; p < ROUTES; p++) if (this.packets[p].live) live++;
-    stage.dataset.contactGlobe = this.room > 0.5 ? `${this.cx.toFixed(0)},${this.cy.toFixed(0)},${rPx.toFixed(0)}` : "";
-    stage.dataset.contactRoutes = String(live);
-    stage.dataset.contactHot = this.focusK >= 0 ? this.channels[this.focusK] : "";
+    const set = (k: "contactGlobe" | "contactRoutes" | "contactHot", v: string) => {
+      if (stage.dataset[k] !== v) stage.dataset[k] = v;
+    };
+    set("contactGlobe", this.room > 0.5 ? `${this.cx.toFixed(0)},${this.cy.toFixed(0)},${rPx.toFixed(0)}` : "");
+    set("contactRoutes", String(live));
+    set("contactHot", this.focusK >= 0 ? this.channels[this.focusK] : "");
   }
 
   dispose() {
@@ -1055,5 +1028,7 @@ export class ContactRig {
     this.routes.geometry.dispose();
     this.routeMat.dispose();
     this.sprites.dispose();
+    this.tags.dispose();
+    occluders.release();
   }
 }

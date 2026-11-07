@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Accent, StatusDot } from "../../ui/primitives";
+import { Accent } from "../../ui/primitives";
 import { TEXT_LINK } from "../about/subpage";
 import { CopyEmail } from "../../copy-email";
 import { LocalTime } from "./local-time";
@@ -30,7 +30,8 @@ export function ContactChannels({ personal }: { personal: Personal }) {
       label: "Availability",
       value: (
         <span className="flex items-start gap-2.5">
-          <StatusDot className="mt-[0.7em] shrink-0" />
+          {/* Static: the globe's green beacon pulses for it. */}
+          <span aria-hidden="true" className="mt-[0.7em] inline-block h-2 w-2 shrink-0 rounded-full bg-ok" />
           Open to {PROFILE.availability}
         </span>
       ),

@@ -71,7 +71,7 @@ export default async function ContactPage() {
           lead="Have a project in mind, a role to fill, or just want to say hi? Drop me a note."
         >
           <p className="mt-8 flex items-start gap-2.5 text-[15px] leading-6 text-foreground" {...reveal(240)}>
-            <span aria-hidden="true" className="status-dot mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-ok" />
+            <span aria-hidden="true" className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-ok" />
             Open to {PROFILE.availability}
           </p>
         </PageIntro>

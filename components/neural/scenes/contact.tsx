@@ -5,27 +5,17 @@
 // LinkedIn, X) on its own orbit. The page drives it: pointing at or focusing a channel
 // link brings its satellite round and links it to the city; focusing the form draws the
 // route a message takes; every keystroke, a copied email and a sent message fly a
-// glowing packet from the page to the city, which lands with a shockwave. Labels are
-// aria-hidden duplicates of the section's server-rendered text (contact/rig.ts).
-import { useFrame, useThree } from "@react-three/fiber";
+// glowing packet from the page to the city, which lands with a shockwave. Its labels are
+// drawn in the canvas, behind the content, and duplicate the section's server-rendered
+// text (contact/labels.ts).
+import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import type { SceneProps } from "../types";
 import { ContactRig, type ContactSignal } from "./contact/rig";
-import { LabelLayer } from "./stack/labels";
 
 export default function ContactScene({ data, weight, pointer, focus, palette, quality }: SceneProps) {
-  const host = useThree((s) => s.gl.domElement.parentElement);
   const rig = useMemo(() => new ContactRig(data, quality), [data, quality]);
   useEffect(() => () => rig.dispose(), [rig]);
-  useEffect(() => {
-    if (!host) return;
-    const layer = new LabelLayer(host);
-    rig.attachLabels(layer);
-    return () => {
-      rig.attachLabels(null);
-      layer.dispose();
-    };
-  }, [rig, host]);
   useEffect(() => rig.setPalette(palette), [rig, palette]);
   useEffect(() => rig.setFocus(focus), [rig, focus]);
   useEffect(() => {
