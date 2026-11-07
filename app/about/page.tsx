@@ -86,7 +86,7 @@ export default async function AboutPage() {
           crumbs={[{ name: "Home", href: "/" }, { name: "About" }]}
           kicker="~/about · full stack · devops · ai"
           scene="hero"
-          note="Behind this page is a neural network: signals travel layer by layer from input to output, and it leans toward your cursor."
+          note="The 3D brain is a neural network of thousands of glowing neurons: signals fire along its connections, and it turns toward your cursor."
           title={
             <>
               About {personal.name} — <Accent>obsessed with detail.</Accent>

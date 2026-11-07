@@ -107,12 +107,12 @@ export default async function ServicesIndex() {
                   Interactive and <Accent>3D web experiences.</Accent>
                 </>
               }
-              scene="The network on the left is drawn live in your browser with WebGL; every word on this page stays server-rendered HTML."
+              scene="The 3D brain beside this text is drawn live in your browser with WebGL; every word on this page stays server-rendered HTML."
             />
             <p {...part} className="mt-5 text-[17px] leading-7 text-muted-foreground">
               I also build animated, interactive sites: 3D scenes with React Three Fiber and WebGL, scroll-driven
-              animation, and visuals that stay fast and readable. This site is one of them. Its home page is a 3D
-              neural network that changes with each section.
+              animation, and visuals that stay fast and readable. This site is one of them: a 3D brain of glowing
+              neurons opens the home page, and every section has its own live scene.
             </p>
             <div {...part} className="mt-8 flex flex-wrap gap-3">
               <ButtonLink href="/contact" data-magnetic="">
