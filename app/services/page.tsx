@@ -7,7 +7,7 @@ import { SERVICES } from "@/lib/services";
 import { SITE_URL } from "@/lib/config";
 import { Accent, ButtonLink } from "../../components/ui/primitives";
 import { NeuralStage } from "../../components/neural";
-import { ServiceIndex } from "../../components/pages/services/service-index";
+import { SERVICES_SCENE, ServiceIndex } from "../../components/pages/services/service-index";
 import { CtaSection } from "../../components/pages/cta";
 import { PageIntro, PageSection, SectionHead, card, part } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
@@ -74,8 +74,8 @@ export default async function ServicesIndex() {
         <PageIntro
           crumbs={[{ name: "Home", href: "/" }, { name: "Services" }]}
           kicker={`~/services · ${services.length} engagements`}
-          scene="stack"
-          note="The network on the right is the stack behind these services: one node per skill, one ring per layer, linked wherever two tools shipped together."
+          scene={SERVICES_SCENE}
+          note="On the right, the four engagements take turns in 3D, each built as the system it delivers."
           title={
             <>
               How I help <Accent>teams ship.</Accent>
@@ -96,8 +96,8 @@ export default async function ServicesIndex() {
         <ServiceIndex services={services} />
 
         {/* Not a fifth engagement: no price and no Service node, so the ItemList above stays the four. */}
-        <PageSection id="interactive" section="interactive" scene="hero" stage="right" labelledBy="interactive-heading">
-          <div {...card()} className="panel p-6 md:p-10 lg:ml-auto lg:max-w-[40rem]">
+        <PageSection id="interactive" section="interactive" scene="hero" stage="left" labelledBy="interactive-heading">
+          <div {...card()} className="panel p-6 md:p-10 lg:max-w-[38rem]">
             <SectionHead
               id="interactive-heading"
               index="02"
