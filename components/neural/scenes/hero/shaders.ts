@@ -32,6 +32,7 @@ const NEURON_VERT = /* glsl */ `
 ${COMMON}
 uniform float uPx;      // drawing-buffer px per world unit at distance 1
 uniform vec3 uStream;   // where the dispersal flows (local space)
+uniform vec3 uCtrl;     // the current's bend (local space)
 uniform float uSpread;
 attribute float aSeed;
 attribute float aKind;
@@ -52,26 +53,27 @@ void main() {
   vec3 target = living(position);
 
   // Intro: from a scattered cloud, swirling in (expo-out, staggered, ~1.6 s in total).
-  float ti = clamp((uIntro - hash(s * 3.17) * 0.45) / 1.15, 0.0, 1.0);
-  float e = ti >= 1.0 ? 1.0 : 1.0 - pow(2.0, -10.0 * ti);
-  vec3 scatter = normalize(hash3(s * 13.7) * 2.0 - 1.0) * (1.6 + 1.9 * hash(s * 5.9));
+  float ti = clamp((uIntro - hash(s * 3.17) * 0.35) / 1.25, 0.0, 1.0);
+  float e = ti >= 1.0 ? 1.0 : (1.0 - pow(2.0, -7.0 * ti)) / (1.0 - pow(2.0, -7.0));
+  vec3 scatter = normalize(hash3(s * 13.7) * 2.0 - 1.0) * (1.4 + 2.2 * hash(s * 5.9));
   vec3 p = mix(scatter, target, e);
-  float ang = (1.0 - e) * (2.0 + 1.4 * hash(s * 2.3));
+  float ang = (1.0 - e) * (2.4 + 1.4 * hash(s * 2.3));
   p.xz = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * p.xz;
 
-  // Scroll hand-off: neurons peel off (the side facing the next scene first) and stream there.
+  // Scroll hand-off: the side facing the next scene peels off first; the neurons pour down
+  // in one curved current (through uCtrl) and fan out where that scene comes in.
   vec3 toStream = normalize(uStream + 1e-4);
-  float stagger = 0.5 * hash(s * 8.1) + 0.3 * (0.5 - 0.5 * dot(normalize(target), toStream));
-  float dd = clamp(uDisperse * 1.8 - stagger, 0.0, 1.0);
+  float facing = 0.5 - 0.5 * dot(normalize(target + 1e-4), toStream);
+  float dd = clamp(uDisperse * 1.7 - (0.75 * facing + 0.2 * hash(s * 8.1)), 0.0, 1.0);
   float de = dd * dd * (3.0 - 2.0 * dd);
-  vec3 end = uStream + (hash3(s * 4.4) * 2.0 - 1.0) * uSpread * vec3(1.0, 0.6, 1.0);
-  vec3 ctrl = mix(p, end, 0.45) + normalize(p + 1e-4) * 0.7;
+  vec3 end = uStream + (hash3(s * 4.4) * 2.0 - 1.0) * uSpread;
+  vec3 ctrl = uCtrl + p * 0.3 + (hash3(s * 9.2) - 0.5) * uSpread * 0.6;
   p = mix(mix(p, ctrl, de), mix(ctrl, end, de), de);
 
   // Activity: random spikes, cortical cascades, the cursor's glow and its firing ripple.
   float slot = uTime * 0.55 + s * 17.0;
-  float spike = step(0.93, hash(floor(slot) + s * 91.7)) * exp(-fract(slot) * 6.0);
-  float wave = cascade(target, 0.0) + cascade(target, 0.5);
+  float spike = step(0.975, hash(floor(slot) + s * 91.7)) * exp(-fract(slot) * 6.0);
+  float wave = 0.65 * (cascade(target, 0.0) + cascade(target, 0.5));
   vec3 dp = target - uPointer;
   float near = exp(-dot(dp, dp) * 10.0) * uPointerOn;
   float dl = length(dp);
@@ -85,12 +87,12 @@ void main() {
   float inten = 0.45;
   vec3 base = uDeep;
   vHalo = 0.3;
-  if (aKind > 2.5) { size = 0.046; inten = 1.0; base = uCore; vHalo = 0.8; }
+  if (aKind > 2.5) { size = 0.034; inten = 0.75; base = uCore; vHalo = 0.55; }
   else if (aKind > 1.5) { size = 0.013; inten = 0.3; }
-  else if (aKind > 0.5) { size = 0.019; inten = 0.95; base = uAi; }
-  vColor = mix(mix(base, uHot, clamp(act * 0.9, 0.0, 1.0)), uCore, near * 0.55);
-  float visible = smoothstep(0.0, 0.35, e) * (1.0 - smoothstep(0.6, 1.0, dd)) * uWeight;
-  vA = inten * mix(0.3, 1.0, front) * (1.0 + act * 1.7 + near * 1.3) * visible;
+  else if (aKind > 0.5) { size = 0.019; inten = 0.85; base = uAi; }
+  vColor = mix(mix(base, uHot, smoothstep(0.2, 0.75, act)), uCore, near * 0.5);
+  float visible = smoothstep(0.0, 0.35, e) * (1.0 - smoothstep(0.55, 1.0, dd)) * (1.0 + 0.8 * sin(3.14159 * de)) * uWeight;
+  vA = inten * mix(0.3, 1.0, front) * (1.0 + act * 1.4 + near * 1.1) * visible;
   float px = size * (1.0 + act * 0.8 + near * 0.7) * mix(0.75, 1.1, front) * mix(0.6, 1.0, e) * (1.0 - 0.45 * de) * uRadius * uPx / -mv.z;
   // Below 1.6 px a sprite shimmers: keep it 1.6 px and fade it by the area it lost.
   vA *= min(1.0, (px * px) / 2.56);
@@ -110,7 +112,7 @@ void main() {
   float core = exp(-r2 * 10.0);
   float halo = exp(-r2 * 3.0) * (1.0 - r2) * vHalo;
   if (uLight < 0.5) gl_FragColor = vec4(vColor * (core + halo) * vA, 0.0);
-  else gl_FragColor = vec4(vColor, clamp((core + halo * 0.25) * vA, 0.0, 1.0));
+  else gl_FragColor = vec4(vColor, clamp((core * 1.5 + halo * 0.2) * vA, 0.0, 1.0));
 }`;
 
 const SYNAPSE_VERT = /* glsl */ `
@@ -175,9 +177,8 @@ void main() {
   vKind = aPh.z;
   if (aPh.z < 0.5) {
     // The core's aura: a soft light behind the brain that breathes with it.
-    vec4 mv = modelViewMatrix * vec4(0.0, -0.02, -0.05, 1.0);
-    mv.z -= uRadius * 0.8;
-    mv.xy += position.xy * uRadius * 3.4;
+    vec4 mv = modelViewMatrix * vec4(0.0, 0.05, -0.05, 1.0);
+    mv.xy += position.xy * uRadius * 3.2;
     vA = uWeight * smoothstep(0.1, 1.4, uIntro) * (1.0 - 0.8 * uDisperse) * (0.88 + 0.12 * sin(uTime * 0.8));
     gl_Position = projectionMatrix * mv;
     return;
@@ -213,7 +214,7 @@ void main() {
     if (r2 > 1.0) discard;
     float a = exp(-r2 * 4.5) * (1.0 - r2) * vA;
     if (uLight < 0.5) gl_FragColor = vec4(mix(uAi, uHot, 0.12) * a * 0.2, 0.0);
-    else gl_FragColor = vec4(uAi, a * 0.07);
+    else gl_FragColor = vec4(uAi, a * 0.035);
     return;
   }
   float across = 1.0 - abs(vUv.y * 2.0 - 1.0);

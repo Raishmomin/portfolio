@@ -20,6 +20,7 @@ export default function Hero(props: SceneProps) {
   const gl = useThree((s) => s.gl);
   const core = useMemo(() => new HeroCore(quality), [quality]);
   useEffect(() => () => core.dispose(), [core]);
+  useEffect(() => core.attach(), [core]);
   useEffect(() => core.setPalette(palette), [core, palette]);
 
   useFrame((s, delta) => {

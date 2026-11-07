@@ -36,15 +36,15 @@ export function Hero({
       {/* Scrim: solid behind the text column, clear over the neural core. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 top-[34svh] bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.8)_3rem)] lg:top-0 lg:bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/0.88)_36%,transparent_56%)]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 top-[36svh] bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.8)_3rem)] lg:top-0 lg:bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/0.88)_36%,transparent_56%)]"
       />
       {/* The neural core's box (empty): the 3D brain and its poster fill it. A band on phones. */}
       <div
         aria-hidden="true"
         data-hero-core=""
-        className={`pointer-events-none absolute inset-x-4 top-4 h-[calc(34svh-1.5rem)] lg:inset-x-auto lg:right-4 lg:top-6 lg:h-[calc(100svh-4rem-1px-9.5rem)] ${CORE_LEFT}`}
+        className={`pointer-events-none absolute inset-x-4 top-4 h-[calc(36svh-1.5rem)] lg:inset-x-auto lg:right-4 lg:top-6 lg:h-[calc(100svh-4rem-1px-9.5rem)] ${CORE_LEFT}`}
       />
-      <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center pb-6 pt-[34svh] lg:py-16">
+      <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center pb-6 pt-[36svh] lg:py-16">
         <div data-stage-content="" className="max-w-[44rem]">
           <Kicker>Full Stack Developer · DevOps Engineer · AI products</Kicker>
 

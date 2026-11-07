@@ -26,7 +26,7 @@ const CSS = [
   "[data-neural-poster]>svg{position:absolute;inset:0;width:100%;height:100%}",
   // The hero brain fills the same box as the canvas's core ([data-hero-core] in the home
   // hero): the free right side on desktop, a band above the text on phones.
-  "[data-neural-poster=hero]>svg{inset:auto;left:1rem;right:1rem;top:calc(4rem + 1px + 1rem);width:auto;height:calc(34svh - 1.5rem)}",
+  "[data-neural-poster=hero]>svg{inset:auto;left:1rem;right:1rem;top:calc(4rem + 1px + 1rem);width:auto;height:calc(36svh - 1.5rem)}",
   "@media (min-width:1024px){[data-neural-poster=hero]>svg{left:calc(max(0px,(100% - 1280px)/2) + 47rem);top:calc(4rem + 1px + 1.5rem);height:calc(100svh - 4rem - 1px - 9.5rem)}}",
   ".nw-b{transform-box:view-box;transform-origin:50% 50%}",
   "@keyframes nw-breathe{50%{transform:scale(1.025) rotate(-1deg)}}",
@@ -162,10 +162,10 @@ function HeroPoster() {
           {long.map((d, i) => (
             <path key={`l${i}`} className="nw-e" strokeWidth=".4" d={d} />
           ))}
-          <path className="nw-n nw-a" strokeOpacity=".35" strokeWidth="1.6" d={dots(pts, ids((i) => L.kind[i] === KIND.fill))} />
-          <path className="nw-n nw-a" strokeOpacity=".5" strokeWidth="2" d={dots(pts, ids((i) => L.kind[i] === KIND.fold && !front(i)))} />
-          <path className="nw-n nw-a" strokeWidth="2.6" d={dots(pts, ids((i) => L.kind[i] === KIND.fold && front(i)))} />
-          <path className="nw-h" strokeWidth="9" d={dots(pts, ids((i) => L.kind[i] === KIND.hub))} />
+          <path className="nw-n nw-a" strokeOpacity=".3" strokeWidth="1.3" d={dots(pts, ids((i) => L.kind[i] === KIND.fill))} />
+          <path className="nw-n nw-a" strokeOpacity=".45" strokeWidth="1.6" d={dots(pts, ids((i) => L.kind[i] === KIND.fold && !front(i)))} />
+          <path className="nw-n nw-a" strokeOpacity=".9" strokeWidth="2.1" d={dots(pts, ids((i) => L.kind[i] === KIND.fold && front(i)))} />
+          <path className="nw-h" strokeWidth="8" d={dots(pts, ids((i) => L.kind[i] === KIND.hub))} />
           {long.slice(0, 9).map((d, i) => (
             <path
               key={`p${i}`}
@@ -176,8 +176,7 @@ function HeroPoster() {
               style={{ animationDelay: `${(-i * 0.43).toFixed(2)}s`, "--nw-d": `${(2.8 + (i % 4) * 0.4).toFixed(1)}s` } as CSSProperties}
             />
           ))}
-          <path className="nw-n nw-i" strokeWidth="3.6" d={dots(pts, ids((i) => L.kind[i] === KIND.hub && front(i)))} />
-          <path className="nw-n nw-o" strokeWidth="3.6" d={dots(pts, ids((i) => L.kind[i] === KIND.hub && !front(i)))} />
+          <path className="nw-n nw-i" strokeOpacity=".85" strokeWidth="2.8" d={dots(pts, ids((i) => L.kind[i] === KIND.hub))} />
         </g>
       </svg>
     </div>

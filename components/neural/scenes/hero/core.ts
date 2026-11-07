@@ -28,13 +28,15 @@ import { SHADERS } from "./shaders";
 
 /** Depth (world units in front of the camera) the brain is drawn at. */
 const DEPTH = 14;
+/** Share of its box the resting brain fills (room for the turn toward the cursor and the glow). */
+const FIT = 0.84;
 /** Build budget per frame while the layout is generated (ms). */
 const BUILD_MS = 4;
 /** Arc tessellation. */
 const SEG_SHORT = 6;
 const SEG_LONG = 18;
 const TAN = Math.tan(((FOV / 2) * Math.PI) / 180);
-const HERO_SECTION = '[data-section="hero"]:not([data-scene]),[data-scene="hero"]';
+const HERO_SECTION = '[data-section="hero"]:not([data-scene]),[data-section][data-scene="hero"]';
 
 type Box = { x: number; y: number; w: number; h: number };
 const smooth = (a: number, b: number, v: number) => {
@@ -72,7 +74,13 @@ export class HeroCore {
   };
   private readonly neuronMat = new ShaderMaterial({
     ...SHADERS.neuron,
-    uniforms: { ...this.uniforms, uPx: { value: 1 }, uStream: { value: new Vector3(-3, -1, 0) }, uSpread: { value: 1 } },
+    uniforms: {
+      ...this.uniforms,
+      uPx: { value: 1 },
+      uStream: { value: new Vector3(-3, -2, 0) },
+      uCtrl: { value: new Vector3(0, -2, 0) },
+      uSpread: { value: 1 },
+    },
   });
   private readonly synapseMat = new ShaderMaterial({ ...SHADERS.synapse, uniforms: { ...this.uniforms } });
   private readonly signalMat = new ShaderMaterial({ ...SHADERS.signal, uniforms: { ...this.uniforms } });
@@ -93,10 +101,9 @@ export class HeroCore {
   private box: Box = { x: 0, y: 0, w: 0, h: 0 };
   private boxEl: HTMLElement | null = null;
   private sectionTop = 0;
-  private stream = { x: 0.23, y: 0.55 };
+  private stream = { x: 0.23, y: 0.92 };
   private measured = false;
   private readonly onResize = () => (this.measured = false);
-  private readonly ro: ResizeObserver | null;
 
   // Eased state.
   private yaw = BASE_YAW;
@@ -128,9 +135,18 @@ export class HeroCore {
       o.frustumCulled = false;
       this.group.add(o);
     }
+  }
+
+  /** Re-measure the boxes when the layout changes; returns the detach function (effects own it). */
+  attach() {
     window.addEventListener("resize", this.onResize, { passive: true });
-    this.ro = typeof ResizeObserver === "function" ? new ResizeObserver(this.onResize) : null;
-    this.ro?.observe(document.body);
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(this.onResize) : null;
+    ro?.observe(document.body);
+    this.measured = false;
+    return () => {
+      window.removeEventListener("resize", this.onResize);
+      ro?.disconnect();
+    };
   }
 
   /** Palette → colours and blending (additive light on dark, ink on paper). */
@@ -141,8 +157,8 @@ export class HeroCore {
     setColor(u.uHot.value, p.accent);
     if (light) {
       setColor(u.uAi.value, p.ai);
-      setColor(u.uDeep.value, p.ai, p.fg, 0.4);
-      setColor(u.uCore.value, p.ai, p.fg, 0.55);
+      setColor(u.uDeep.value, p.ai, p.fg, 0.3);
+      setColor(u.uCore.value, p.ai, p.fg, 0.5);
     } else {
       setColor(u.uAi.value, p.ai, "#ffffff", 0.12);
       setColor(u.uDeep.value, p.ai, p.bg, 0.42);
@@ -251,12 +267,13 @@ export class HeroCore {
       const c = this.comp;
       this.box = { x: (0.5 + c.cx - c.w / 2) * w, y: (0.5 + c.cy - c.h / 2) * h, w: c.w * w, h: c.h * h };
     }
-    // The hand-off target: the free side of the section after the hero.
+    // The hand-off target: the free side of the section after the hero, low in the viewport
+    // where that section comes in.
     const next = own ? sections[sections.indexOf(own) + 1] : undefined;
     const layout = next?.dataset.stage;
     compositionFor(isLayout(layout) ? layout : "left", "ambient", framing.phone, this.comp);
     this.stream.x = 0.5 + this.comp.cx;
-    this.stream.y = 0.5 + this.comp.cy + 0.06;
+    this.stream.y = 0.92;
   }
 
   /** Is the canvas visible yet (the island fades it in once the stage is ready)? */
@@ -309,10 +326,12 @@ export class HeroCore {
     let cx = b.x + b.w / 2;
     let cy = b.y + b.h / 2;
     if (this.boxEl) cy = cy - scroll + 0.45 * Math.max(0, scroll - this.sectionTop);
-    const fitPx = Math.min(b.w / (2 * VIEW_HALF.w), b.h / (2 * VIEW_HALF.h));
+    const fitPx = FIT * Math.min(b.w / (2 * VIEW_HALF.w), b.h / (2 * VIEW_HALF.h));
+    // The brain's visual mass sits above its pivot (the stem below is faint): centre the mass.
+    cy += 0.1 * fitPx;
 
     // Disperse: on the home hero with scroll progress; elsewhere as the scene hands over.
-    const target = this.boxEl ? smooth(0.58, 1, progress) : 0.8 * smooth(0, 1, 1 - weight);
+    const target = this.boxEl ? smooth(0.6, 1, progress) : 0.8 * smooth(0, 1, 1 - weight);
     this.disperse += (target - this.disperse) * (1 - Math.exp(-dt / 0.12));
     u.uDisperse.value = this.disperse;
 
@@ -344,10 +363,15 @@ export class HeroCore {
     u.uCenterZ.value = this.tmp.z;
     this.neuronMat.uniforms.uPx.value = bufferHeight / 2 / TAN;
 
-    // Where the dispersal streams: the next section's free side, in the brain's local space.
-    this.rayPoint(camera, this.stream.x * W, this.stream.y * H, W, H, DEPTH, this.tmp);
+    // Where the dispersal streams (the next section's free side) and the bend of the current
+    // (straight below the brain), in the brain's local space.
+    const sx = this.stream.x * W;
+    const sy = this.stream.y * H;
+    this.rayPoint(camera, sx, sy, W, H, DEPTH, this.tmp);
     g.worldToLocal((this.neuronMat.uniforms.uStream.value as Vector3).copy(this.tmp));
-    this.neuronMat.uniforms.uSpread.value = (0.16 * W) / Math.max(1, fitPx);
+    this.rayPoint(camera, cx * 0.7 + sx * 0.3, sy, W, H, DEPTH, this.tmp);
+    g.worldToLocal((this.neuronMat.uniforms.uCtrl.value as Vector3).copy(this.tmp));
+    this.neuronMat.uniforms.uSpread.value = (0.09 * W) / Math.max(1, fitPx);
 
     // Cursor → the nearest point of the brain's bounding sphere (local space). Without a
     // mouse (touch, or before the first move) a virtual cursor wanders over the cortex.
@@ -373,8 +397,6 @@ export class HeroCore {
 
   dispose() {
     this.job = null;
-    window.removeEventListener("resize", this.onResize);
-    this.ro?.disconnect();
     this.neurons.geometry.dispose();
     this.synapses.geometry.dispose();
     this.signals.geometry.dispose();

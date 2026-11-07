@@ -25,9 +25,9 @@ export function heroCamera(_aspect: number, progress: number, out: CameraTarget)
   return out;
 }
 
-/** Resting orientation (radians): a three-quarter view from the left-front and a little above, frontal lobe toward the text. */
-export const BASE_YAW = -1.02;
-export const BASE_PITCH = 0.3;
+/** Resting orientation (radians): the classic side view seen a little from the front and above, frontal lobe toward the text. */
+export const BASE_YAW = -1.25;
+export const BASE_PITCH = 0.26;
 /** Half extents of the brain in its resting view (local units), used to fit it into its box. */
 export const VIEW_HALF = { w: 1.12, h: 1.0 };
 
@@ -38,7 +38,7 @@ export type Counts = { fold: number; fill: number; inner: number; hubs: number; 
 export const COUNTS: Record<"high" | "low" | "poster", Counts> = {
   high: { fold: 4600, fill: 3300, inner: 1300, hubs: 220, long: 64, signals: 96 },
   low: { fold: 2200, fill: 1600, inner: 560, hubs: 110, long: 34, signals: 48 },
-  poster: { fold: 230, fill: 150, inner: 0, hubs: 34, long: 14, signals: 0 },
+  poster: { fold: 330, fill: 110, inner: 0, hubs: 30, long: 12, signals: 0 },
 };
 
 export type BrainLayout = {
