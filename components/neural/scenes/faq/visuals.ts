@@ -212,6 +212,9 @@ export function monthNow() {
 // ---------------------------------------------------------------- stack (skills constellation)
 
 const sel: number[] = [];
+let selFor: Item | null = null;
+let selLow = false;
+let selData: NeuralData | null = null;
 const px = new Float32Array(16);
 const py = new Float32Array(16);
 const pz = new Float32Array(16);
@@ -220,16 +223,22 @@ export function stack(c: Ctx, onlyNamed: boolean): Used {
   const { gl, col, t, R, vx, vy, data, item, low } = c;
   frame(c, R * 1.02, 0.3);
   const skills = data.skills;
-  const max = low ? 8 : 10;
-  sel.length = 0;
-  for (const i of item?.named ?? []) if (sel.length < max) sel.push(i);
-  if (!onlyNamed || sel.length < 2)
-    for (const i of c.pre.skillOrder) {
-      if (sel.length >= max) break;
-      if (!sel.includes(i)) sel.push(i);
-    }
-  // Most used first: it sits at the centre, the next ones on the inner orbit, the rest outside.
-  sel.sort((a, b) => skills[b].uses - skills[a].uses || a - b);
+  // Which skills: those the answer names, then (stack questions) the most used; most used
+  // first: it sits at the centre, the next ones on the inner orbit, the rest outside.
+  if (selFor !== item || selLow !== low || selData !== data) {
+    selFor = item;
+    selLow = low;
+    selData = data;
+    const max = low ? 8 : 10;
+    sel.length = 0;
+    for (const i of item?.named ?? []) if (sel.length < max) sel.push(i);
+    if (!onlyNamed || sel.length < 2)
+      for (const i of c.pre.skillOrder) {
+        if (sel.length >= max) break;
+        if (!sel.includes(i)) sel.push(i);
+      }
+    sel.sort((a, b) => skills[b].uses - skills[a].uses || a - b);
+  }
   const n = sel.length;
   if (!n) return bloom(c);
   let maxUses = 1;
@@ -324,7 +333,8 @@ export function beacon(c: Ctx): Used {
   dot(gl, d++, bx, by + R * 0.78, 2, col.ok, 18, 0.9);
   if (item?.verdict) c.label(item.verdict, "big", bx, by + R * 0.78, 2, -0.5, -1, 1, col.ok);
   // Small-number figures as slots on an orbit: filled = the low end, open = up to the high end.
-  const f = item?.figures.find((x) => (x.k === "count" || x.k === "time") && x.hi <= 12 * (x.k === "time" ? 10080 : 1));
+  let f: Figure | null = null;
+  for (const x of item?.figures ?? []) if (!f && (x.k === "count" || x.k === "time") && x.hi <= 12 * (x.k === "time" ? 10080 : 1)) f = x;
   if (f) {
     const unit = f.k === "time" ? (f.hi >= 10080 ? 10080 : f.hi >= 1440 ? 1440 : 60) : 1;
     const hi = Math.max(1, Math.min(12, Math.round(f.hi / unit)));

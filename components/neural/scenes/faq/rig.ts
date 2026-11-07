@@ -138,6 +138,10 @@ export class FaqRig {
   private items: Item[] = [];
   private byId = new Map<string, number>();
   private readonly ys = new Float32Array(QMAX);
+  private readonly docY = new Float32Array(QMAX);
+  private layoutDirty = true;
+  private listX = 0;
+  private cTop = 0;
   private wl = 0;
   private wt = 0;
   private ww = 0;
@@ -223,18 +227,16 @@ export class FaqRig {
     this.styleIndexLabels();
   }
 
-  setQuality(q: "high" | "low") {
-    this.low = q === "low";
-  }
-
   // ------------------------------------------------------------ DOM
 
   /** Listeners for scroll / resize / toggles; returns the cleanup. */
   attach(): () => void {
-    let raf = 0;
     const schedule = () => {
       this.dirty = true;
-      if (!raf) raf = requestAnimationFrame(() => (raf = 0));
+    };
+    const relayout = () => {
+      this.dirty = true;
+      this.layoutDirty = true;
     };
     const onToggle = (e: Event) => {
       const el = e.target;
@@ -247,17 +249,18 @@ export class FaqRig {
         if (el.open) this.openOrder.push(i);
         this.openIdx = this.openOrder.length ? this.openOrder[this.openOrder.length - 1] : -1;
       }
-      schedule();
+      relayout();
     };
     window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule, { passive: true });
+    window.addEventListener("resize", relayout, { passive: true });
     document.addEventListener("toggle", onToggle, true);
-    const ro = new ResizeObserver(schedule);
+    // Answers opening and closing (and anything else that resizes the page) move the cards.
+    const ro = new ResizeObserver(relayout);
     ro.observe(document.body);
+    document.fonts?.ready.then(relayout);
     return () => {
-      cancelAnimationFrame(raf);
       window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", relayout);
       document.removeEventListener("toggle", onToggle, true);
       ro.disconnect();
     };
@@ -294,6 +297,7 @@ export class FaqRig {
     this.openOrder = this.items.flatMap((it, i) => (it.el.open ? [i] : []));
     this.openIdx = this.openOrder.length ? this.openOrder[this.openOrder.length - 1] : -1;
     this.subject = -2;
+    this.layoutDirty = true;
     this.styleIndexLabels();
   }
 
@@ -307,6 +311,7 @@ export class FaqRig {
       return;
     }
     const c = canvas.getBoundingClientRect();
+    this.cTop = c.top;
     if (this.win && !this.win.isConnected) this.win = this.section.querySelector<HTMLElement>("[data-faq-window]");
     const r = this.win?.getBoundingClientRect();
     this.winOk = !!r && r.width > MIN_WIN && r.height > MIN_WIN;
@@ -316,14 +321,25 @@ export class FaqRig {
       this.ww = r.width;
       this.wh = r.height;
     }
-    let listX = 0;
-    for (let i = 0; i < this.items.length; i++) {
-      const s = this.items[i].sum.getBoundingClientRect();
-      // The question's first line (where its connector leaves the card).
-      this.ys[i] = s.top - c.top + Math.min(28, s.height / 2);
-      if (i === 0) listX = s.left + s.width / 2 - c.left;
+    // Question lines in document px from the layout (offsets ignore the cards' entrance
+    // transforms, which would put a node beside where its card is still flying in from).
+    if (this.layoutDirty) {
+      this.layoutDirty = false;
+      let listX = 0;
+      for (let i = 0; i < this.items.length; i++) {
+        const sum = this.items[i].sum;
+        let y = 0;
+        let x = 0;
+        for (let e: HTMLElement | null = sum; e; e = e.offsetParent as HTMLElement | null) {
+          y += e.offsetTop;
+          x += e.offsetLeft;
+        }
+        this.docY[i] = y + Math.min(28, sum.offsetHeight / 2);
+        if (i === 0) listX = x + sum.offsetWidth / 2 - window.scrollX;
+      }
+      this.listX = listX;
     }
-    this.side = !this.winOk || listX < this.wl + this.ww / 2 ? 1 : -1;
+    this.side = !this.winOk || this.listX - c.left < this.wl + this.ww / 2 ? 1 : -1;
   }
 
   // ------------------------------------------------------------ labels
@@ -454,8 +470,10 @@ export class FaqRig {
     this.cam = camera;
     this.W = size.width;
     this.H = size.height;
-    if (this.dirty) this.measure(canvas);
+    if (this.dirty || this.layoutDirty) this.measure(canvas);
     const n = this.items.length;
+    const sy = window.scrollY + this.cTop;
+    for (let i = 0; i < n; i++) this.ys[i] = this.docY[i] - sy;
 
     // Where: the window (desktop), else the scene's free rect (phones: the opening).
     // Only the window's part on screen (below the header) frames the visual.
