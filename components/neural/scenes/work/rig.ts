@@ -60,6 +60,7 @@ export class ArchRig {
   private pitch = PITCH;
   private quality: "high" | "low" = "high";
   private readonly tier: Color[] = [0, 1, 2, 3, 4].map(() => new Color());
+  private readonly plate = new Color();
 
   constructor(work: NeuralData["work"]) {
     this.work = work;
@@ -103,6 +104,8 @@ export class ArchRig {
     for (let i = 0; i < this.v; i++) this.tier[this.L.tier[i]].toArray(this.col, i * 3);
     const tint = this.gl.pAttr.aTint.array as Float32Array;
     for (let k = 0; k < MAX_PLATFORMS; k++) this.tier[k].toArray(tint, k * 3);
+    // The client platform (neutral ink/bone) is toned toward muted so its rim never blooms white.
+    this.plate.set(p.fg).lerp(this.tier[3], 0.4).toArray(tint, 0);
     this.gl.pAttr.aTint.needsUpdate = true;
   }
 
@@ -277,7 +280,7 @@ export class ArchRig {
       const input = j < N_IN;
       const k = input ? j : j - N_IN;
       const show = input || k < nHidden;
-      nPos[o] = ai.x + (input ? 0 : 0.62);
+      nPos[o] = ai.x + (input ? 0 : 0.52);
       nPos[o + 1] = ai.y + (input ? (k - 1) * 0.36 : (k - (nHidden - 1) / 2) * 0.32) + Math.sin(time * 1.6 + j) * 0.03;
       nPos[o + 2] = input ? 0 : Math.sin(k * 2.1) * 0.18;
       nSize[i] = SIZE.neuron * (0.4 + 0.6 * ai.a);

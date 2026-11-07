@@ -810,7 +810,7 @@ html.motion-live [data-arch-active] > .panel {
 @media (min-width: 1024px) {
   /* Home: cards zig-zag down both sides of a clear, sticky centre column (the 3D window). */
   .arch {
-    --win: clamp(440px, 37vw, 660px);
+    --win: clamp(460px, 42vw, 720px);
   }
   .arch .arch-zig {
     grid-template-columns: minmax(0, 1fr) var(--win) minmax(0, 1fr);

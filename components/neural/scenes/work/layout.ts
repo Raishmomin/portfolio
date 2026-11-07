@@ -24,7 +24,8 @@ const SLAB_W1 = 3.2; // a tier with a single node
 const ROW_Z = 0.4;
 const NODE_LIFT = 0.24;
 const GAP = 0.95; // screen-space clearance between platforms (labels, spine)
-export const LABEL_W = 1.55; // estimated label length in local units (for the fit)
+export const LABEL_W = 1.45; // estimated label length in local units (for the fit)
+const AI_OUT = 1.05; // AI technologies (the cluster's outputs), right of its anchor
 
 /** Every technology across the projects, one node each (key → index). */
 export type Vocab = { keys: string[]; names: string[]; index: Map<string, number> };
@@ -61,6 +62,8 @@ export type Layout = {
   cy: number;
   hw: number;
   hh: number;
+  /** Largest depth toward the viewer after rotation (perspective makes those parts bigger). */
+  zn: number;
 };
 
 const sin = Math.sin(PITCH);
@@ -68,12 +71,13 @@ const cos = Math.cos(PITCH);
 const sy = Math.sin(YAW);
 const cy0 = Math.cos(YAW);
 
-/** Rotated 2D position (yaw, then pitch), as the rig's Euler(PITCH, YAW, 0) applies it. */
+/** Rotated position (yaw, then pitch), as the rig's Euler(PITCH, YAW, 0) applies it. */
 function rotate2d(x: number, y: number, z: number, out: number[]) {
   const x1 = x * cy0 + z * sy;
   const z1 = -x * sy + z * cy0;
   out[0] = x1;
   out[1] = y * cos - z1 * sin;
+  out[2] = y * sin + z1 * cos;
 }
 
 /**
@@ -96,6 +100,7 @@ export function layout(project: NeuralData["work"][number] | undefined, vocab: V
     cy: 0,
     hw: 1,
     hh: 1,
+    zn: 0,
   };
   const groups: number[][] = [[], [], [], [], []];
   for (const t of project?.stack ?? []) {
@@ -179,17 +184,18 @@ export function layout(project: NeuralData["work"][number] | undefined, vocab: V
     const host = L.platforms[port];
     L.ai.on = true;
     L.ai.port = port;
-    L.ai.x = host.w / 2 + 0.6;
+    L.ai.x = host.w / 2 + 0.5;
     L.ai.y = host.y + 0.2;
     ai.forEach((i, j) => {
-      L.slot.set([L.ai.x + 1.25, L.ai.y + (j - (ai.length - 1) / 2) * 0.62, 0], i * 3);
+      L.slot.set([L.ai.x + AI_OUT, L.ai.y + (j - (ai.length - 1) / 2) * 0.62, 0], i * 3);
       L.side[i] = 1;
       L.order[i] = order++;
     });
-    right = Math.max(right, L.ai.x + 1.25 + LABEL_W);
+    right = Math.max(right, L.ai.x + AI_OUT + LABEL_W);
   }
 
-  // Infra: a wireframe container round everything, badges along its top front edge.
+  // Infra: a wireframe container round everything, badges along its top back edge (the
+  // front edge would sit on the client platform's labels).
   const infra = shown[3];
   L.infra.count = groups[3].length;
   L.infra.more = groups[3].length - infra.length;
@@ -200,7 +206,7 @@ export function layout(project: NeuralData["work"][number] | undefined, vocab: V
     L.infra.min = [minX, bottom - 0.5, -maxD / 2 - 0.3];
     L.infra.max = [maxX, top + 0.95, maxD / 2 + 0.3];
     infra.forEach((i, j) => {
-      L.slot.set([minX + 0.45 + j * 1.85, L.infra.max[1], L.infra.max[2]], i * 3);
+      L.slot.set([minX + 0.45 + j * 1.85, L.infra.max[1], L.infra.min[2]], i * 3);
       L.side[i] = 1;
       L.order[i] = order++;
     });
@@ -208,10 +214,11 @@ export function layout(project: NeuralData["work"][number] | undefined, vocab: V
   }
 
   // Title above the system (the project name, duplicated from the DOM card).
-  L.title = [minX + 0.1, (L.infra.on ? L.infra.max[1] : top + 0.7) + 0.55, L.infra.on ? L.infra.max[2] : 0];
+  L.title = [minX + 0.1, (L.infra.on ? L.infra.max[1] + 0.5 : top + 0.75), L.infra.on ? L.infra.min[2] : -0.4];
 
   // 2D bounds after rotation, labels included.
-  const pt = [0, 0];
+  const pt = [0, 0, 0];
+  let zn = 0;
   let x0 = Infinity;
   let x1 = -Infinity;
   let y0 = Infinity;
@@ -222,6 +229,7 @@ export function layout(project: NeuralData["work"][number] | undefined, vocab: V
     if (pt[0] > x1) x1 = pt[0];
     if (pt[1] < y0) y0 = pt[1];
     if (pt[1] > y1) y1 = pt[1];
+    if (pt[2] > zn) zn = pt[2];
   };
   for (const p of ons)
     for (const sx of [-1, 1])
@@ -243,5 +251,6 @@ export function layout(project: NeuralData["work"][number] | undefined, vocab: V
   L.cy = (y0 + y1) / 2;
   L.hw = (x1 - x0) / 2;
   L.hh = (y1 - y0) / 2;
+  L.zn = zn;
   return L;
 }

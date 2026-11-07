@@ -182,12 +182,15 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
       toWorld(camera, w.l, w.t, size.width, size.height, pt);
       const halfW = Math.abs(o.x - pt[0]);
       const halfH = Math.abs(pt[1] - o.y);
-      o.scale = Math.min(CAP * 1.15, (halfW * 0.92) / L.hw, (halfH * 0.88) / L.hh);
+      o.scale = Math.min(CAP * 1.15, (halfW * 0.9) / L.hw, (halfH * 0.9) / L.hh);
     } else {
       o.x = 0;
       o.y = 0;
       o.scale = fitFree(camera, size, L.hw, L.hh, CAP, CAP) * 0.94;
     }
+    // Perspective: the parts nearest the camera project larger than the flat fit assumed.
+    const dist = Math.max(4, camera.position.z);
+    o.scale = (o.scale * dist) / (dist + L.zn * o.scale);
     rig.frame(state, dt, { active: o.active, tech: o.tech, weight, pointer, x: o.x, y: o.y, scale: o.scale }, r);
 
     if (!ids || !r.tilt) return;
