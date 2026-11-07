@@ -68,7 +68,7 @@ void main() {
   // Sun: real terminator, a warm twilight band along it.
   float sunD = dot(n, uSun);
   float day = smoothstep(-0.1, 0.16, sunD);
-  float dusk = exp(-sunD * sunD * 70.0);
+  float dusk = exp(-sunD * sunD * 180.0);
 
   // The city: angular distance to the pin.
   float ang = acos(clamp(dot(n, uPin), -1.0, 1.0));
@@ -111,7 +111,7 @@ void main() {
     col = mix(col, uAccent, clamp(shock, 0.0, 1.0));
     a = 1.0;
   } else {
-    col = ocean + uAccent * dusk * 0.06 + uRim * rim * 0.55;
+    col = ocean + uAccent * dusk * 0.045 + uRim * rim * 0.55;
     col = mix(col, dotC, dotA);
     col += uOk * rings * 0.9 + uAccent * shock * 0.95;
     a = 0.96;
@@ -148,7 +148,7 @@ void main() {
   float lit = 0.6 + 0.4 * clamp(dot(normalize(vP + 1e-4), uSunXY), -1.0, 1.0);
   vec3 c = mix(uColor, uWarm, 0.18 * max(dot(normalize(vP + 1e-4), uSunXY), 0.0));
   // Fades out well inside the quad (half-size 1.6 radii), so its edge never shows.
-  float a = (limb * 0.62 + haze) * lit * (1.0 - smoothstep(1.25, 1.55, r)) * uOpacity;
+  float a = (limb * 0.52 + haze) * lit * (1.0 - smoothstep(1.25, 1.55, r)) * uOpacity;
   if (uLight > 0.5) {
     gl_FragColor = vec4(c, a * 0.55);
   } else {

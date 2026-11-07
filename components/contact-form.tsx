@@ -50,7 +50,6 @@ export function ContactForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const sentRef = useRef<HTMLHeadingElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
-  const typedAt = useRef(0);
   const focusAfterReset = useRef(false);
   const focusInvalid = useRef<FieldName | null>(null);
 
@@ -123,11 +122,7 @@ export function ContactForm() {
     const name = e.target.name as FieldName;
     setForm({ ...form, [name]: e.target.value });
     if (errors[name]) setErrors({ ...errors, [name]: undefined });
-    const now = performance.now();
-    if (now - typedAt.current > 80) {
-      typedAt.current = now;
-      signal("type", e.target);
-    }
+    signal("type", e.target); // the globe paces its sparks itself
   }
 
   function field(name: FieldName) {
