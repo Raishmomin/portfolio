@@ -221,7 +221,18 @@ export class ContactRig {
   private gSet = false;
   /** The focused form field: the guide route leaves the page beside it (re-measured live). */
   private gEl: Element | null = null;
-  private gAt = 0;
+  private gDirty = false;
+  // The driving section's viewport rect, re-read only after a scroll or a resize (no
+  // per-frame layout reads while the visitor types).
+  private secEl: Element | null = null;
+  private secTop = 0;
+  private secBottom = 0;
+  private secDirty = true;
+  private readonly ro: ResizeObserver | null;
+  private readonly onScroll = () => {
+    this.secDirty = true;
+    this.gDirty = true;
+  };
   private lastSpark = -1;
   private shockAt = -1e9;
   private sparkAt = -1e9;
@@ -444,6 +455,10 @@ export class ContactRig {
       }
     }
 
+    this.ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(this.onScroll);
+    this.ro?.observe(document.body); // content above the section growing moves it without a scroll
+    window.addEventListener("scroll", this.onScroll, { passive: true });
+    window.addEventListener("resize", this.onScroll, { passive: true });
     this.tags = new GlobeLabels([this.city, "Delivered", ...this.channels]);
     this.satSide.fill(1);
     occluders.retain(); // the visibility guard (framing.clearRect) reads the occluder registry
@@ -526,10 +541,21 @@ export class ContactRig {
     pxRect.t = Math.max(fr.t * H, framing.phone ? 56 : HEADER_PX + 8);
     pxRect.b = Math.min(fr.b * H, H - 8);
     // The globe stays inside its own section (the footer's band below it is opaque).
-    if (frame.el && !framing.phone) {
-      const sr = frame.el.getBoundingClientRect();
-      pxRect.t = Math.max(pxRect.t, sr.top + 8);
-      pxRect.b = Math.min(pxRect.b, sr.bottom - 8);
+    if (frame.el !== this.secEl) {
+      if (this.secEl) this.ro?.unobserve(this.secEl);
+      this.secEl = frame.el;
+      if (this.secEl) this.ro?.observe(this.secEl);
+      this.secDirty = true;
+    }
+    if (this.secEl && !framing.phone) {
+      if (this.secDirty) {
+        this.secDirty = false;
+        const sr = this.secEl.getBoundingClientRect();
+        this.secTop = sr.top;
+        this.secBottom = sr.bottom;
+      }
+      pxRect.t = Math.max(pxRect.t, this.secTop + 8);
+      pxRect.b = Math.min(pxRect.b, this.secBottom - 8);
     }
     const ok = clearRect(pxRect, framing.phone ? 150 : 220, clear);
     if (!ok) return false;
@@ -633,6 +659,7 @@ export class ContactRig {
       if (s.kind === "focus") {
         this.chargeOn = 1;
         this.gEl = s.el ?? null;
+        this.gDirty = true;
       } else if (s.kind === "blur") {
         this.chargeOn = 0;
         this.gEl = null;
@@ -764,9 +791,8 @@ export class ContactRig {
       this.gy = this.cy;
     }
     // The focused field may scroll (keyboard focus scrolls it into view): follow it.
-    const nowMs = performance.now();
-    if (this.gEl && nowMs - this.gAt > 90) {
-      this.gAt = nowMs;
+    if (this.gEl && this.gDirty) {
+      this.gDirty = false;
       if (!this.gEl.isConnected) this.gEl = null;
       else {
         const r = this.gEl.getBoundingClientRect();
@@ -1037,5 +1063,8 @@ export class ContactRig {
     this.sprites.dispose();
     this.tags.dispose();
     occluders.release();
+    this.ro?.disconnect();
+    window.removeEventListener("scroll", this.onScroll);
+    window.removeEventListener("resize", this.onScroll);
   }
 }
