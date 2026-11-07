@@ -56,6 +56,22 @@ const FIGURE = new RegExp(
   "gi",
 );
 
+const STOP = new Set(["with", "for", "of", "to", "and", "or", "the", "a", "an", "at", "in", "on", "from", "per", "is", "are", "than", "when", "if", "but", "so", "by", "depending", "during", "into", "before", "after", "about", "each", "every", "first", "shipping"]);
+/**
+ * The figure as the answer words it, with up to two following words that say what it
+ * counts ("50% upfront", "1-week audits", "30-50% faster"): still a verbatim slice.
+ */
+function withContext(a: string, at: number, match: string): string {
+  let end = at + match.trimEnd().length;
+  const re = /^ ([a-z][a-z-]{2,})/;
+  for (let k = 0; k < 2; k++) {
+    const w = a.slice(end).match(re);
+    if (!w || STOP.has(w[1])) break;
+    end += w[0].length;
+  }
+  return a.slice(at, end).trim();
+}
+
 const NEGATION = /\b(?:don't|do not|never|not|no)\b/i;
 
 const num = (s: string): number => {
@@ -71,7 +87,7 @@ export function faqFigures(a: string): FaqFigure[] {
   const out: FaqFigure[] = [];
   for (const m of a.matchAll(FIGURE)) {
     const g = m.groups ?? {};
-    const t = m[0].trim();
+    const t = withContext(a, m.index ?? 0, m[0]);
     // A figure the answer rules out ("I don't chase 100% coverage") is not a fact to show.
     const clause = a.slice(Math.max(0, (m.index ?? 0) - 40), m.index).split(/[.;:—(]/).pop() ?? "";
     if (NEGATION.test(clause)) continue;

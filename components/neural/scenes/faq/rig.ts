@@ -18,7 +18,7 @@ import { framing, sceneFrames } from "../../framing";
 import type { NeuralData, ScenePalette } from "../../types";
 import { isLightBg, layerColors, paletteColor } from "../stack/gl";
 import type { Align, LabelLayer } from "../stack/labels";
-import { FaqGL, arc, dot, seg } from "./gl";
+import { FaqGL, arc, dashes, dot, seg } from "./gl";
 import {
   beacon,
   bloom,
@@ -573,7 +573,7 @@ export class FaqRig {
       if (!answer || isSub) {
         const pulse = answer ? (time * 0.7) % 1 : 0;
         arc(gl, i, x, y, z, 0, 0, time * 0.3 + i, (answer ? 14 : isHover ? 22 : 13) + 22 * pulse, isSub || isHover ? 1.8 : 1.1, 0, 1, lit ? col.accent : col.ai, (answer ? 0.9 * (1 - pulse) : isHover ? 0.95 : 0.45) * inView, 0, 0, 0.5);
-        arc(gl, QMAX + i, x, y, z, 1.25, time * 0.5 + i, 0, isHover || isSub ? 30 : 21, 1, 0, 1, lit ? col.accent : col.muted, (answer ? 0.5 : isHover ? 0.7 : 0.32) * inView, 16.5, 0, 0);
+        arc(gl, QMAX + i, x, y, z, 1.25, time * 0.5 + i, 0, isHover || isSub ? 30 : 21, 1, 0, 1, lit ? col.accent : col.muted, (answer ? 0.5 : isHover ? 0.7 : 0.32) * inView, dashes(16, 0.5), 0, 0);
       } else {
         hideArc(gl, i);
         hideArc(gl, QMAX + i);
@@ -633,6 +633,7 @@ export class FaqRig {
     ctx.vx = vx;
     ctx.vy = vy;
     ctx.low = this.low;
+    ctx.side = side;
     ctx.item = answer ? this.items[this.subject] : null;
     ctx.D = D_VIS;
     ctx.A = A_VIS;
@@ -693,6 +694,7 @@ export class FaqRig {
     vx: 0,
     vy: 0,
     low: false,
+    side: 1,
     item: null,
     D: 0,
     A: 0,

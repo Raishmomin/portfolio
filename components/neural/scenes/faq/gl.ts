@@ -77,8 +77,8 @@ class Pool {
 
 // ---------------------------------------------------------------- arcs
 // Per instance: aC centre · aE Euler XYZ · aR (radius, thickness, start, end in turns from
-// 12 o'clock, clockwise) · aCol · aA (alpha, dashes: count + duty as the fraction, tail
-// gradient 0..1, glow 0..1).
+// 12 o'clock, clockwise) · aCol · aA (alpha, dashes (see `dashes`), tail gradient 0..1,
+// glow 0..1).
 export const ARC = { cx: 0, ex: 3, rad: 6, thick: 7, start: 8, end: 9, r: 10, alpha: 13, dash: 14, tail: 15, glow: 16, stride: 17 } as const;
 
 const ARC_VERT = /* glsl */ `
@@ -123,27 +123,32 @@ const ARC_FRAG = /* glsl */ `
     float aa = max(fwidth(r), 1e-3);
     float hw = vR.y * 0.5;
     float d = abs(r - vR.x);
-    float core = 1.0 - smoothstep(hw - aa * 0.6, hw + aa * 0.6, d);
-    float glow = vA.w * exp(-pow(max(d - hw, 0.0) / max(vR.y * 1.4, 1.5), 2.0) * 2.2) * (uLight > 0.5 ? 0.25 : 0.55);
     float t = fract(atan(vP.x, vP.y) / 6.2831853 + 1.0);
-    float inA = 1.0;
     float u = t;
+    float outPx = 0.0;
     if (span < 0.999) {
+      // Distance (px) outside the arc along the circle: round caps on the band, soft glow ends.
       float rel = fract(t - vR.z + 1.0);
-      float e = aa / max(r * 6.2831853, 1.0);
-      inA = smoothstep(0.0, e, rel) * (1.0 - smoothstep(span - e, span + e, rel));
-      u = rel / span;
+      float outA = rel <= span ? 0.0 : min(rel - span, 1.0 - rel);
+      outPx = outA * 6.2831853 * vR.x;
+      u = rel <= span ? rel / span : (rel - span < 1.0 - rel ? 1.0 : 0.0);
     }
+    float dc = outPx > 0.0 ? length(vec2(outPx, d)) : d;
+    float core = 1.0 - smoothstep(hw - aa * 0.6, hw + aa * 0.6, dc);
+    float gd = max(dc - hw, 0.0);
+    float glow = vA.w * exp(-pow(gd / max(vR.y * 1.4, 1.5), 2.0) * 2.2) * (uLight > 0.5 ? 0.25 : 0.55);
     float dash = 1.0;
     if (vA.y >= 1.0) {
-      float n = floor(vA.y);
+      // Dashes per turn (0.1 steps) counted from the arc's start; the fraction is the duty.
+      float n = floor(vA.y) * 0.1;
       float duty = fract(vA.y);
-      float f = fract(t * n);
+      float pos = span < 0.999 ? fract(t - vR.z + 1.0) : t;
+      float f = fract(pos * n);
       float de = aa * n / max(r * 6.2831853, 1.0);
       dash = smoothstep(0.0, de, f) * (1.0 - smoothstep(duty - de, duty + de, f));
     }
     float tail = mix(1.0, u * u, vA.z);
-    float a = (core + glow) * inA * dash * tail * vA.x * uOpacity;
+    float a = (core + glow) * dash * tail * vA.x * uOpacity;
     if (a < 0.002) discard;
     vec3 c = uLight > 0.5 ? vCol : vCol * (1.0 + 0.35 * core);
     ${GLOW_OUT}
@@ -425,6 +430,9 @@ export class FaqGL {
 }
 
 // ---------------------------------------------------------------- writers (targets)
+
+/** Arc dash pattern: `perTurn` dashes per full turn, counted from the arc's start, each `duty` long. */
+export const dashes = (perTurn: number, duty: number) => Math.round(perTurn * 10) + Math.min(0.99, duty);
 
 /** Glow dot target: position (local px), colour, size (px), alpha. */
 export function dot(gl: FaqGL, i: number, x: number, y: number, z: number, c: Color, size: number, alpha: number) {

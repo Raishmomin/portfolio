@@ -8,7 +8,7 @@
 import type { Color } from "three";
 import type { NeuralData } from "../../types";
 import { yearsLabel } from "../experience/path";
-import { arc, dot, seg, type FaqGL } from "./gl";
+import { arc, dashes, dot, seg, type FaqGL } from "./gl";
 
 export type Kind = "field" | "career" | "stack" | "beacon" | "clock" | "figures" | "verdict" | "bloom";
 export type Figure = { t: string; k: "money" | "time" | "percent" | "count"; lo: number; hi: number; plus?: 1; lt?: 1 };
@@ -50,6 +50,8 @@ export type Ctx = {
   vy: number;
   low: boolean;
   item: Item | null;
+  /** +1: the rail is on the visual's left (content left of the window); -1: on its right. */
+  side: number;
   /** First free slot per pool (visuals start here). */
   D: number;
   A: number;
@@ -106,7 +108,7 @@ function onRing(cx: number, cy: number, cz: number, r: number, t: number, ex: nu
 
 /** Frame ring: the faint dial that every visual keeps around itself (slot A). */
 function frame(c: Ctx, r: number, alpha: number) {
-  arc(c.gl, c.A, c.vx, c.vy, -2, 0, 0, c.t * 0.02, r, 1, 0, 1, c.col.line, alpha, 72.3, 0, 0);
+  arc(c.gl, c.A, c.vx, c.vy, -2, 0, 0, c.t * 0.02, r, 1, 0, 1, c.col.line, alpha, dashes(72, 0.3), 0, 0);
 }
 
 // ---------------------------------------------------------------- idle: the answer core
@@ -129,7 +131,7 @@ export function field(c: Ctx, cx: number, cy: number, hot: number): Used {
     dot(gl, d++, rot.x, rot.y, rot.z, k === 1 ? col.fg : hc, 11, 0.95);
   }
   // A slow dashed halo.
-  arc(gl, c.A + 4, cx, cy, 0, 0, 0, -t * 0.08, g * 1.32, 1, 0, 1, col.muted, 0.4, 36.35, 0, 0);
+  arc(gl, c.A + 4, cx, cy, 0, 0, 0, -t * 0.08, g * 1.32, 1, 0, 1, col.muted, 0.4, dashes(36, 0.35), 0, 0);
   const pulse = 0.5 + 0.5 * Math.sin(t * 2.1);
   dot(gl, d++, cx, cy, 0, hc, 34 + 8 * pulse + 10 * hot, 0.95);
   return { d, a: c.A + 5, s: c.S };
@@ -149,7 +151,7 @@ export function career(c: Ctx): Used {
   const R = Math.min(c.R, (c.R * 2 + 30 - legend) / 2);
   const vx = c.vx;
   const vy = c.vy + legend / 2;
-  arc(gl, c.A, vx, vy, -2, 0, 0, t * 0.02, R * 1.08, 1, 0, 1, col.line, 0.3, 72.3, 0, 0);
+  arc(gl, c.A, vx, vy, -2, 0, 0, t * 0.02, R * 1.08, 1, 0, 1, col.line, 0.3, dashes(72, 0.3), 0, 0);
   const now = monthNow();
   const total = Math.max(1, now - pre.t0);
   const rings = Math.min(9, Math.max(1, Math.ceil(total / 12)));
@@ -162,7 +164,7 @@ export function career(c: Ctx): Used {
   let d = c.D;
   // One ring per year since the first role (month ticks); the outermost, partial, is this year.
   for (let k = 0; k < rings; k++) {
-    arc(gl, a++, vx, vy, 0, ex, ey, 0, r0 + step * (k + 0.5), 1, 0, 1, col.muted, 0.4, 12.08, 0, 0);
+    arc(gl, a++, vx, vy, 0, ex, ey, 0, r0 + step * (k + 0.5), 1, 0, 1, col.muted, 0.4, dashes(12, 0.08), 0, 0);
   }
   // Each role lit along the months it covers (month m: ring m/12, turn (m%12)/12).
   const tint = TINT;
@@ -243,8 +245,8 @@ export function stack(c: Ctx, onlyNamed: boolean): Used {
   const rOut = R * 0.86;
   let d = c.D;
   let a = c.A + 1;
-  arc(gl, a++, vx, vy, -1, ex, 0, t * 0.05, rIn, 1, 0, 1, col.muted, 0.35, 40.4, 0, 0);
-  if (nOut > 0) arc(gl, a++, vx, vy, -1, ex, 0, -t * 0.03, rOut, 1, 0, 1, col.muted, 0.3, 64.4, 0, 0);
+  arc(gl, a++, vx, vy, -1, ex, 0, t * 0.05, rIn, 1, 0, 1, col.muted, 0.35, dashes(40, 0.4), 0, 0);
+  if (nOut > 0) arc(gl, a++, vx, vy, -1, ex, 0, -t * 0.03, rOut, 1, 0, 1, col.muted, 0.3, dashes(64, 0.4), 0, 0);
   for (let k = 0; k < n; k++) {
     if (k === 0) {
       px[0] = vx;
@@ -269,7 +271,7 @@ export function stack(c: Ctx, onlyNamed: boolean): Used {
     const lit = highlight && named.includes(sel[k]);
     const u = Math.sqrt(s.uses / maxUses);
     dot(gl, d++, px[k], py[k], pz[k], color, (k === 0 ? 34 : 15 + 16 * u) * (0.8 + 0.2 * depth), depth);
-    arc(gl, a++, px[k], py[k], pz[k], 0, 0, t * 0.5 + k, (k === 0 ? 24 : 12 + 8 * u) , lit ? 2 : 1.2, 0, 1, lit ? col.accent : color, (lit ? 1 : 0.55) * depth, lit ? 0 : 6.6, 0, 0.4);
+    arc(gl, a++, px[k], py[k], pz[k], 0, 0, t * 0.5 + k, (k === 0 ? 24 : 12 + 8 * u) , lit ? 2 : 1.2, 0, 1, lit ? col.accent : color, (lit ? 1 : 0.55) * depth, lit ? 0 : dashes(6, 0.6), 0, 0.4);
     const right = k === 0 || px[k] >= vx;
     c.label(s.name, "chip", px[k], py[k], pz[k], k === 0 ? -0.5 : right ? 0 : -1, k === 0 ? -1.6 : -0.5, 0.35 + 0.65 * depth, lit ? col.accent : color);
   }
@@ -308,7 +310,7 @@ export function beacon(c: Ctx): Used {
   let d = c.D;
   let s = c.S;
   // Ground: a dashed ring turning, a radar sweep and three pulses running out.
-  arc(gl, a++, bx, by, 0, ex, 0, t * 0.15, R * 0.7, 1.6, 0, 1, col.ok, 0.55, 54.45, 0, 0.3);
+  arc(gl, a++, bx, by, 0, ex, 0, t * 0.15, R * 0.7, 1.6, 0, 1, col.ok, 0.55, dashes(54, 0.45), 0, 0.3);
   arc(gl, a++, bx, by, 0, ex, 0, 0, R * 0.31, R * 0.62, (t * 0.22) % 1, ((t * 0.22) % 1) + 0.16, col.ok, 0.32, 0, 1, 0);
   for (let j = 0; j < 3; j++) {
     const p = (t * 0.42 + j / 3) % 1;
@@ -331,7 +333,7 @@ export function beacon(c: Ctx): Used {
       onRing(bx, by, 0, R * 0.46, k / hi + t * 0.05, ex, 0, 0);
       const filled = k < lo;
       dot(gl, d++, rot.x, rot.y, rot.z, filled ? col.ok : col.fg, filled ? 24 : 16, filled ? 1 : 0.5);
-      arc(gl, a++, rot.x, rot.y, rot.z, 0, 0, 0, filled ? 13 : 10, 1.4, 0, 1, filled ? col.ok : col.muted, filled ? 0.8 : 0.5, filled ? 0 : 8.5, 0, 0.3);
+      arc(gl, a++, rot.x, rot.y, rot.z, 0, 0, 0, filled ? 13 : 10, 1.4, 0, 1, filled ? col.ok : col.muted, filled ? 0.8 : 0.5, filled ? 0 : dashes(8, 0.5), 0, 0.3);
     }
     c.label(f.t, "fig", bx + 14, by + R * 0.36, 0, 0, -0.5, 1, col.ok);
   }
@@ -408,7 +410,7 @@ export function clock(c: Ctx): Used {
   const local = (((now.getTime() / 60000 + off) % 1440) + 1440) % 1440;
   const f = local / 1440;
   const D = R * 0.84;
-  arc(gl, a++, vx, vy, 0, 0, 0, 0, D, 1.2, 0, 1, col.fg, 0.5, 24.1, 0, 0);
+  arc(gl, a++, vx, vy, 0, 0, 0, 0, D, 1.2, 0, 1, col.fg, 0.5, dashes(24, 0.1), 0, 0);
   arc(gl, a++, vx, vy, 0, 0, 0, 0, D, 3, 0, f, col.accent, 0.85, 0, 0.7, 0.7);
   onRing(vx, vy, 0, D, f, 0, 0, 0);
   dot(gl, d++, rot.x, rot.y, rot.z, col.accent, 20, 1);
@@ -432,73 +434,82 @@ export function clock(c: Ctx): Used {
 // ---------------------------------------------------------------- figures (numbers quoted in the answer)
 
 const YEAR_MIN = 525600;
-/** Where a figure sits on its ring, in turns (0..1). Fixed scales, so equal values match everywhere. */
-function turns(f: Figure, v: number): number {
+/** Where a figure sits on its gauge (0..1). Fixed scales, so equal values match on every page. */
+function scaleOf(f: Figure, v: number): number {
   if (f.k === "percent") return clamp01(v / 100);
   if (f.k === "time") return clamp01(Math.log10(Math.max(1, v)) / Math.log10(YEAR_MIN));
-  if (f.k === "money") return clamp01(Math.log10(Math.max(1, v)) / 5);
+  if (f.k === "money") return clamp01((Math.log10(Math.max(1, v)) - 2) / 3);
   return clamp01(Math.log10(Math.max(1, v)) / 6);
 }
+/** Gauges are instruments: a 270° dial from 7:30, clockwise to 4:30 (open at the bottom). */
+const G0 = 0.625;
+const GS = 0.75;
+const TIME_TICKS = [60, 1440, 10080, 43200];
+const MONEY_TICKS = [1000, 10000];
 
 export function figures(c: Ctx): Used {
   const { gl, col, t, R, vx, vy, item } = c;
   const figs = item?.figures ?? [];
   if (!figs.length) return verdict(c);
-  frame(c, R * 1.02, 0.25);
-  const ex = -0.3;
-  const ey = 0.24 * Math.sin(t * 0.25);
+  frame(c, R * 1.02, 0.2);
+  const ex = -0.22;
+  const ey = 0.2 * Math.sin(t * 0.25);
+  const n = figs.length;
   let a = c.A + 1;
   let d = c.D;
-  let timeTicks = false;
-  let moneyTicks = false;
-  figs.forEach((f, i) => {
-    const r = R * (0.9 - 0.18 * i);
+  for (let i = 0; i < n; i++) {
+    const f = figs[i];
+    const r = R * (0.9 - (n > 2 ? 0.17 : 0.2) * i);
     const color = f.k === "money" ? col.accent : f.k === "time" ? col.ai : f.k === "percent" ? col.ok : col.fg;
-    const thick = Math.max(6, R * 0.05);
-    arc(gl, a++, vx, vy, 0, ex, ey, 0, r, 1, 0, 1, col.muted, 0.3, 0, 0, 0);
-    let s: number;
-    let e: number;
+    const thick = Math.max(5, R * 0.042);
+    // The dial: a thin track with fine ticks.
+    arc(gl, a++, vx, vy, 0, ex, ey, 0, r, 1, G0, G0 + GS, col.muted, 0.38, 0, 0, 0);
+    arc(gl, a++, vx, vy, 0, ex, ey, 0, r + thick * 0.5 + 4, 3, G0, G0 + GS, col.muted, 0.28, dashes(40, 0.06), 0, 0);
+    let s0: number;
+    let e0: number;
     if (f.k === "count" && f.hi <= 12) {
-      // Small counts: the ring split into `hi` slots, the first `lo` lit.
-      const n = Math.max(1, Math.round(f.hi));
-      s = 0;
-      e = Math.max(1, Math.round(f.lo)) / n;
-      arc(gl, a++, vx, vy, 1, ex, ey, 0, r, thick, 0, e, color, 0.95, n + 0.86, 0, 0.8);
-      if (e < 1) arc(gl, a++, vx, vy, 1, ex, ey, 0, r, thick * 0.6, e, 1, color, 0.35, n + 0.86, 0, 0);
+      // Small counts: the dial split into `hi` slots, the first `lo` lit.
+      const slots = Math.max(1, Math.round(f.hi));
+      s0 = 0;
+      e0 = Math.max(1, Math.round(f.lo)) / slots;
+      arc(gl, a++, vx, vy, 1, ex, ey, 0, r, thick, G0, G0 + GS * e0, color, 0.95, dashes(slots / GS, 0.9), 0, 0.5);
+      if (e0 < 1) arc(gl, a++, vx, vy, 1, ex, ey, 0, r, thick * 0.6, G0 + GS * e0, G0 + GS, color, 0.35, dashes(slots / GS, 0.9), 0, 0);
     } else {
-      s = f.lo !== f.hi ? turns(f, f.lo) : 0;
-      e = turns(f, f.hi);
-      if (s > 0) arc(gl, a++, vx, vy, 0.5, ex, ey, 0, r, 2, 0, s, color, 0.35, 0, 0, 0);
-      arc(gl, a++, vx, vy, 1, ex, ey, 0, r, thick, s, Math.max(e, s + 0.01), color, 0.95, 0, f.lo !== f.hi ? 0 : 0.35, 0.85);
-      if (f.plus) arc(gl, a++, vx, vy, 1, ex, ey, 0, r, 2, e, Math.min(1, e + 0.1), color, 0.6, 90.5, 1, 0);
+      s0 = f.lo !== f.hi ? scaleOf(f, f.lo) : 0;
+      e0 = Math.max(scaleOf(f, f.hi), s0 + 0.012);
+      if (s0 > 0) arc(gl, a++, vx, vy, 0.5, ex, ey, 0, r, 2, G0, G0 + GS * s0, color, 0.4, 0, 0, 0);
+      arc(gl, a++, vx, vy, 1, ex, ey, 0, r, thick, G0 + GS * s0, G0 + GS * e0, color, 0.95, 0, f.lo !== f.hi ? 0 : 0.45, 0.5);
+      if (f.plus) arc(gl, a++, vx, vy, 1, ex, ey, 0, r, 2, G0 + GS * e0, G0 + GS * Math.min(1, e0 + 0.12), color, 0.7, dashes(90, 0.5), 1, 0);
     }
-    onRing(vx, vy, 2, r, e, ex, ey, 0);
-    dot(gl, d++, rot.x, rot.y, rot.z, color, 18 + 4 * Math.sin(t * 2.4 + i), 1);
-    // One figure: it is the answer, in the centre; several: each at its ring's head.
-    if (figs.length === 1) c.label(f.t, "big", vx, vy, 0, -0.5, -0.5, 1, color);
-    else c.label(f.t, "fig", rot.x, rot.y, rot.z, rot.x >= vx ? 0 : -1, -0.5, 1, color);
-    if (f.k === "time" && !timeTicks) {
-      timeTicks = true;
-      // The time scale: an hour, a day, a week and a month along this ring.
-      [60, 1440, 10080, 43200].forEach((m, j) => {
-        onRing(vx, vy, 1, r + thick + 9, turns(f, m), ex, ey, 0);
-        dot(gl, d++, rot.x, rot.y, rot.z, col.muted, 6, 0.7);
-        c.label(c.pre.ticks.time[4 + j], "tag", rot.x, rot.y, rot.z, -0.5, -0.5, 0.75);
-      });
-    } else if (f.k === "money" && !moneyTicks) {
-      moneyTicks = true;
-      [1000, 10000].forEach((m, j) => {
-        onRing(vx, vy, 1, r + thick + 9, turns(f, m), ex, ey, 0);
-        dot(gl, d++, rot.x, rot.y, rot.z, col.muted, 6, 0.7);
-        c.label(c.pre.ticks.money[j], "tag", rot.x, rot.y, rot.z, -0.5, -0.5, 0.75);
-      });
+    if (f.lo !== f.hi && f.k !== "count") {
+      onRing(vx, vy, 2, r, G0 + GS * s0, ex, ey, 0);
+      dot(gl, d++, rot.x, rot.y, rot.z, color, 12, 0.9);
     }
-  });
-  // Centre: the answer's verdict when it opens with one (a single figure is there already).
-  if (figs.length > 1) {
-    dot(gl, d++, vx, vy, 0, col.fg, 14, 0.6);
-    if (item?.verdict) c.label(item.verdict, "big", vx, vy, 0, -0.5, -0.5, 1);
-  } else if (item?.verdict) c.label(item.verdict, "tag", vx, vy - 26, 0, -0.5, 0, 0.9);
+    onRing(vx, vy, 2, r, G0 + GS * e0, ex, ey, 0);
+    dot(gl, d++, rot.x, rot.y, rot.z, color, 20 + 4 * Math.sin(t * 2.4 + i), 1);
+    // One figure: it is the answer, in the centre; several: each names its dial at the
+    // dial's end, on the side away from the rail (they stack with the dials).
+    if (n === 1) c.label(f.t, "big", vx, vy, 0, -0.5, -0.5, 1, color);
+    else {
+      const away = c.side > 0;
+      onRing(vx, vy, 2, r, away ? G0 + GS : G0, ex, ey, 0);
+      c.label(f.t, "fig", rot.x, rot.y, rot.z, away ? 0 : -1, -0.5, 1, color);
+    }
+    // The scale, along the outermost dial.
+    const ticks = f.k === "time" ? TIME_TICKS : f.k === "money" ? MONEY_TICKS : null;
+    if (ticks && i === 0) {
+      const names = f.k === "time" ? c.pre.ticks.time : c.pre.ticks.money;
+      for (let j = 0; j < ticks.length; j++) {
+        const u = G0 + GS * scaleOf(f, ticks[j]);
+        onRing(vx, vy, 1, r + thick + 12, u, ex, ey, 0);
+        dot(gl, d++, rot.x, rot.y, rot.z, col.muted, 6, 0.8);
+        onRing(vx, vy, 1, r + thick + 24, u, ex, ey, 0);
+        c.label(names[(f.k === "time" ? 4 : 0) + j], "tag", rot.x, rot.y, rot.z, -0.5, -0.5, 0.8);
+      }
+    }
+  }
+  // Centre: the answer's verdict when it opens with one.
+  if (item?.verdict) c.label(item.verdict, n === 1 ? "tag" : "big", vx, vy + (n === 1 ? 30 : 0), 0, -0.5, -0.5, n === 1 ? 0.9 : 1);
   return { d, a, s: c.S };
 }
 
@@ -528,7 +539,7 @@ export function verdict(c: Ctx): Used {
     const no = NO.test(v);
     const color = yes ? col.ok : no ? col.accent : col.ai;
     arc(gl, a++, vx, vy, 0, 0, ey, 0, r, 3, 0, 1, color, 0.9, 0, 0, 0.8);
-    arc(gl, a++, vx, vy, 0, 0, ey, t * 0.3, r * 1.18, 1, 0, 1, color, 0.4, 36.4, 0, 0);
+    arc(gl, a++, vx, vy, 0, 0, ey, t * 0.3, r * 1.18, 1, 0, 1, color, 0.4, dashes(36, 0.4), 0, 0);
     if (yes) {
       seg(gl, s++, vx - r * 0.42, vy + r * 0.02, 1, vx - r * 0.1, vy - r * 0.3, 1, color, 1, 7);
       seg(gl, s++, vx - r * 0.1, vy - r * 0.3, 1, vx + r * 0.46, vy + r * 0.34, 1, color, 1, 7);
