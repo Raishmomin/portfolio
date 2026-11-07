@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera } from "three";
 import { fitFree, sceneFrames } from "../framing";
 import type { SceneProps } from "../types";
-import { STACK, TIER_INDEX } from "./work/layout";
+import { STACK } from "./work/layout";
 import { ArchRig, emptyRegistry, type ArchRegistry } from "./work/rig";
 import { LabelLayer, type Align } from "./stack/labels";
 
@@ -57,12 +57,7 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
   const work = useMemo(() => data.work ?? [], [data.work]);
   const rig = useMemo(() => new ArchRig(work), [work]);
   const index = useMemo(() => new Map(work.map((p, i) => [p.slug, i])), [work]);
-  /** Tier of every technology node (a technology keeps its tier across projects). */
-  const vocabTier = useMemo(() => {
-    const t = new Uint8Array(rig.v);
-    for (const p of work) for (const s of p.stack) t[rig.vocab.index.get(s.key) ?? 0] = TIER_INDEX[s.tier];
-    return t;
-  }, [rig, work]);
+  const vocabTier = rig.tierOf;
   useEffect(() => () => rig.dispose(), [rig]);
   useEffect(() => rig.setPalette(palette), [rig, palette]);
   useEffect(() => rig.setQuality(quality), [rig, quality]);

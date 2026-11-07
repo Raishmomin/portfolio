@@ -9,7 +9,7 @@ import { Color, type Group } from "three";
 import type { NeuralData, ScenePalette } from "../../types";
 import { clamp01, damp, isLight } from "../ai/shared";
 import { createGl, LINK, MAX_LINKS, MAX_PLATFORMS, NODE, NODE_EXTRA, type Gl } from "./gl";
-import { buildVocab, layout, PITCH, STACK, YAW, type Layout, type Vocab } from "./layout";
+import { buildVocab, layout, PITCH, STACK, TIER_INDEX, YAW, type Layout, type Vocab } from "./layout";
 
 const N_IN = 3;
 const N_HID = 4;
@@ -50,6 +50,8 @@ export class ArchRig {
   private readonly wait: Float32Array;
   private readonly col: Float32Array;
   readonly hi: Float32Array;
+  /** Tier of every technology node (a technology keeps its tier in every project). */
+  readonly tierOf: Uint8Array;
   /** Live platforms (client, server, data): y, width, depth, presence. */
   readonly plat = STACK.map(() => ({ y: 0, w: 4, d: 1.2, a: 0 }));
   readonly ai = { x: 3, y: 0, a: 0 };
@@ -76,6 +78,8 @@ export class ArchRig {
     this.wait = new Float32Array(v);
     this.col = new Float32Array(v * 3);
     this.hi = new Float32Array(v);
+    this.tierOf = new Uint8Array(v);
+    for (const p of work) for (const t of p.stack) this.tierOf[this.vocab.index.get(t.key) ?? 0] = TIER_INDEX[t.tier];
     const kind = this.gl.nAttr.aKind.array as Float32Array;
     kind.fill(NODE.tech);
     for (let i = 0; i < N_IN + N_HID; i++) kind[v + i] = NODE.neuron;
@@ -101,7 +105,7 @@ export class ArchRig {
     linkMat.uniforms.uRes.value.set(p.ok);
     linkMat.uniforms.uAi.value.set(p.ai);
     // Snap node colours to the new theme; platform tints = client / server / data.
-    for (let i = 0; i < this.v; i++) this.tier[this.L.tier[i]].toArray(this.col, i * 3);
+    for (let i = 0; i < this.v; i++) this.tier[this.tierOf[i]].toArray(this.col, i * 3);
     const tint = this.gl.pAttr.aTint.array as Float32Array;
     for (let k = 0; k < MAX_PLATFORMS; k++) this.tier[k].toArray(tint, k * 3);
     // The client platform (neutral ink/bone) is toned toward muted so its rim never blooms white.
@@ -140,7 +144,7 @@ export class ArchRig {
           this.pos[o + 2] = L.slot[o + 2] + 1.1;
           this.alpha[i] = 0;
           this.wait[i] = 0.05 + L.order[i] * 0.045;
-          this.tier[L.tier[i]].toArray(this.col, o);
+          this.tier[this.tierOf[i]].toArray(this.col, o);
         }
         this.talpha[i] = 1;
       } else if (this.talpha[i] > 0) {
@@ -256,7 +260,7 @@ export class ArchRig {
         this.alpha[i] = damp(this.alpha[i], this.talpha[i], this.talpha[i] > 0 ? 6 : 4.5, dt);
         if (this.alpha[i] < 0.004 && this.talpha[i] === 0) this.alpha[i] = 0;
       }
-      const c = this.tier[L.tier[i]];
+      const c = this.tier[this.tierOf[i]];
       this.col[o] = damp(this.col[o], c.r, 6, dt);
       this.col[o + 1] = damp(this.col[o + 1], c.g, 6, dt);
       this.col[o + 2] = damp(this.col[o + 2], c.b, 6, dt);
@@ -352,9 +356,9 @@ export class ArchRig {
         push(this.port(prev) * 3, this.port(k) * 3, 0.17, Math.min(this.plat[prev].a, this.plat[k].a), LINK.spine, this.tier[3], prev * 0.31);
       prev = k;
     }
-    // Spokes: each platform's port to its technologies.
+    // Spokes: each platform's port to its technologies (dissolving ones included).
     for (let i = 0; i < v; i++) {
-      const t = L.tier[i];
+      const t = this.tierOf[i];
       if (t > 2 || this.alpha[i] <= 0.01) continue;
       push(this.port(t) * 3, i * 3, 0.05, this.alpha[i] * this.plat[t].a * 0.85, LINK.spoke, this.tier[t], i * 0.173);
     }
@@ -370,7 +374,7 @@ export class ArchRig {
         for (let h = 0; h < nHidden; h++) push(o, (v + N_IN + h) * 3, 0.035, ai.a * 0.7, LINK.ai, aiC, (j * 4 + h) * 0.21);
       }
       for (let i = 0; i < v; i++) {
-        if (L.tier[i] !== 4 || this.alpha[i] <= 0.01) continue;
+        if (this.tierOf[i] !== 4 || this.alpha[i] <= 0.01) continue;
         for (let h = 0; h < nHidden; h++) push((v + N_IN + h) * 3, i * 3, 0.035, ai.a * this.alpha[i] * 0.8, LINK.ai, aiC, (i + h) * 0.29);
       }
     }

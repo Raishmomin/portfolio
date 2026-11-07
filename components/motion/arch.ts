@@ -27,6 +27,7 @@ export function arch(el: HTMLElement): Binding {
   let sent = "";
   let raf = 0;
   let hold = 0;
+  let pending: Element | null = null;
 
   const pick = () => {
     raf = 0;
@@ -47,11 +48,19 @@ export function arch(el: HTMLElement): Binding {
     }
     // A fast scroll would flick through projects every few frames: the reading line's
     // project takes over once it has held for a moment (hover and focus switch at once).
+    // The timer restarts only when the candidate changes, so a steady scroll still switches.
+    if (best === scrolled) {
+      window.clearTimeout(hold);
+      pending = null;
+      return;
+    }
+    if (best === pending) return;
     window.clearTimeout(hold);
-    if (best === scrolled) return;
+    pending = best;
     hold = window.setTimeout(
       () => {
         scrolled = best;
+        pending = null;
         emit();
       },
       scrolled ? HOLD_MS : 0,
