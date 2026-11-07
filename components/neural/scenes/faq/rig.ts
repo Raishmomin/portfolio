@@ -18,7 +18,7 @@ import { framing, sceneFrames } from "../../framing";
 import type { NeuralData, ScenePalette } from "../../types";
 import { isLightBg, layerColors, paletteColor } from "../stack/gl";
 import type { Align, LabelLayer } from "../stack/labels";
-import { FaqGL, arc, dashes, dot, seg } from "./gl";
+import { ARC, FaqGL, SEG, arc, dashes, dot, seg } from "./gl";
 import {
   beacon,
   bloom,
@@ -160,7 +160,6 @@ export class FaqRig {
   private kind: Kind = "field";
   private switchT = 0;
   private room = 0;
-  private time = 0;
 
   // Labels.
   private layer: LabelLayer | null = null;
@@ -470,7 +469,6 @@ export class FaqRig {
       return;
     }
     const d = Math.min(dt, 0.1);
-    this.time = time;
     this.cam = camera;
     this.W = size.width;
     this.H = size.height;
@@ -774,10 +772,10 @@ function bez(x0: number, y0: number, x1: number, y1: number, x2: number, y2: num
 }
 
 function hideArc(gl: FaqGL, i: number) {
-  gl.arcs.tgt[i * 17 + 13] = 0;
+  gl.arcs.tgt[i * ARC.stride + ARC.alpha] = 0;
 }
 function hideSeg(gl: FaqGL, i: number) {
-  gl.segs.tgt[i * 13 + 9] = 0;
+  gl.segs.tgt[i * SEG.stride + SEG.alpha] = 0;
 }
 function hideRange(tgt: Float32Array, stride: number, alpha: number, from: number, to: number) {
   for (let i = from; i < to; i++) tgt[i * stride + alpha] = 0;
