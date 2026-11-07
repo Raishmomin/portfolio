@@ -117,14 +117,21 @@
  *                               no layout shift, compositor scrolling. While live:
  *                               data-hscroll-live on the section, data-hscroll-frame on the
  *                               wrapper, the track is one row (app/globals.css) and each
- *                               child's width comes from style="--hs-w: 30rem". Cards on the
- *                               first screen rise in with the section, the rest swing in from
- *                               depth as the track brings them in (put data-card-group on the
- *                               track; on phones the group's wave takes over). Exposed:
- *                               --hscroll-progress (0..1) and --hscroll-fill (share of the
- *                               track behind the reading line at 62% of the viewport) on the
- *                               section, data-lit on track children behind that line, and a
- *                               bubbling "cp:hscroll" event { progress }. Keyboard focus
+ *                               child's width comes from style="--hs-w: 30rem". The frame
+ *                               runs full-bleed and fades the track out at the viewport edges
+ *                               (the first / last item rest fully visible at the ends). Cards on
+ *                               the first screen rise in with the section, the rest swing in
+ *                               from depth as the track brings them in (put data-card-group on
+ *                               the track; on phones the group's wave takes over). The reading
+ *                               line sits at 50% of the viewport and sweeps to 92% over the last
+ *                               part of the journey. Exposed on the section: --hscroll-progress
+ *                               (0..1), --hscroll-fill (share of the track behind the line),
+ *                               --hscroll-line (the line, px from the viewport's left),
+ *                               --hscroll-band (px of free frame above the track),
+ *                               --hscroll-edge (px faded at each edge); on track children
+ *                               data-lit once the line passes their start and --hs-lit (0..1,
+ *                               how far the line has crossed them); and a bubbling
+ *                               "cp:hscroll" event { progress, line }. Keyboard focus
  *                               inside the track scrolls the page so the item is centred;
  *                               in-page links to the section land at the journey's start.
  *                               Without it (phones, no-JS, motion off) the track is your

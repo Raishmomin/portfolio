@@ -506,15 +506,21 @@ html.motion-live [data-card-wait][data-card-in] [data-card-part="pop"] > * {
     padding: 0;
     overflow-x: clip;
   }
+  /* Full-bleed frame: the track keeps the container's inset at its ends (--hs-pad) and
+     fades out over --hscroll-edge at each viewport edge, so items enter and leave softly. */
   div[data-hscroll-frame] {
+    --hs-pad: max(calc((100% - 1280px) / 2 + 2rem), 5rem);
+    --hs-edge: var(--hscroll-edge, 4rem);
     position: sticky;
     top: 0;
     display: flex;
     height: 100svh;
+    max-width: none;
     flex-direction: column;
     justify-content: flex-end;
-    padding-top: 5rem;
-    padding-bottom: 2.5rem;
+    padding: 5rem var(--hs-pad) 2.5rem;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--hs-edge), #000 calc(100% - var(--hs-edge)), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--hs-edge), #000 calc(100% - var(--hs-edge)), transparent);
   }
   [data-hscroll-live] [data-hscroll-track] {
     display: flex;
@@ -580,18 +586,67 @@ html.motion-live [data-card-wait][data-card-in] [data-card-part="pop"] > * {
   background: hsl(var(--ok));
   box-shadow: 0 0 0 4px hsl(var(--ok) / 0.18);
 }
+/* Scroll-linked: the fill runs with the reading line (and the 3D trail head). */
 [data-hscroll-live] .exp-rail-fill {
-  transform: scaleX(0);
-  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-}
-[data-hscroll-live] [data-lit] .exp-rail-fill {
-  transform: scaleX(1);
+  transform: scaleX(var(--hs-lit, 0));
 }
 [data-hscroll-live] :not([data-lit]) > .exp-rail > .exp-node {
   border-color: hsl(var(--muted-foreground));
   background: hsl(var(--background));
   box-shadow: none;
 }
+
+/* fm2-exp */
+/* Experience journey, live (desktop horizontal track): the 3D career path owns the band
+   above the cards. Each role's stop rises on a stem from the rail at the card tops (later
+   roles stand higher: growth), and the 3D milestone ring sits on that dot. */
+.exp-stem {
+  display: none;
+}
+@media (min-width: 1024px) {
+  [data-hscroll-live] .exp-rail {
+    --stem: calc(var(--hscroll-band, 30vh) * (0.3 + 0.38 * var(--rise, 0.5)));
+  }
+  [data-hscroll-live] .exp-stem {
+    position: absolute;
+    left: 5px;
+    bottom: 50%;
+    display: block;
+    width: 1px;
+    height: var(--stem);
+    background: linear-gradient(to top, hsl(var(--border)), hsl(var(--muted-foreground) / 0.35));
+  }
+  [data-hscroll-live] [data-lit] .exp-stem {
+    background: linear-gradient(to top, hsl(var(--primary) / 0.7), hsl(var(--primary) / 0.15));
+  }
+  [data-hscroll-live] [data-lit] .exp-rail[data-current] .exp-stem {
+    background: linear-gradient(to top, hsl(var(--ok) / 0.7), hsl(var(--ok) / 0.15));
+  }
+  [data-hscroll-live] .exp-node {
+    transform: translateY(calc(-1 * var(--stem)));
+  }
+  html.motion-live [data-hscroll-live] [data-lit] .exp-node[data-current] {
+    animation: exp-now 2.4s ease-in-out infinite;
+  }
+}
+/* Short desktop viewports (e.g. 1536×732 at 125% scaling): a tighter frame, so the band
+   above the cards keeps its share of the height. */
+@media (min-width: 1024px) and (max-height: 800px) {
+  div[data-hscroll-frame] {
+    padding-top: 4.25rem;
+    padding-bottom: 1.25rem;
+  }
+}
+@keyframes exp-now {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px hsl(var(--ok) / 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 9px hsl(var(--ok) / 0.06);
+  }
+}
+/* end fm2-exp */
 
 /* [data-spotlight] (mouse/trackpad): a light follows the pointer inside the card and along
    its 1px border, and one light sweep runs round the border on enter. The inner glow sits
