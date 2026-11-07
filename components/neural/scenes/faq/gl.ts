@@ -14,7 +14,6 @@ import {
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   Mesh,
-  PlaneGeometry,
   ShaderMaterial,
   type Color,
   BufferAttribute,
@@ -22,6 +21,7 @@ import {
 import { GLOW_OUT, Sprites, setGlowBlending } from "../stack/gl";
 
 /** Ease rate (1/s) while a visual morphs in, and once it has settled (tracks live motion). */
+const ARC_SEGS = 96; // strip segments per arc (sub-pixel chord error up to r ≈ 400 px)
 const RATE_MORPH = 5.2;
 const RATE_SETTLED = 16;
 const SETTLE_S = 1.3;
@@ -100,8 +100,20 @@ const ARC_VERT = /* glsl */ `
     return rx * ry * rz;
   }
   void main() {
-    float ext = aR.x + aR.y * (0.5 + 2.5 * aA.w) + 3.0;
-    vec2 p = position.xy * ext;
+    // A strip around the band only (position.x = along the arc 0..1, .y = inner/outer
+    // edge), widened by the glow and by round caps: no fill outside what can light up.
+    float ext = aR.y * (0.5 + 2.5 * aA.w) + 3.0;
+    float span = aR.w - aR.z;
+    float a0 = 0.0;
+    float a1 = 1.0;
+    if (span < 0.999) {
+      float cap = ext / (6.2831853 * max(aR.x, 1.0));
+      a0 = aR.z - cap;
+      a1 = aR.w + cap;
+    }
+    float ang = (a0 + (a1 - a0) * position.x) * 6.2831853;
+    float rad = max(0.0, aR.x + position.y * ext);
+    vec2 p = vec2(sin(ang), cos(ang)) * rad;
     vP = p;
     vR = aR;
     vCol = aCol;
@@ -251,9 +263,14 @@ export class FaqGL {
     this.segs = new Pool(nSegs, SEG.stride, SEG.alpha, [SEG.flow]);
     this.sprites = new Sprites(nDots, { core: 0.22, halo: 0.95, renderOrder: 3 });
 
-    const quad = new PlaneGeometry(2, 2);
-    this.arcGeo.index = quad.index;
-    this.arcGeo.setAttribute("position", quad.getAttribute("position"));
+    const strip = new Float32Array((ARC_SEGS + 1) * 2 * 3);
+    const idx: number[] = [];
+    for (let i = 0; i <= ARC_SEGS; i++) {
+      strip.set([i / ARC_SEGS, -1, 0, i / ARC_SEGS, 1, 0], i * 6);
+      if (i < ARC_SEGS) idx.push(2 * i, 2 * i + 1, 2 * i + 2, 2 * i + 2, 2 * i + 1, 2 * i + 3);
+    }
+    this.arcGeo.setIndex(idx);
+    this.arcGeo.setAttribute("position", new BufferAttribute(strip, 3));
     this.arcGeo.instanceCount = nArcs;
     this.arcAttr = {
       c: instanced(this.arcGeo, "aC", new Float32Array(nArcs * 3), 3),

@@ -978,15 +978,15 @@ html.motion-live [data-arch-active] > .panel {
 html.motion-live .faq-card[open] {
   translate: 0 -3px;
 }
-html.motion-live details.faq .faq-a {
-  opacity: 0;
-  translate: 0 -6px;
-  transition: opacity 0.3s ease, translate 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-}
+/* The answer fades and slides in as its card opens (at rest it is never transparent). */
 html.motion-live details.faq[open] .faq-a {
-  opacity: 1;
-  translate: 0 0;
-  transition-delay: 0.08s;
+  animation: faq-answer 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+@keyframes faq-answer {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
 }
 .faq-q {
   position: relative;
