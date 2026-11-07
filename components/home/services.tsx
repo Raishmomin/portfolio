@@ -74,7 +74,6 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
                   </span>
                 </span>
               </Link>
-              <span aria-hidden="true" className="svc-wire" />
             </li>
           ))}
         </ul>

@@ -1,20 +1,31 @@
 // /services list, "right" composition: the engagements run down the right column while the
 // services scene builds the one at the reading line (or under the pointer / keyboard focus)
 // as a working system on the left; the [data-arch] spy lights that card, so the two always
-// agree. Each title is a real link stretched over its card. Without motion: a plain list.
+// agree. On phones the section opens with a room for the machine above its heading. Each
+// title is a real link stretched over its card. Without motion: a plain list.
 import Link from "next/link";
 import type { ServiceConfig } from "@/lib/services";
 import { Accent } from "../../ui/primitives";
 import { PageSection, PopPills, SectionHead, card, column, lit, nn, part, type PageScene } from "../ui";
 
 const lastWord = (text: string) => text.slice(text.lastIndexOf(" ") + 1);
+/** Single-line chips: "AWS (EC2, …)" -> "AWS", "Express / Fastify" -> "Express", "Fastify". */
+const chips = (stack: string[], max = 8) => [...new Set(stack.flatMap((t) => t.replace(/\s*\(.*?\)/g, "").split(" / ").map((x) => x.trim())))].slice(0, max);
 const lead = (text: string) => text.slice(0, text.lastIndexOf(" ") + 1);
 /** The services scene (a stage scene key the shared PageScene type does not list yet). */
 export const SERVICES_SCENE = "services" as PageScene;
 
 export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
   return (
-    <PageSection id="engagements" section="engagements" scene={SERVICES_SCENE} stage="right" labelledBy="engagements-heading">
+    // Phones: the section opens with a room for the machine above its heading, as on home.
+    <PageSection
+      id="engagements"
+      section="engagements"
+      scene={SERVICES_SCENE}
+      stage="right"
+      labelledBy="engagements-heading"
+      className="pt-[38svh] md:pt-[38svh]"
+    >
       <div className={column.right}>
         <div {...card()} className="panel p-6 md:p-8">
           <SectionHead
@@ -62,7 +73,7 @@ export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
                 <p {...part} className="mt-3 text-[17px] leading-7 text-muted-foreground">
                   {s.tagline}
                 </p>
-                <PopPills items={s.techStack.slice(0, 6)} label={`${s.h1} stack`} className="mb-6 mt-5" pillClassName="svc-chip" />
+                <PopPills items={chips(s.techStack.slice(0, 6))} label={`${s.h1} stack`} className="mb-6 mt-5" pillClassName="svc-chip" />
                 <dl {...part} className="mt-auto flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-border pt-5">
                   <div className="flex items-baseline gap-2">
                     <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">From</dt>
@@ -72,7 +83,6 @@ export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
                   <dd className="text-sm leading-6 text-muted-foreground">{s.pricing.model}</dd>
                 </dl>
               </article>
-              <span aria-hidden="true" className="svc-wire" />
             </li>
           ))}
         </ol>

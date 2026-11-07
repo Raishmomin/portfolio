@@ -8,6 +8,7 @@ import { SITE_URL } from "@/lib/config";
 import { Accent, ButtonLink } from "../../components/ui/primitives";
 import { NeuralStage } from "../../components/neural";
 import { SERVICES_SCENE, ServiceIndex } from "../../components/pages/services/service-index";
+import { SERVICE_ROOM } from "../../components/pages/services/scene-note";
 import { CtaSection } from "../../components/pages/cta";
 import { PageIntro, PageSection, SectionHead, card, part } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
@@ -71,11 +72,12 @@ export default async function ServicesIndex() {
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
         <NeuralStage data={neural} />
+        <div {...SERVICE_ROOM} />
         <PageIntro
           crumbs={[{ name: "Home", href: "/" }, { name: "Services" }]}
           kicker={`~/services · ${services.length} engagements`}
           scene={SERVICES_SCENE}
-          note="On the right, the four engagements take turns in 3D, each built as the system it delivers."
+          note="In 3D: the four engagements take turns, each built as the system it delivers."
           title={
             <>
               How I help <Accent>teams ship.</Accent>

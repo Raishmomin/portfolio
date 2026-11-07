@@ -6,7 +6,7 @@ import { TEXT_LINK } from "./pages/about/subpage";
 import { CtaSection } from "./pages/cta";
 import { PageIntro, PageSection, PopPills, SectionHead, card, column, lit, nn, part } from "./pages/ui";
 import { SERVICES_SCENE } from "./pages/services/service-index";
-import { serviceSceneNote } from "./pages/services/scene-note";
+import { SERVICE_ROOM, serviceSceneNote } from "./pages/services/scene-note";
 import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import { SERVICE_SLUGS, type ServiceConfig } from "@/lib/services";
@@ -42,7 +42,8 @@ function splitHeadline(text: string): [string, string] {
 }
 
 /**
- * One service page in the home design language: intro (left, the stack network), the brief
+ * One service page in the home design language: intro (left, this service's 3D machine;
+ * on phones it runs in a room above the headline), the brief
  * as three floating cards (full), the approach as steps on a drawn line (right),
  * deliverables under a band of shipped projects (band, the work wall), related writing
  * (left), FAQ (right) and the closing call to action (full).
@@ -57,6 +58,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
   return (
     // data-service-pin: the services scene shows this page's own service.
     <article data-service-pin={config.slug}>
+      <div {...SERVICE_ROOM} />
       <PageIntro
         crumbs={[{ name: "Home", href: "/" }, { name: "Services", href: "/services" }, { name: config.h1 }]}
         kicker={`service · ${nn(position)} / ${nn(SERVICE_SLUGS.length)}`}

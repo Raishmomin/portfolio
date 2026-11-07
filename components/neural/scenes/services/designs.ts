@@ -439,7 +439,9 @@ function devops(slug: string, tech: string[], low: boolean): Design {
   b.label(/^Docker/, buildAt[0], buildAt[1] - 0.32, 0, "b");
   b.label(/Argo|Flux/, 0.95, 0.5, 0.45, "t");
   b.label(/Kubernetes|EKS|Helm/, 2.15, FY - 0.1, 1.15, "b");
-  b.label(/Terraform|OpenTofu/, 3.25, 0.2, -1.3, "t");
+  // Infrastructure as code names the outline at its far (right) top corner, clear of the
+  // delivery arrow's Argo CD label.
+  b.label(/Terraform|OpenTofu/, 3.8, 0.2, -1.3, "t");
   b.label(/^AWS/, 0.5, FY - 0.02, 1.3, "l");
   b.label(/Grafana|Prometheus/, MX, MY + 0.58, -0.4, "t");
 
@@ -497,10 +499,12 @@ function devops(slug: string, tech: string[], low: boolean): Design {
 
 // ---------- 4. API & Backend: a gateway checks auth and rate limits, the backend answers ----------
 
-type Req = { on: boolean; t0: number; client: number; ok: boolean; phase: number };
+type Req = { on: boolean; t0: number; client: number; ok: boolean; phase: number; traced: boolean };
 
 function api(slug: string, tech: string[]): Design {
   const b = new Builder(tech);
+  // Phase lengths: in, gateway → node, node → db, db → node, node → gateway, gateway → client.
+  const D = [0.55, 0.42, 0.4, 0.4, 0.42, 0.55];
   const clients = [1.15, 0, -1.15].map((y) => [-3.6, y, 0.1]);
   for (const c of clients) {
     b.sprite(c[0], c[1], c[2], 0.44, T.fg, SPRITE.orb);
@@ -509,9 +513,11 @@ function api(slug: string, tech: string[]): Design {
   const GX = -1.3;
   const gate = [GX, 0.72, 0.12];
   b.slab(GX, 0.05, 0, 1.05, 3.65, T.accent);
+  // Validation ring: pulses as each request is checked.
   const shield = b.sprite(gate[0], gate[1], gate[2], 1.05, T.ai, SPRITE.ring);
-  b.sprite(gate[0], gate[1], gate[2], 0.3, T.ai, SPRITE.orb);
-  const meter = [0, 1, 2, 3, 4].map((k) => b.slab(GX, -0.42 - k * 0.27, 0.1, 0.62, 0.17, T.accent, SLAB.block, 1));
+  const check = b.sprite(gate[0], gate[1], gate[2], 0.3, T.ai, SPRITE.orb);
+  // Rate-limit meter: five bars that fill from the bottom as a burst uses up the bucket.
+  const meter = [0, 1, 2, 3, 4].map((k) => b.slab(GX, -1.5 + k * 0.27, 0.1, 0.62, 0.17, k === 4 ? T.fg : T.accent, SLAB.block, 0));
   for (const c of clients) b.link([c[0] + 0.3, c[1], c[2]], [gate[0] - 0.38, gate[1], gate[2]], 0.035, T.muted, LINK.plain, 0, 0, 0.7);
   // Backend: Node.js handler, database, job queue and its worker.
   const NX = 0.85;
@@ -521,40 +527,54 @@ function api(slug: string, tech: string[]): Design {
   const discs = [0, 1, 2].map((k) => b.disc(DBX, NY + 0.28 - k * 0.28, 0, 0.55, 0.2, T.ok));
   b.link([gate[0] + 0.4, gate[1], 0.05], [NX - 0.62, NY, 0.05], 0.1, T.muted, LINK.lanes, 1.6, 0);
   b.link([NX + 0.62, NY, 0.05], [DBX - 0.62, NY, 0.05], 0.1, T.muted, LINK.lanes, 1.6, 0.3);
-  const QY = -1.2;
+  const QY = -1.12;
   const jobs = [0, 1, 2, 3, 4].map((k) => b.box(0.3 + k * 0.5, QY, 0, 0.34, 0.34, 0.34, T.ai, 0.25));
   const worker = b.sprite(3.0, QY, 0.05, 0.56, T.ai, SPRITE.orb);
   b.sprite(3.0, QY, 0.05, 0.95, T.ai, SPRITE.ring);
   b.link([NX, NY - 0.6, 0], [NX - 0.55, QY + 0.25, 0], 0.04, T.ai, LINK.flow, 0.9, 0);
   b.link([2.62, QY, 0], [2.72, QY, 0], 0.04, T.ai, LINK.plain);
-  // Traces: a request's spans as a waterfall.
-  const spans = [
-    b.slab(-0.55, -2.0, 0, 2.7, 0.15, T.muted, SLAB.block, 1),
-    b.slab(0.3, -2.24, 0, 1.75, 0.15, T.accent, SLAB.block, 1),
-    b.slab(1.05, -2.48, 0, 0.95, 0.15, T.ok, SLAB.block, 1),
+  // Traces: one sampled request per burst drawn as a waterfall on a time axis: the gateway
+  // span, the handler inside it, the query inside that. Each bar grows left to right in step
+  // with the request it measures.
+  const TX = -2.0;
+  const TW = 4.4;
+  const total = D[1] + D[2] + D[3] + D[4];
+  const TS = TW / total;
+  const SY = -1.95;
+  const spanT: [number, number][] = [
+    [0, total],
+    [D[1], D[1] + D[2] + D[3]],
+    [D[1] + D[2] * 0.85, D[1] + D[2] + D[3] * 0.15],
   ];
-  b.link([-1.95, -1.82, 0], [-1.95, -2.62, 0], 0.025, T.muted, LINK.dash, 0.5);
+  const spans = spanT.map(([s0, s1], k) =>
+    b.slab(TX + ((s0 + s1) / 2) * TS, SY - k * 0.22, 0, (s1 - s0) * TS, 0.15, k === 0 ? T.ai : k === 1 ? T.accent : T.ok, SLAB.block, 0),
+  );
+  const AY = SY - 0.62;
+  b.link([TX, AY, 0], [TX + TW, AY, 0], 0.022, T.muted, LINK.plain, 0, 0, 0.9);
+  for (let k = 0; k <= 4; k++) b.link([TX + (k / 4) * TW, AY + 0.07, 0], [TX + (k / 4) * TW, AY - 0.07, 0], 0.02, T.muted, LINK.plain, 0, 0, 0.9);
+  b.link([TX, SY + 0.14, 0], [TX, AY, 0], 0.02, T.muted, LINK.dash, 0.5, 0, 0.8);
 
   b.label(/Express|Fastify|Hono/, GX, 1.95, 0, "t");
   b.label(/Zod|OpenAPI/, gate[0], gate[1] - 0.42, gate[2], "b");
   b.label(/^Node/, NX, NY + 0.62, 0, "t");
   b.label(/Postgre|Mongo/, DBX, NY + 0.55, 0, "t");
   b.label(/BullMQ|SQS/, 1.3, QY - 0.3, 0, "b");
-  b.label(/pino|OpenTelemetry/, -2.05, -2.24, 0, "l");
+  b.label(/pino|OpenTelemetry/, TX - 0.05, SY, 0, "l");
 
   const inbound = clients.map((c) => new Path([[c[0] + 0.25, c[1], c[2] + 0.05], [gate[0] - 0.3, gate[1], gate[2] + 0.05]]));
   const toNode = new Path([[gate[0], gate[1], 0.15], [NX, NY, 0.25]]);
   const toDb = new Path([[NX, NY, 0.25], [DBX, NY, 0.25]]);
-  const reqs: Req[] = Array.from({ length: 12 }, () => ({ on: false, t0: 0, client: 0, ok: true, phase: 0 }));
+  const reqs: Req[] = Array.from({ length: 14 }, () => ({ on: false, t0: 0, client: 0, ok: true, phase: 0, traced: false }));
   const CAP = 5;
   let tokens = CAP;
   let last = -1;
   let spawned = 0;
   let flash = 0;
-  const BURST = 7;
-  const spawnAt = (k: number) => Math.floor(k / BURST) * 3.4 + (k % BURST) * 0.2;
-  // Phase lengths: in, gateway → node, node → db, db → node, node → gateway, gateway → client.
-  const D = [0.55, 0.42, 0.4, 0.4, 0.42, 0.55];
+  let pulse = 0;
+  let trace = -1e9;
+  const BURST = 8;
+  const GAP = 3.6;
+  const spawnAt = (k: number) => Math.floor(k / BURST) * GAP + (k % BURST) * 0.19;
   const REJECT = 0.6;
   return {
     slug,
@@ -568,11 +588,13 @@ function api(slug: string, tech: string[]): Design {
         // Rebuilt: start over with a full bucket.
         tokens = CAP;
         spawned = 0;
+        trace = -1e9;
         for (const r of reqs) r.on = false;
       }
       last = t;
-      tokens = Math.min(CAP, tokens + live.dt * 1.4);
-      flash = Math.max(0, flash - live.dt * 3);
+      tokens = Math.min(CAP, tokens + live.dt * 1.2);
+      flash = Math.max(0, flash - live.dt * 2.4);
+      pulse = Math.max(0, pulse - live.dt * 5);
       // Requests arrive in bursts (round-robin over the clients): the bucket drains during a
       // burst, the last ones get a 429, and it refills in the lull.
       while (spawnAt(spawned) <= t) {
@@ -584,6 +606,7 @@ function api(slug: string, tech: string[]): Design {
           r.client = (spawned * 2) % 3;
           r.phase = 0;
           r.ok = true;
+          r.traced = spawned % BURST === 0;
         }
         spawned++;
       }
@@ -596,10 +619,13 @@ function api(slug: string, tech: string[]): Design {
           continue;
         }
         if (r.phase === 0) {
-          // At the gateway: a token per request, or 429 back to the client.
+          // At the gateway: validated, then a token per request, or 429 back to the client.
           r.phase = 1;
-          if (tokens >= 1) tokens -= 1;
-          else {
+          if (tokens >= 1) {
+            tokens -= 1;
+            pulse = 1;
+            if (r.traced) trace = r.t0 + D[0];
+          } else {
             r.ok = false;
             flash = 1;
           }
@@ -632,15 +658,24 @@ function api(slug: string, tech: string[]): Design {
         }
         if (done) r.on = false;
       }
-      for (let k = 0; k < meter.length; k++) live.fill(meter[k], clamp01(tokens - (CAP - 1 - k)));
-      live.glow(2, shield, flash);
+      // The meter: how much of the bucket this burst has used.
+      const used = CAP - tokens;
+      for (let k = 0; k < meter.length; k++) live.fill(meter[k], clamp01(used - k));
+      // Validation pulse per request; a 429 flashes the whole gateway.
+      live.glow(2, shield, Math.max(pulse * 0.8, flash));
+      live.glow(2, check, pulse);
+      if (flash > 0.02) live.packet(gate[0], gate[1] - 0.6, gate[2] + 0.15, 0.9 + (1 - flash) * 1.6, T.accent, flash * 0.75);
       // Job queue: boxes step toward the worker.
       const q = (t / 0.9) % 1;
       live.glow(0, jobs[jobs.length - 1], smooth(q * 2 - 1));
       live.glow(2, worker, q < 0.25 ? 1 - q * 4 : 0);
-      // Spans grow in order, then hold.
-      const s = (t % 3.2) / 3.2;
-      for (let k = 0; k < spans.length; k++) live.fill(spans[k], smooth((s - k * 0.12) / 0.3));
+      // The sampled trace: bars grow as the request moves through each part, a cursor marks now.
+      const age = t - trace;
+      for (let k = 0; k < spans.length; k++) {
+        const [s0, s1] = spanT[k];
+        live.fill(spans[k], age < 0 || age > GAP - 0.25 ? 0 : clamp01((age - s0) / (s1 - s0)));
+      }
+      if (age >= 0 && age <= total) live.packet(TX + age * TS, AY, 0.06, 0.2, T.fg, 1);
     },
   };
 }

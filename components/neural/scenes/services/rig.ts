@@ -19,6 +19,8 @@ const YAW = 0.3;
 const PITCH = 0.1;
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+/** Assembly delay of a part at layout x (s): machines build left to right. */
+export const stagger = (x: number) => 0.03 + clamp01((x + 4.2) / 8.4) * 0.5;
 const damp = (a: number, b: number, lambda: number, dt: number) => a + (b - a) * (1 - Math.exp(-lambda * dt));
 
 /**
@@ -228,7 +230,8 @@ export class ServicesRig {
   readonly labelAlpha: Float32Array;
   current = -1;
   private prev = -1;
-  private clock = 0;
+  /** Seconds since the current machine started assembling. */
+  clock = 0;
   private prevClock = 0;
   private time = 0;
   private readonly live = new LiveImpl(this);
@@ -281,7 +284,6 @@ export class ServicesRig {
   private apply(d: number, snapColor = false) {
     const D = this.designs[d];
     const v: number[] = new Array(12).fill(0);
-    const stagger = (x: number) => 0.03 + clamp01((x + 4.2) / 8.4) * 0.5;
     const fix = (tr: Track, i: number, o: number) => {
       // Theme change: colours jump to their new values.
       if (snapColor) for (let c = 0; c < 3; c++) tr.cur[i * tr.ch + o + c] = tr.tgt[i * tr.ch + o + c] = v[o + c];
@@ -460,9 +462,11 @@ export class ServicesRig {
     live.t = this.clock - ASSEMBLE;
     live.mul = clamp01(live.t / 0.5);
     if (live.t > 0) this.designs[this.current].animate(live);
+    // Machine-level label presence: the outgoing machine's names leave within ~150 ms; the
+    // incoming ones are gated per label on their part's assembly (see the component).
     for (let i = 0; i < n; i++) {
-      const target = i === this.current && this.clock > 0.5 ? 1 : 0;
-      this.labelAlpha[i] = damp(this.labelAlpha[i], target, target ? 4 : 9, dt);
+      const target = i === this.current ? 1 : 0;
+      this.labelAlpha[i] = target ? damp(this.labelAlpha[i], 1, 10, dt) : Math.max(0, this.labelAlpha[i] - dt / 0.15);
     }
 
     this.write(live.ns, live.nb);

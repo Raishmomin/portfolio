@@ -100,8 +100,12 @@ void main() {
   float r = min(0.16, min(h.x, h.y) * 0.6);
   float d = sdBox(vP, h, r);
   float body = fill(d);
-  float edge = fill(abs(d) - 0.011);
+  // Paper: thicker inked edges so panels read as solid, not as a wireframe.
+  float edge = fill(abs(d) - mix(0.011, 0.017, uLight));
   float od = max(d, 0.0);
+  // Paper: a soft drop shadow under every panel and block.
+  float sd = max(sdBox(vP + vec2(0.04, 0.1), h, r), 0.0);
+  float shadow = exp(-sd * 9.0) * (1.0 - body) * uLight;
   vec3 col;
   float a;
   if (vStyle < 0.5 || vStyle > 1.5) {
@@ -111,20 +115,20 @@ void main() {
     float sweep = smoothstep(0.5, 0.0, abs(fract(vP.x * 0.1 + vP.y * 0.05 - uTime * 0.05) - 0.5) - 0.34);
     float bar = step(1.5, vStyle) * step(h.y - 0.34, vP.y);
     vec3 glass = mix(uBg, vTint, 0.08 + 0.05 * bar) + sweep * 0.03;
-    vec3 glassL = mix(vec3(1.0), vTint, 0.04 + 0.06 * bar);
+    vec3 glassL = mix(mix(uBg, uFg, 0.035), vTint, 0.08 + 0.08 * bar);
     col = mix(glass, glassL, uLight);
-    a = body * mix(0.42 + 0.18 * bar, 0.84, uLight);
+    a = body * mix(0.42 + 0.18 * bar, 0.93, uLight);
     col = mix(col, mix(vTint, uFg, 0.3 * uLight), grid * 0.45);
     a = max(a, grid * body * mix(0.2, 0.12, uLight));
     // Title-bar divider.
     float div = step(1.5, vStyle) * (1.0 - smoothstep(0.0, fwidth(vP.y) * 1.5, abs(vP.y - (h.y - 0.34)))) * body;
     col = mix(col, mix(vTint, uFg, 0.4 * uLight), div * 0.6);
-    vec3 rim = mix(vTint * 1.2, mix(vTint, uFg, 0.35), uLight);
+    vec3 rim = mix(vTint * 1.2, mix(vTint, uFg, 0.45), uLight);
     col = mix(col, rim, edge);
-    a = max(a, edge * mix(0.9, 0.8, uLight));
+    a = max(a, edge * mix(0.9, 0.95, uLight));
     float glow = exp(-od * 8.0) * (1.0 - body);
     vec3 outCol = mix(vTint, uFg, uLight);
-    float outA = mix(glow * 0.2, glow * 0.06, uLight);
+    float outA = mix(glow * 0.2, shadow * 0.16, uLight);
     float A = a + outA * (1.0 - a);
     col = (col * a + outCol * outA * (1.0 - a)) / max(A, 1e-4);
     a = A;
@@ -133,15 +137,17 @@ void main() {
     float x = (vP.x + h.x) / max(2.0 * h.x, 1e-3);
     float filled = 1.0 - smoothstep(vFill - 0.02, vFill + 0.02, x);
     float shimmer = smoothstep(0.42, 0.0, abs(fract(x * 0.5 - uTime * 0.7) - 0.5)) * uDetail;
-    vec3 skel = mix(mix(uBg, uMuted, 0.22), mix(vec3(1.0), uMuted, 0.18), uLight) + shimmer * mix(0.08, 0.06, uLight) * mix(1.0, -1.0, uLight);
-    vec3 solid = mix(mix(vTint, uBg, 0.24), mix(vTint, uFg, 0.15), uLight);
+    // Paper: unfilled blocks are ink-tinted skeletons, filled ones solid colour.
+    vec3 skel = mix(mix(uBg, uMuted, 0.22), mix(uBg, uFg, 0.17), uLight) + shimmer * mix(0.08, 0.05, uLight) * mix(1.0, -1.0, uLight);
+    vec3 solid = mix(mix(vTint, uBg, 0.24), mix(vTint, uFg, 0.12), uLight);
     col = mix(skel, solid, filled);
-    a = body * mix(mix(0.55, 0.7, uLight), mix(0.9, 0.92, uLight), filled);
-    col = mix(col, mix(vTint * 1.3, vTint, uLight), edge * filled);
+    a = body * mix(mix(0.55, 0.88, uLight), mix(0.9, 0.96, uLight), filled);
+    col = mix(col, mix(vTint * 1.3, mix(vTint, uFg, 0.3), uLight), edge * mix(filled, 1.0, uLight * 0.5));
     a = max(a, edge * mix(0.35, 0.9, filled));
     float glow = exp(-od * 10.0) * (1.0 - body) * filled * (1.0 - uLight);
-    float A = a + glow * 0.3 * (1.0 - a);
-    col = (col * a + vTint * glow * 0.3 * (1.0 - a)) / max(A, 1e-4);
+    float sh = shadow * 0.12 * (0.4 + 0.6 * filled);
+    float A = a + (glow * 0.3 + sh) * (1.0 - a);
+    col = (col * a + (vTint * glow * 0.3 + uFg * sh) * (1.0 - a)) / max(A, 1e-4);
     a = A;
   }
   gl_FragColor = vec4(col, a * vAlpha * uOpacity);
@@ -259,9 +265,10 @@ void main() {
   vec3 bodyD = mix(uBg, vTint, 0.28 + 0.22 * diff) + vTint * fres * 0.25;
   vec3 colD = mix(bodyD, vTint * 1.35 + 0.08, edge);
   float aD = mix(0.8, 1.0, edge);
-  vec3 bodyL = mix(vec3(1.0), vTint, 0.1 + 0.12 * (1.0 - diff));
-  vec3 colL = mix(bodyL, mix(vTint, uFg, 0.35), edge);
-  float aL = mix(0.94, 1.0, edge);
+  // Paper: tinted faces (lit top, darker sides) with inked edges, so solids read as solid.
+  vec3 bodyL = mix(uBg, vTint, 0.3 + 0.2 * (1.0 - diff));
+  vec3 colL = mix(bodyL, mix(vTint, uFg, 0.4), edge);
+  float aL = mix(0.97, 1.0, edge);
   vec3 col = mix(colD, colL, uLight);
   float a = mix(aD, aL, uLight);
   col = mix(col, mix(vTint * 1.6 + 0.2, vTint, uLight), vGlow * 0.6);
