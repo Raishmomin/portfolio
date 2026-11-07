@@ -127,3 +127,13 @@ Spec: tasks/fullmotion-spec.md (diagnosis from a Playwright audit, art direction
 - [ ] Lighthouse home on an IDLE machine (under load: median 79, one run at load 3.7 scored 95; a11y/bp/seo 100)
 - [ ] Polish: work scene mostly hidden behind the dense 3-column grid; contact scene hidden behind the full-width form until the end
 - [ ] Polish: tall-card IntersectionObserver should ideally test the layout box (pose fix covers today's cards)
+
+## Phase 6 — Owner feedback round 2 (2026-11-06/07)
+Asked: no "Want a 3D site?" question, remove the photo, no 3D button (motion for everyone), better hero, per-project tech-stack animation for ALL projects, experience 3D was hidden behind cards.
+- [x] Lead: photo removed everywhere (hero, /about, author box, OG card -> neural SVG, Person.image -> OG card; files deleted); 3D toggle removed, html[data-motion]=on for everyone (cp:3d=off = hidden QA switch); 3D-site question section removed
+- [x] fm2-hero: 3D brain of ~9.4k particle-neurons (intro assembly, cursor focus, scroll-out stream), 3 draw calls, ~60 fps @1920x915; matching SVG poster
+- [x] fm2-work: every one of 21 projects gets its own architecture from its real stack (client/server/data/infra/AI tiers, morphing between projects); zig-zag Work section around a clear scene window; /projects cards drive it; 60 fps
+- [x] fm2-exp: career path above the cards, milestones on the rail dots (<=0.3px settled), clean track edges, measured band framing for every band section; /experience + /about too
+- [x] Reboot wiped /tmp mid-phase: recovered tools/research from transcripts into tasks/qa + tasks/research; lanes moved to /home/raish/raish/.my-app-lanes; WIP commits every 15 min
+- [x] Integration (fm2-int -> redesign-3d 3b32de8): fm-tour a-k all PASS; 23/23 sitemap URLs 200; 39/39 old blog URLs 301 -> 200; 1 h1 per page; 0 photo refs; owner-viewport frames (1536x732 @1.25) reviewed
+- [ ] Lighthouse on an idle machine
