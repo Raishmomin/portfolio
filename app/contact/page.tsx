@@ -7,7 +7,7 @@ import { Accent } from "../../components/ui/primitives";
 import { RelatedPages } from "../../components/pages/about/subpage";
 import { FaqSection } from "../../components/pages/about/faq-list";
 import { ContactChannels } from "../../components/pages/contact/channels";
-import { PageIntro, PageSection, SectionHead, card, reveal } from "../../components/pages/ui";
+import { PageIntro, PageSection, SectionHead, card, column, reveal } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
 import { NeuralStage } from "../../components/neural";
 import { PROFILE } from "@/lib/profile";
@@ -62,7 +62,7 @@ export default async function ContactPage() {
           crumbs={[{ name: "Home", href: "/" }, { name: "Contact" }]}
           kicker="~/contact · IST (UTC+5:30)"
           scene="contact"
-          note="The whole network converges into one bright node, with a line drawn out to you: a direct line to me."
+          note={`A globe with ${PROFILE.location.locality} lit at its local time and a green beacon: I'm available. Point at a channel to light its satellite; send a message and watch it fly to ${PROFILE.location.locality}.`}
           title={
             <>
               Contact — <Accent>let&apos;s build something.</Accent>
@@ -71,17 +71,24 @@ export default async function ContactPage() {
           lead="Have a project in mind, a role to fill, or just want to say hi? Drop me a note."
         >
           <p className="mt-8 flex items-start gap-2.5 text-[15px] leading-6 text-foreground" {...reveal(240)}>
-            <span aria-hidden="true" className="status-dot mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-ok" />
+            <span aria-hidden="true" className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-ok" />
             Open to {PROFILE.availability}
           </p>
         </PageIntro>
 
-        <PageSection id="contact" section="contact" scene="contact" stage="full" label="Contact details and form">
-          <div data-card-group="" className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-            <div className="min-w-0 lg:col-span-5">
-              <ContactChannels personal={personal} />
-            </div>
-            <div {...card("zoom")} className="panel min-w-0 p-6 md:p-8 lg:col-span-7" role="group" aria-labelledby="message-heading">
+        {/* "right": details and form on the right, the contact globe framed on the left. */}
+        {/* Phones: the section opens with a window onto the globe, like the home contact section. */}
+        <PageSection
+          id="contact"
+          section="contact"
+          scene="contact"
+          stage="right"
+          label="Contact details and form"
+          className="pt-[38svh] md:pt-[38svh] lg:pt-28"
+        >
+          <div data-card-group="" className={`grid grid-cols-1 gap-4 ${column.right}`}>
+            <ContactChannels personal={personal} />
+            <div {...card("zoom")} className="panel min-w-0 p-6 md:p-8" role="group" aria-labelledby="message-heading">
               <SectionHead
                 id="message-heading"
                 index="02"
@@ -101,7 +108,7 @@ export default async function ContactPage() {
         <FaqSection
           faqs={faqs}
           index="03"
-          stage="right"
+          stage="left"
           title={
             <>
               Before you <Accent>reach out.</Accent>
@@ -109,7 +116,7 @@ export default async function ContactPage() {
           }
         />
 
-        <RelatedPages index="04" stage="left" keys={["services", "projects", "experience", "about"]} />
+        <RelatedPages index="04" stage="right" keys={["services", "projects", "experience", "about"]} />
       </main>
       <Footer />
     </>

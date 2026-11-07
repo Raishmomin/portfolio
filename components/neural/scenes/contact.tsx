@@ -1,57 +1,35 @@
 "use client";
-// Contact scene (tasks/neural-spec.md): "let's connect". The whole network — one node
-// per real skill, company and project, in a slowly turning spiral of dust — is pulled
-// in as `progress` grows, swirling into one bright pulsing node; then a beam of light
-// reaches out from it toward the viewer. All motion is in the shaders (one uniform
-// drives convergence); no text in the canvas.
+// CONTACT scene: "where to reach me". A dotted Earth (real land, the real day/night
+// terminator right now) with Raish's city lit in green, its availability beacon pulsing
+// and its local time beside it; one satellite per contact channel (Email, GitHub,
+// LinkedIn, X) on its own orbit. The page drives it: pointing at or focusing a channel
+// link brings its satellite round and links it to the city; focusing the form draws the
+// route a message takes; every keystroke, a copied email and a sent message fly a
+// glowing packet from the page to the city, which lands with a shockwave. Its labels are
+// drawn in the canvas, behind the content, and duplicate the section's server-rendered
+// text (contact/labels.ts).
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
-import { fitFree } from "../framing";
+import { useEffect, useMemo } from "react";
 import type { SceneProps } from "../types";
-import { isLight } from "./ai/shared";
-import { ContactRig, type ContactRegistry } from "./contact/rig";
+import { ContactRig, type ContactSignal } from "./contact/rig";
 
-/** The galaxy is seen from above at this angle (radians), so its spiral reads in depth. */
-const TILT = 0.95;
-
-export default function ContactScene({ data, progress, weight, pointer, palette, quality }: SceneProps) {
-  const light = isLight(palette.bg);
-  const rig = useMemo(() => new ContactRig(data, light), [data, light]);
+export default function ContactScene({ data, weight, pointer, focus, palette, quality }: SceneProps) {
+  const rig = useMemo(() => new ContactRig(data, quality), [data, quality]);
   useEffect(() => () => rig.dispose(), [rig]);
   useEffect(() => rig.setPalette(palette), [rig, palette]);
-  useEffect(() => rig.setQuality(quality), [rig, quality]);
+  useEffect(() => rig.setFocus(focus), [rig, focus]);
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<ContactSignal>).detail;
+      if (d && typeof d.kind === "string") rig.signal(d);
+    };
+    window.addEventListener("cp:contact", on);
+    return () => window.removeEventListener("cp:contact", on);
+  }, [rig]);
 
-  const active = weight > 0;
-
-  const reg = useRef<ContactRegistry>({ root: null, core: null });
   useFrame((state, dt) => {
-    if (!active) return;
-    // Fitted into the free part of the viewport; centred and larger in a "full" composition.
-    const scale = fitFree(state.camera, state.size, 6.5, 4.25, 1.1, 1.35);
-    rig.frame(state, dt, { progress, weight, pointer, scale }, reg.current);
+    if (rig.frame(state.clock.elapsedTime, dt, state.camera, state.size, state.gl.getPixelRatio(), weight, pointer)) state.invalidate();
   });
 
-  return (
-    <group
-      ref={(g) => {
-        reg.current.root = g;
-      }}
-      visible={active}
-    >
-      <group rotation-x={TILT}>
-        <lineSegments geometry={rig.lines} material={rig.mats.lines} frustumCulled={false} />
-        <points geometry={rig.dust} material={rig.mats.dust} frustumCulled={false} />
-        <points geometry={rig.nodes} material={rig.mats.nodes} frustumCulled={false} />
-      </group>
-      <mesh geometry={rig.quad} material={rig.mats.halo} frustumCulled={false} renderOrder={2} />
-      <group
-        ref={(g) => {
-          reg.current.core = g;
-        }}
-      >
-        <mesh geometry={rig.sphere} material={rig.mats.core} renderOrder={3} />
-      </group>
-      <mesh geometry={rig.beamGeo} material={rig.mats.beam} frustumCulled={false} renderOrder={4} />
-    </group>
-  );
+  return <primitive object={rig.root} />;
 }
