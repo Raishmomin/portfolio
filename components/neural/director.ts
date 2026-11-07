@@ -3,13 +3,28 @@
 // - Scene of a section: data-scene="<key>", else its data-section name when that is a
 //   scene key, else "ambient" (never the previous section's scene).
 // - Composition: data-stage="left|right|full|band" (default left), blended like the
-//   scenes across section boundaries; phones (<1024px) use their own treatment.
+//   scenes across section boundaries (weights sharpened, so the incoming section owns the
+//   framing early); phones (<1024px) use their own treatment. A band is measured: from
+//   the section top (or the header) down to where its content starts
+//   ([data-stage-content], else the first h1/h2), and the scene is framed into it.
+// - Per scene, the unblended free rect of its driving section goes to framing.sceneFrames.
 // - Pinned sections (ScrollTrigger wraps them in a .pin-spacer) are measured through
 //   their spacer, so progress keeps moving while the section itself stands still; a live
 //   [data-hscroll] section (sticky frame) progresses with its horizontal journey.
 // Values live in a tiny external store with one snapshot per scene, so a scene
 // re-renders only when its own (quantized) values change.
-import { BAND_BOTTOM, BAND_TOP, compositionFor, isLayout, zeroComposition, type Composition } from "./framing";
+import {
+  BAND_BOTTOM,
+  BAND_MAX,
+  BAND_MIN,
+  BAND_TOP,
+  compositionFor,
+  isLayout,
+  rectOf,
+  sceneFrames,
+  zeroComposition,
+  type Composition,
+} from "./framing";
 import { SCENE_KEYS, STAGE_LAYOUTS, type SceneKey, type StageLayout } from "./types";
 
 export type SceneSnap = { weight: number; progress: number };
@@ -64,6 +79,13 @@ function headOf(el: HTMLElement): HTMLElement | null {
 }
 
 const KEY_W = 28; // px kept clear above a heading (its kicker line)
+const CONTENT_W = 14; // px kept clear above a [data-stage-content] block
+/** Top of a section's content minus the clearance kept above it (px), or null. */
+function contentTop(el: HTMLElement): number | null {
+  const head = headOf(el);
+  if (!head) return null;
+  return head.getBoundingClientRect().top - (head.hasAttribute("data-stage-content") ? CONTENT_W : KEY_W);
+}
 const tmpComp = zeroComposition();
 type Part = { key: SceneKey; layout: StageLayout; f: number; el: HTMLElement; top: number };
 const parts: Part[] = [];
@@ -115,8 +137,7 @@ export function measure(out: Frame = emptyFrame()): Frame {
     }
     // Phones: the opening of a section (above its heading) is where the scene may shine.
     if (phone && r.bottom > 0 && r.top < vh) {
-      const head = headOf(el);
-      const headTop = head ? head.getBoundingClientRect().top - KEY_W : r.bottom;
+      const headTop = contentTop(el) ?? r.bottom;
       const top = Math.max(0, r.top);
       const bottom = Math.min(vh, headTop);
       if (bottom - top > Math.max(openBest, vh * 0.1)) {
@@ -139,21 +160,53 @@ export function measure(out: Frame = emptyFrame()): Frame {
   let bandTop = 0;
   let bandBottom = 0;
   if (total > 0) {
-    // Gaps between sections (or a short page) renormalise, so weights never sag.
+    // Gaps between sections (or a short page) renormalise, so weights never sag. The
+    // composition uses sharpened weights (f³): the section taking over frames the camera
+    // early, so its scene is not left off-centre and small while the previous one fades.
     const norm = 1 / total;
+    let sharp = 0;
+    for (const p of parts) sharp += (p.f * norm) ** 3;
     for (const p of parts) {
       const w = p.f * norm;
+      const wc = (w * w * w) / sharp;
       out.weight[p.key] += w;
       out.layout[p.layout] += w;
       compositionFor(p.layout, p.key, phone, tmpComp);
-      for (const k of Object.keys(comp) as (keyof Composition)[]) comp[k] += tmpComp[k] * w;
+      let bandT = 0;
+      let bandB = 0;
       if (!phone && p.layout === "band") {
-        const head = headOf(p.el);
+        // The measured band: section top (or the header line) down to its content.
         const top = clamp(p.top / vh, BAND_TOP, 1);
-        const bottom = clamp(head ? (head.getBoundingClientRect().top - KEY_W) / vh : BAND_BOTTOM, top, BAND_BOTTOM);
+        const ct = contentTop(p.el);
+        const bottom = clamp(ct === null ? BAND_BOTTOM : ct / vh, top, BAND_MAX);
         bandTop += top * w;
         bandBottom += bottom * w;
         bandW += w;
+        const h = Math.max(BAND_MIN, bottom - top);
+        tmpComp.h = h;
+        tmpComp.cy = top + h / 2 - 0.5;
+        bandT = top;
+        bandB = bottom;
+      }
+      for (const k of Object.keys(comp) as (keyof Composition)[]) comp[k] += tmpComp[k] * wc;
+      // The scene's own frame: its most central section's free rect, unblended.
+      if (p.f >= bestF[p.key] - 1e-6) {
+        const sf = sceneFrames[p.key];
+        sf.el = p.el;
+        sf.layout = p.layout;
+        if (phone) {
+          const ct = contentTop(p.el);
+          const top = Math.max(0, p.top);
+          sf.rect.l = 0.04;
+          sf.rect.r = 0.96;
+          sf.rect.t = top / vh;
+          sf.rect.b = Math.max(top, Math.min(vh, ct ?? vh)) / vh;
+        } else if (p.layout === "band") {
+          sf.rect.l = 0;
+          sf.rect.r = 1;
+          sf.rect.t = bandT;
+          sf.rect.b = bandB;
+        } else rectOf(tmpComp, sf.rect);
       }
     }
   } else {
