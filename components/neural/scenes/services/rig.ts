@@ -523,6 +523,7 @@ export class ServicesRig {
       const SP = A.aSpeed.array as Float32Array;
       const DR = A.aDraw.array as Float32Array;
       const C = A.aColor.array as Float32Array;
+      let live = 0;
       for (let i = 0; i < t.n; i++) {
         const o = i * 12;
         const c = t.cur;
@@ -545,7 +546,10 @@ export class ServicesRig {
         K[i] = t.ext[i * 2];
         SE[i] = t.ext[i * 2 + 1];
         DR[i] = t.draw[i];
+        if (AL[i] > 0) live = i + 1;
       }
+      // Draw only up to the last live link.
+      g.links.instanceCount = live;
     }
     // Sprites (static part; the dynamic part was written by the programs).
     {
@@ -557,6 +561,7 @@ export class ServicesRig {
       const AL = A.aAlpha.array as Float32Array;
       const K = A.aKind.array as Float32Array;
       const H = A.aHi.array as Float32Array;
+      let live = 0;
       for (let i = 0; i < t.n; i++) {
         const o = i * 7;
         const c = t.cur;
@@ -574,8 +579,11 @@ export class ServicesRig {
         AL[i] = t.alpha[i] * (touched && kind === 3 ? 0.25 + 0.75 * gv : 1);
         K[i] = kind < 0 ? 0 : kind;
         H[i] = touched && kind === 1 ? gv : 0;
+        if (AL[i] > 0) live = i + 1;
       }
       for (let i = t.n + ns; i < MAX.sprites; i++) AL[i] = 0;
+      // Static sprites up to the last live one, then the program's packets after them.
+      g.sprites.instanceCount = ns > 0 ? t.n + ns : live;
     }
   }
 
