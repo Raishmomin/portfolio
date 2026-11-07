@@ -123,7 +123,33 @@ function AmbientPoster() {
 /** Local brain units → poster units (the SVG is a 1:100 orthographic view of the resting pose). */
 const U = 100;
 
-/** The hero's neural core as an SVG: the brain's folds and hub neurons, a few synapse arcs and running signals. ≈8 KB. */
+/** Dots as one path in nearest-neighbour order with relative moves: short deltas, small markup. */
+function nearDots(pts: { x: number; y: number }[], ids: number[]) {
+  if (!ids.length) return "";
+  const left = new Set(ids);
+  let cur = ids[0];
+  left.delete(cur);
+  let d = `M${pts[cur].x} ${pts[cur].y}h0`;
+  while (left.size) {
+    let best = -1;
+    let bd = Infinity;
+    for (const j of left) {
+      const dd = (pts[j].x - pts[cur].x) ** 2 + (pts[j].y - pts[cur].y) ** 2;
+      if (dd < bd) {
+        bd = dd;
+        best = j;
+      }
+    }
+    const dx = pts[best].x - pts[cur].x;
+    const dy = pts[best].y - pts[cur].y;
+    d += `m${dx}${dy < 0 ? dy : ` ${dy}`}h0`;
+    left.delete(best);
+    cur = best;
+  }
+  return d;
+}
+
+/** The hero's neural core as an SVG: the brain's folds and hub neurons, a few synapse arcs and running signals. ≈8 KB, CSS-animated. */
 function HeroPoster() {
   const L = brainLayout(COUNTS.poster);
   const n = L.kind.length;
@@ -142,7 +168,7 @@ function HeroPoster() {
   const long: string[] = [];
   for (let a = 0; a < L.arcKind.length; a++) {
     if (L.arcKind[a]) long.push(arc(a));
-    else short += arc(a);
+    else if (a % 2 === 0) short += arc(a);
   }
   const hw = r1(VIEW_HALF.w * U) + 6;
   const hh = r1(VIEW_HALF.h * U) + 6;
@@ -162,10 +188,9 @@ function HeroPoster() {
           {long.map((d, i) => (
             <path key={`l${i}`} className="nw-e" strokeWidth=".4" d={d} />
           ))}
-          <path className="nw-n nw-a" strokeOpacity=".3" strokeWidth="1.3" d={dots(pts, ids((i) => L.kind[i] === KIND.fill))} />
-          <path className="nw-n nw-a" strokeOpacity=".45" strokeWidth="1.6" d={dots(pts, ids((i) => L.kind[i] === KIND.fold && !front(i)))} />
-          <path className="nw-n nw-a" strokeOpacity=".9" strokeWidth="2.1" d={dots(pts, ids((i) => L.kind[i] === KIND.fold && front(i)))} />
-          <path className="nw-h" strokeWidth="8" d={dots(pts, ids((i) => L.kind[i] === KIND.hub))} />
+          <path className="nw-n nw-a" strokeOpacity=".4" strokeWidth="1.2" d={nearDots(pts, ids((i) => L.kind[i] === KIND.fold && !front(i)))} />
+          <path className="nw-n nw-a" strokeOpacity=".9" strokeWidth="1.5" d={nearDots(pts, ids((i) => L.kind[i] === KIND.fold && front(i)))} />
+          <path className="nw-h" strokeWidth="7" d={nearDots(pts, ids((i) => L.kind[i] === KIND.hub))} />
           {long.slice(0, 9).map((d, i) => (
             <path
               key={`p${i}`}
@@ -176,7 +201,7 @@ function HeroPoster() {
               style={{ animationDelay: `${(-i * 0.43).toFixed(2)}s`, "--nw-d": `${(2.8 + (i % 4) * 0.4).toFixed(1)}s` } as CSSProperties}
             />
           ))}
-          <path className="nw-n nw-i" strokeOpacity=".85" strokeWidth="2.8" d={dots(pts, ids((i) => L.kind[i] === KIND.hub))} />
+          <path className="nw-n nw-i" strokeOpacity=".85" strokeWidth="2.4" d={nearDots(pts, ids((i) => L.kind[i] === KIND.hub))} />
         </g>
       </svg>
     </div>

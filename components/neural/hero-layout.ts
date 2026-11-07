@@ -38,7 +38,7 @@ export type Counts = { fold: number; fill: number; inner: number; hubs: number; 
 export const COUNTS: Record<"high" | "low" | "poster", Counts> = {
   high: { fold: 4600, fill: 3300, inner: 1300, hubs: 220, long: 64, signals: 96 },
   low: { fold: 2200, fill: 1600, inner: 560, hubs: 110, long: 34, signals: 48 },
-  poster: { fold: 330, fill: 110, inner: 0, hubs: 30, long: 12, signals: 0 },
+  poster: { fold: 900, fill: 0, inner: 0, hubs: 24, long: 10, signals: 0 },
 };
 
 export type BrainLayout = {
