@@ -134,7 +134,7 @@ void main() {
     float filled = 1.0 - smoothstep(vFill - 0.02, vFill + 0.02, x);
     float shimmer = smoothstep(0.42, 0.0, abs(fract(x * 0.5 - uTime * 0.7) - 0.5)) * uDetail;
     vec3 skel = mix(mix(uBg, uMuted, 0.22), mix(vec3(1.0), uMuted, 0.18), uLight) + shimmer * mix(0.08, 0.06, uLight) * mix(1.0, -1.0, uLight);
-    vec3 solid = mix(mix(vTint, vec3(1.0), 0.08), mix(vTint, uFg, 0.15), uLight);
+    vec3 solid = mix(mix(vTint, uBg, 0.24), mix(vTint, uFg, 0.15), uLight);
     col = mix(skel, solid, filled);
     a = body * mix(mix(0.55, 0.7, uLight), mix(0.9, 0.92, uLight), filled);
     col = mix(col, mix(vTint * 1.3, vTint, uLight), edge * filled);

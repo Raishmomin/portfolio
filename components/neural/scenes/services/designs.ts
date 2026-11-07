@@ -201,7 +201,7 @@ const tmp2 = new Float32Array(3);
 
 // ---------- 1. Next.js: an App Router route tree streams server components into a page ----------
 
-function nextjs(slug: string, tech: string[], low: boolean): Design {
+function nextjs(slug: string, tech: string[]): Design {
   const b = new Builder(tech);
   // app/ directory panel behind the route tree.
   b.slab(-2.5, -0.05, -0.4, 2.9, 3.8, T.muted);
@@ -439,7 +439,7 @@ function devops(slug: string, tech: string[], low: boolean): Design {
   b.label(/^Docker/, buildAt[0], buildAt[1] - 0.32, 0, "b");
   b.label(/Argo|Flux/, 0.95, 0.5, 0.45, "t");
   b.label(/Kubernetes|EKS|Helm/, 2.15, FY - 0.1, 1.15, "b");
-  b.label(/Terraform|OpenTofu/, 3.8, 0.2, 1.3, "b");
+  b.label(/Terraform|OpenTofu/, 3.25, 0.2, -1.3, "t");
   b.label(/^AWS/, 0.5, FY - 0.02, 1.3, "l");
   b.label(/Grafana|Prometheus/, MX, MY + 0.58, -0.4, "t");
 
@@ -499,7 +499,7 @@ function devops(slug: string, tech: string[], low: boolean): Design {
 
 type Req = { on: boolean; t0: number; client: number; ok: boolean; phase: number };
 
-function api(slug: string, tech: string[], low: boolean): Design {
+function api(slug: string, tech: string[]): Design {
   const b = new Builder(tech);
   const clients = [1.15, 0, -1.15].map((y) => [-3.6, y, 0.1]);
   for (const c of clients) {

@@ -43,6 +43,9 @@ const ALIGN: Record<Side, Align> = {
 };
 
 type Spy = { el: Element; slug: string };
+/** Scratch rects (px) for the framing (one services scene per page). */
+const px: Rect = { l: 0, t: 0, r: 0, b: 0 };
+const clear: Rect = { l: 0, t: 0, r: 0, b: 0 };
 
 const v0 = new Vector3();
 const v1 = new Vector3();
@@ -137,8 +140,6 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
   const reg = useRef<ServicesRegistry>(emptyRegistry());
   const f = useRef<ServicesFrame>({ active: 0, weight: 0, pointer: { x: 0, y: 0 }, x: 0, y: 0, scale: 1, turn: 0, room: 0 });
   const seen = useRef({ last: -1e9, room: 0 });
-  const px = useMemo<Rect>(() => ({ l: 0, t: 0, r: 0, b: 0 }), []);
-  const clear = useMemo<Rect>(() => ({ l: 0, t: 0, r: 0, b: 0 }), []);
   const pt = useMemo(() => [0, 0], []);
 
   useFrame((state, dt) => {
