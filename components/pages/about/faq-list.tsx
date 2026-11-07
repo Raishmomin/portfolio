@@ -1,42 +1,28 @@
 import type { ReactNode } from "react";
 import type { FAQ } from "@/lib/seo";
-import { PageSection, SectionHead, card, column, type PageScene, type StageLayout } from "../ui";
+import { FAQ_SCENE_NOTE, FaqItems, FaqLayout } from "../../ui/faq-list";
+import { PageSection, SectionHead, card, panel, type PageScene, type StageLayout } from "../ui";
 
 /**
- * Visible FAQ (server-rendered <details>; answers stay in the DOM when closed). Render the
- * same FAQ array that feeds the page's FAQPage JSON-LD. Rows flip down as a wave.
+ * Visible FAQ cards (server-rendered <details>; answers stay in the DOM when closed). Render
+ * the same FAQ array that feeds the page's FAQPage JSON-LD.
  */
-export function FaqList({ faqs }: { faqs: FAQ[] }) {
+export function FaqList({ faqs, name = "faq" }: { faqs: FAQ[]; name?: string }) {
   if (!faqs.length) return null;
-  return (
-    <ul data-card-group="" className="divide-y divide-border border-y border-border">
-      {faqs.map((f) => (
-        <li key={f.q} {...card("flip")}>
-          <details className="faq group">
-            <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-6 rounded-sm py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
-              <h3 className="text-base font-medium leading-7 tracking-[-0.01em] text-foreground md:text-lg">{f.q}</h3>
-              <span
-                aria-hidden="true"
-                className="mt-1 shrink-0 font-mono text-lg leading-none text-muted-foreground transition-transform duration-300 group-open:rotate-45 group-hover:text-primary"
-              >
-                +
-              </span>
-            </summary>
-            <p className="max-w-[68ch] pb-6 pr-10 text-[15px] leading-7 text-muted-foreground md:text-base">{f.a}</p>
-          </details>
-        </li>
-      ))}
-    </ul>
-  );
+  return <FaqItems faqs={faqs} name={name} />;
 }
 
-/** FAQ section: one panel (left or right composition) with the section head and the rows. */
+/**
+ * FAQ section of a subpage, in the home FAQ's design: the head panel and the question cards
+ * on the `stage` side, the FAQ scene's window on the other (desktop), the scene in the
+ * section's opening on phones. The section always drives the "faq" scene; `scene` is kept
+ * for existing callers and ignored.
+ */
 export function FaqSection({
   faqs,
   index,
   title,
   stage,
-  scene = "ambient",
   id = "faq",
 }: {
   faqs: FAQ[];
@@ -48,13 +34,28 @@ export function FaqSection({
 }) {
   if (!faqs.length) return null;
   return (
-    <PageSection id={id} section="faq" scene={scene} stage={stage as StageLayout} labelledBy={`${id}-heading`}>
-      <div className={`panel p-6 md:p-8 ${column[stage]}`}>
-        <SectionHead id={`${id}-heading`} index={index} kicker="faq" title={title} />
-        <div className="mt-8">
-          <FaqList faqs={faqs} />
-        </div>
-      </div>
+    <PageSection
+      id={id}
+      section="faq"
+      scene="ambient"
+      // "faq" is a scene key the stage knows (components/neural/types.ts) but PageScene in
+      // components/pages/ui.tsx (not this lane's file) does not list it yet: this attribute
+      // is spread after PageSection's own data-scene, so it wins.
+      data-scene="faq"
+      stage={stage as StageLayout}
+      labelledBy={`${id}-heading`}
+      className="pt-[38svh] lg:pt-28"
+    >
+      <FaqLayout
+        side={stage}
+        name={`${id}-list`}
+        faqs={faqs}
+        head={
+          <div {...card()} className={`${panel} p-6 md:p-8`}>
+            <SectionHead id={`${id}-heading`} index={index} kicker="faq" scene={FAQ_SCENE_NOTE} title={title} />
+          </div>
+        }
+      />
     </PageSection>
   );
 }

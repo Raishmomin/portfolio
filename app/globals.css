@@ -1089,3 +1089,105 @@ html.motion-live .svc-item[data-arch-active] .svc-chip {
   }
 }
 /* end fm3-services */
+
+/* fm3-faq */
+/* FAQ (components/ui/faq-list.tsx): question cards beside the FAQ scene's window. Static
+   without motion: answers open instantly and stay fully visible. With the motion runtime:
+   the accordion opens smoothly (height above, answer fade here), the open card lifts with
+   a lit border, its + turns into an x, and a lit connector runs from its question to the
+   window, where the scene's rail node and beam continue it. */
+.faq-card {
+  transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    translate 0.45s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.faq-card:hover {
+  border-color: hsl(var(--foreground) / 0.22);
+}
+.faq-card[open] {
+  border-color: hsl(var(--primary) / 0.55);
+  background-color: hsl(var(--background) / 0.94);
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 22px 54px -30px hsl(var(--primary) / 0.6);
+}
+.faq-x {
+  display: inline-block;
+  transition: rotate 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+}
+.faq-card[open] .faq-x {
+  rotate: 45deg;
+  color: hsl(var(--primary));
+}
+.faq-card[open] .faq-i,
+.faq-card:hover .faq-i {
+  color: hsl(var(--primary));
+}
+html.motion-live .faq-card[open] {
+  translate: 0 -3px;
+}
+/* The answer fades and slides in as its card opens (at rest it is never transparent). */
+html.motion-live details.faq[open] .faq-a {
+  animation: faq-answer 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+@keyframes faq-answer {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+.faq-q {
+  position: relative;
+}
+@media (min-width: 1024px) {
+  /* The window: an empty sticky box the scene fits itself into, marked by four corners (as Work's). */
+  .faq-win-col {
+    position: relative;
+  }
+  /* The window rides the whole section, padding included (lg:py-28), never past it. */
+  .faq-win-track {
+    position: absolute;
+    inset: -7rem 0;
+  }
+  .faq-win {
+    --c: hsl(var(--foreground) / 0.2);
+    position: sticky;
+    top: 88px;
+    height: min(calc(100svh - 124px), 760px);
+    min-height: 360px;
+    background:
+      linear-gradient(var(--c), var(--c)) left top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 1px 16px no-repeat;
+  }
+  /* Connector: from the open question across the gap to the window's rail (3rem gap +
+     the card's 1.25rem padding + 12px into the window). */
+  html.motion-live .faq-grid .faq-q::after {
+    content: "";
+    position: absolute;
+    top: calc(1rem + 12px);
+    width: calc(3rem + 13px);
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), scale 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    scale: 0 1;
+  }
+  html.motion-live .faq-l .faq-q::after {
+    left: 100%;
+    transform-origin: left center;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.35));
+  }
+  html.motion-live .faq-r .faq-q::after {
+    right: 100%;
+    transform-origin: right center;
+    background: linear-gradient(270deg, hsl(var(--primary)), hsl(var(--primary) / 0.35));
+  }
+  html.motion-live .faq-grid .faq-card[open] > .faq-q::after {
+    opacity: 1;
+    scale: 1 1;
+  }
+}
+/* end fm3-faq */
