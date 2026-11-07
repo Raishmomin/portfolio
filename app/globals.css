@@ -1005,7 +1005,7 @@ html.motion-live details.faq[open] .faq-a {
     --c: hsl(var(--foreground) / 0.2);
     position: sticky;
     top: 88px;
-    height: min(calc(100svh - 124px), 600px);
+    height: min(calc(100svh - 124px), 760px);
     min-height: 360px;
     background:
       linear-gradient(var(--c), var(--c)) left top / 16px 1px no-repeat,

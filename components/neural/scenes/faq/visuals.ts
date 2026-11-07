@@ -465,7 +465,8 @@ export function figures(c: Ctx): Used {
   // A window left of its cards mirrors the dials (they run anticlockwise), so their ends,
   // where the labels sit, always face away from the rail.
   const ex = -0.22;
-  const ey = 0.2 * Math.sin(t * 0.25) + (c.side < 0 ? Math.PI : 0);
+  const ey0 = c.side < 0 ? Math.PI : 0;
+  const ey = ey0 + 0.12 * Math.sin(t * 0.25);
   const n = figs.length;
   let a = c.A + 1;
   let d = c.D;
@@ -503,7 +504,9 @@ export function figures(c: Ctx): Used {
     // dial's end, on the side away from the rail (they stack with the dials).
     if (n === 1) c.label(f.t, "big", vx, vy, 0, -0.5, -0.5, 1, color);
     else {
-      onRing(vx, vy, 2, r, G0 + GS, ex, ey, 0);
+      // Labels hold still (anchored to the dial at rest): a sway of a few px is not worth
+      // rewriting their DOM every frame.
+      onRing(vx, vy, 2, r, G0 + GS, ex, ey0, 0);
       c.label(f.t, "fig", rot.x, rot.y, rot.z, c.side > 0 ? 0 : -1, -0.5, 1, color);
     }
     // The scale, along the outermost dial.
@@ -514,7 +517,7 @@ export function figures(c: Ctx): Used {
         const u = G0 + GS * scaleOf(f, ticks[j]);
         onRing(vx, vy, 1, r + thick + 12, u, ex, ey, 0);
         dot(gl, d++, rot.x, rot.y, rot.z, col.muted, 6, 0.8);
-        onRing(vx, vy, 1, r + thick + 24, u, ex, ey, 0);
+        onRing(vx, vy, 1, r + thick + 24, u, ex, ey0, 0);
         c.label(names[(f.k === "time" ? 4 : 0) + j], "tag", rot.x, rot.y, rot.z, -0.5, -0.5, 0.8);
       }
     }
