@@ -13,7 +13,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera } from "three";
-import { fitFree, sceneFrames } from "../framing";
+import { fitFree, framing, sceneFrames } from "../framing";
 import type { SceneProps } from "../types";
 import { buildModel } from "./ai/layout";
 import { AiRig, type AiRegistry } from "./ai/rig";
@@ -42,7 +42,7 @@ function toWorld(camera: Camera, px: number, py: number, w: number, h: number, o
 }
 
 type Labels = { layer: LabelLayer; name: number[]; chip: HTMLElement[]; tech: HTMLElement[]; title: number[]; plan: number; lit: number };
-type Chips = { key: string; els: HTMLElement[]; sections: HTMLElement[] };
+type Chips = { project: number; lit: number; els: HTMLElement[]; sections: HTMLElement[] };
 
 export default function AiScene({ data, progress, weight, pointer, focus, palette, quality }: SceneProps) {
   const model = useMemo(() => buildModel(data.ai ?? [], data.work ?? []), [data.ai, data.work]);
@@ -70,14 +70,14 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
   }, [model]);
 
   // The DOM side of the clock: the shown project's stage chips (data-ai-stage="<name>").
-  const chips = useRef<Chips>({ key: "", els: [], sections: [] });
+  const chips = useRef<Chips>({ project: -1, lit: -1, els: [], sections: [] });
   const syncChips = useMemo(
     () => (project: number, lit: number) => {
       const st = chips.current;
+      if (project === st.project && lit === st.lit) return;
+      st.project = project;
+      st.lit = lit;
       const plan = project >= 0 && !model.generic ? model.plans[project] : undefined;
-      const key = plan ? `${plan.slug}|${lit}` : "";
-      if (key === st.key) return;
-      st.key = key;
       for (const el of st.els) {
         el.removeAttribute("data-ai-lit");
         el.removeAttribute("data-ai-done");
@@ -149,6 +149,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
   const pt = useMemo(() => [0, 0], []);
   const at = useMemo(() => new Float32Array(3), []);
   const live = useRef({ project: 0 });
+  const lastFit = useRef({ x: 0, y: 0, scale: 0 });
 
   useFrame((state, dt) => {
     const ids = labels.current;
@@ -174,20 +175,31 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     const rt = sf.rect.t * size.height;
     const rw = (sf.rect.r - sf.rect.l) * size.width;
     const rh = (sf.rect.b - sf.rect.t) * size.height;
-    let x = 0;
-    let y = 0;
-    let scale: number;
+    const fit = lastFit.current;
+    let room = 1;
+    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×).
+    const own = model.plans[live.current.project].box;
+    const stretch = rw > 0 && rh > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh))) : 1;
     if (sf.el && rw >= MIN_RECT && rh >= MIN_RECT) {
       camera.updateMatrixWorld();
       toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
-      x = pt[0];
-      y = pt[1];
+      fit.x = pt[0];
+      fit.y = pt[1];
       toWorld(camera, rl, rt, size.width, size.height, pt);
-      scale = Math.min(CAP, (Math.abs(x - pt[0]) * 0.9) / hw, (Math.abs(pt[1] - y) * 0.94) / hh);
-    } else scale = fitFree(camera, size, hw, hh, CAP, CAP) * 0.94;
-    const dist = Math.max(4, camera.position.z);
-    scale = (scale * dist) / (dist + NEAR_Z * scale);
-    rig.frame(state, dt, { project: live.current.project, weight, pointer, x, y, scale }, reg.current);
+      const s = Math.min(CAP, (Math.abs(fit.x - pt[0]) * 0.9) / hw, (Math.abs(pt[1] - fit.y) * 0.94) / hh);
+      const dist = Math.max(4, camera.position.z);
+      fit.scale = (s * dist) / (dist + NEAR_Z * s);
+    } else if (framing.phone) {
+      // Phones: the system lives in the section's opening; as it scrolls away the system
+      // stays put and fades, so the cards below read on a clean background.
+      room = fit.scale > 0 ? Math.max(0, Math.min(1, rh / MIN_RECT)) : 0;
+    } else {
+      fit.x = fit.y = 0;
+      const s = fitFree(camera, size, hw, hh, CAP, CAP) * 0.94;
+      const dist = Math.max(4, camera.position.z);
+      fit.scale = (s * dist) / (dist + NEAR_Z * s);
+    }
+    rig.frame(state, dt, { project: live.current.project, weight, room, stretch, pointer, x: fit.x, y: fit.y, scale: fit.scale }, reg.current);
     syncChips(rig.cur, rig.lit);
 
     const r = reg.current;

@@ -291,6 +291,10 @@ export type AiFrame = {
   /** Index into model.plans of the project to show. */
   project: number;
   weight: number;
+  /** 0..1 room left for the system (phones: its opening scrolled away fades it; the clock runs on). */
+  room: number;
+  /** Vertical spread (≥ 1) so the system fills a free area taller than its own shape. */
+  stretch: number;
   pointer: { x: number; y: number };
   /** Where the system's centre goes (world, z = 0) and world units per layout unit. */
   x: number;
@@ -328,6 +332,7 @@ export class AiRig {
   private readonly tones: Color[] = [0, 1, 2, 3, 4].map(() => new Color());
   private readonly fit = { x: 0, y: 0, s: 1, first: true };
   private readonly tmp = new Float32Array(3);
+  private stretch = 0;
 
   constructor(model: AiModel) {
     this.model = model;
@@ -452,20 +457,23 @@ export class AiRig {
       if (plan.on[g] && this.presence[g] < 0.02) {
         // Appears: grows in place, staggered in flow order.
         this.lp.set(plan.pos.subarray(g * 3, g * 3 + 3), g * 3);
+        this.lp[g * 3 + 1] = plan.box[1] + (plan.pos[g * 3 + 1] - plan.box[1]) * Math.max(1, this.stretch);
         this.lyaw[g] = plan.yaw[g];
         this.wait[g] = (first ? 0.15 : 0.12) + plan.order.indexOf(g) * (first ? 0.12 : 0.08);
       }
     }
-    if (first) this.box.set(plan.box);
+    if (first) {
+      this.box.set(plan.box);
+      this.box[3] *= Math.max(1, this.stretch);
+    }
     // Conduits: keep the ones this project shares, fade the rest, open the new ones.
-    const llmAt = plan.order.findIndex((g) => this.model.slots[g].kind === "llm");
     for (const c of this.cond) c.on = false;
     plan.links.forEach(([a, b], k) => {
-      let c = this.cond.findIndex((x) => x.a === a && x.b === b);
+      let c = this.condOf(a, b, false);
       if (c < 0) c = this.cond.findIndex((x) => x.alpha < 0.01 && !x.on);
       if (c < 0) return;
       const e = this.cond[c];
-      const tone = llmAt >= 0 && k >= llmAt ? 1 : 0;
+      const tone = plan.llmAt >= 0 && k >= plan.llmAt ? 1 : 0;
       if (e.a !== a || e.b !== b || e.tone !== tone) {
         e.a = a;
         e.b = b;
@@ -476,6 +484,15 @@ export class AiRig {
     });
     this.clock = first ? -0.9 : -0.55;
     this.lit = -1;
+  }
+
+  /** Pool index of the conduit a → b (-1 none). */
+  private condOf(a: number, b: number, on: boolean): number {
+    for (let c = 0; c < MAX_COND; c++) {
+      const e = this.cond[c];
+      if (e.a === a && e.b === b && (!on || e.on)) return c;
+    }
+    return -1;
   }
 
   /** The current plan's step that is lit at the clock (-1 none). */
@@ -502,7 +519,10 @@ export class AiRig {
 
   frame(state: RootState, delta: number, f: AiFrame, r: AiRegistry) {
     const { root, inner } = r;
-    if (!root || !inner || f.weight <= 0) return;
+    if (!root || !inner || f.weight <= 0) {
+      this.gl.U.uOpacity.value = 0;
+      return;
+    }
     const dt = Math.min(delta, 0.1);
     const time = state.clock.elapsedTime;
     const model = this.model;
@@ -519,10 +539,14 @@ export class AiRig {
     const clear = t < 0 ? 1 : smooth(plan.cycle - CLEAR, plan.cycle, t);
     U.uClear.value = clear;
     U.uTime.value = time;
-    U.uOpacity.value = f.weight;
+    U.uOpacity.value = f.weight * f.room;
+    inner.visible = f.room > 0.002;
     this.lit = this.litStep(plan);
 
-    // Slots: ease toward the plan; activity and phase from the request's steps.
+    // Slots: ease toward the plan (spread vertically to the free area's shape); activity
+    // and phase from the request's steps.
+    this.stretch = this.cur >= 0 && this.stretch > 0 ? damp(this.stretch, f.stretch, 4, dt) : f.stretch;
+    const cy = plan.box[1];
     const slot = U.uSlot.value;
     const slotB = U.uSlotB.value;
     const vars = U.uVar.value;
@@ -534,7 +558,9 @@ export class AiRig {
       this.presence[g] = damp(this.presence[g], target, target > this.presence[g] ? 5 : 6.5, dt);
       if (this.presence[g] < 0.002 && !on) this.presence[g] = 0;
       if (on) {
-        for (let k = 0; k < 3; k++) this.lp[g * 3 + k] = damp(this.lp[g * 3 + k], plan.pos[g * 3 + k], 4.2, dt);
+        this.lp[g * 3] = damp(this.lp[g * 3], plan.pos[g * 3], 4.2, dt);
+        this.lp[g * 3 + 1] = damp(this.lp[g * 3 + 1], cy + (plan.pos[g * 3 + 1] - cy) * this.stretch, 4.2, dt);
+        this.lp[g * 3 + 2] = damp(this.lp[g * 3 + 2], plan.pos[g * 3 + 2], 4.2, dt);
         this.lyaw[g] = damp(this.lyaw[g], plan.yaw[g], 4.2, dt);
       }
       const pr = this.presence[g];
@@ -605,15 +631,14 @@ export class AiRig {
     let n = 0;
     let fx = NaN;
     let fy = 0;
-    const llmAt = plan.order.findIndex((g) => model.slots[g].kind === "llm");
     for (let k = 0; k < last && t >= 0; k++) {
       const a = steps[k];
       const b = steps[k + 1];
-      const c = this.cond.findIndex((x) => x.a === a.slot && x.b === b.slot && x.on);
+      const c = this.condOf(a.slot, b.slot, true);
       if (c < 0) continue;
       const e = this.cond[c];
       const tone = this.tones[e.tone ? T.accent : T.ai];
-      if (k === llmAt) {
+      if (k === plan.llmAt) {
         const from = a.leave - 0.25;
         const to = b.start + b.dwell * 0.78 - TRAVEL;
         if (t < from || t > to + TRAVEL) continue;
@@ -657,7 +682,7 @@ export class AiRig {
       fy = this.lp[g * 3 + 1];
     }
     const box = this.box;
-    for (let k = 0; k < 4; k++) box[k] = damp(box[k], plan.box[k], 3.2, dt);
+    for (let k = 0; k < 4; k++) box[k] = damp(box[k], k === 3 ? plan.box[3] * this.stretch : plan.box[k], 3.2, dt);
     this.follow[0] = damp(this.follow[0], Number.isNaN(fx) ? 0 : (fx - box[0]) * 0.07, 1.6, dt);
     this.follow[1] = damp(this.follow[1], Number.isNaN(fx) ? 0 : (fy - box[1]) * 0.07, 1.6, dt);
 

@@ -56,6 +56,8 @@ export type Plan = {
   /** Title anchor (top left of the system). */
   title0: [number, number];
   links: [number, number][];
+  /** Index in `order` of the model stage (-1 none): conduits after it carry the answer. */
+  llmAt: number;
   steps: Step[];
   cycle: number;
 };
@@ -172,6 +174,7 @@ function plan(
     box: [(l + r) / 2, (b + t) / 2, (r - l) / 2, (t - b) / 2],
     title0,
     links,
+    llmAt: kinds.indexOf("llm"),
     steps,
     cycle: time + HOLD + CLEAR,
   };
