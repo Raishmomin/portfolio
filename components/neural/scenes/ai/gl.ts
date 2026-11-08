@@ -239,7 +239,7 @@ void main() {
   if (glass < 0.5) {
     // Lines of light: text and waveform bars, rings.
     col = mix(tint * (1.05 + 0.6 * g), mix(tint, uFg, 0.2), uLight);
-    a = max(body, rim) * mix(0.8, 0.72, uLight) + halo * mix(0.28 + 0.5 * g, 0.04, uLight);
+    a = max(body, rim) * mix(0.8, 0.5 + 0.3 * g, uLight) + halo * mix(0.28 + 0.5 * g, 0.04, uLight);
   } else {
     // Glass, as the Work slabs: a translucent tinted body, a glowing 1 px edge with a soft
     // glow just inside it, an outer glow on dark (a soft shadow on paper).
@@ -507,7 +507,7 @@ void main() {
   if (r2 > 1.0 || vA < 0.004) discard;
   if (vCore < -0.5) {
     float r = sqrt(r2);
-    float ring = exp(-pow((r - 0.8) * 9.0, 2.0)) + 0.35 * exp(-pow((r - 0.8) * 3.5, 2.0));
+    float ring = exp(-pow((r - 0.8) * 9.0, 2.0)) + 0.35 * (1.0 - uLight) * exp(-pow((r - 0.8) * 3.5, 2.0));
     gl_FragColor = vec4(vColor, clamp(ring * vA * mix(1.0, 0.8, uLight), 0.0, 1.0));
     #include <colorspace_fragment>
     return;

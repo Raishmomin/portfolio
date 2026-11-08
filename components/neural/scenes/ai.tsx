@@ -37,7 +37,7 @@ const NEAR_Z = 1.3;
 const EDGE = 28;
 /** Leaving at the top, the system fades as its foot rises from FADE[1] to FADE[0] px (under
  *  the header); entering, as its top rises FADE[2] px into the viewport. */
-const FADE = [60, 220, 160] as const;
+const FADE = [80, 300, 160] as const;
 const BELOW: Align = { x: -0.5, y: 0 };
 const ABOVE: Align = { x: -0.5, y: -1 };
 
