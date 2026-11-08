@@ -126,7 +126,9 @@
  *                               line sits at 50% of the viewport and sweeps to 92% over the last
  *                               part of the journey. Exposed on the section: --hscroll-progress
  *                               (0..1), --hscroll-fill (share of the track behind the line),
- *                               --hscroll-line (the line, px from the viewport's left),
+ *                               --hscroll-line (the line, px from the viewport's left) — these
+ *                               three change every tick and are registered non-inherited (read
+ *                               them on the section itself, e.g. its inline style),
  *                               --hscroll-band (px of free frame above the track),
  *                               --hscroll-edge (px faded at each edge); on track children
  *                               data-lit once the line passes their start and --hs-lit (0..1,
@@ -161,6 +163,11 @@
  *
  *   Chrome, always on while motion runs: a 2px scroll-progress hairline at the top
  *   (.motion-progress) and a soft cursor glow in the AI accent (.motion-glow, pointer:fine).
+ *
+ *   [data-section]              While motion runs, sections outside the viewport (±10%) get
+ *                               data-offscreen and their decorative CSS loops (.status-dot,
+ *                               .ai-pulse, .exp-node, .stage-chip::after) pause. Add any new
+ *                               infinite decorative loop to that rule in app/globals.css.
  *
  * DESIGN TOKENS AND UTILITIES (app/globals.css, tailwind.config.js)
  *   --ai / Tailwind `ai`       AI accent: dark #7C9CFF (7.4:1 on ink), light #3F5BD9
