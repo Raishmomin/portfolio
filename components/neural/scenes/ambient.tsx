@@ -20,6 +20,7 @@ import {
   type IUniform,
   type PerspectiveCamera,
 } from "three";
+import { scroll } from "../framing";
 import { isLight, setColor, setGlowBlending } from "../fx";
 import type { SceneProps } from "../types";
 
@@ -285,8 +286,9 @@ class AmbientField {
     const u = this.uniforms;
     u.uTime.value += Math.min(dt, 0.1);
     u.uWeight.value = weight;
-    // The page scroll drives a slow parallax drift (eased, so wheel steps glide).
-    const target = (window.scrollY / Math.max(1, window.innerHeight)) * SCROLL_RATE;
+    // The page scroll drives a slow parallax drift (eased, so wheel steps glide). The stage
+    // is fixed to the viewport, so the canvas height is the viewport height.
+    const target = (scroll.y / Math.max(1, height)) * SCROLL_RATE;
     this.scroll = this.scroll < 0 ? target : this.scroll + (target - this.scroll) * (1 - Math.exp(-Math.min(dt, 0.1) / 0.25));
     u.uScroll.value = this.scroll;
     (this.field.materials[0].uniforms.uScale as IUniform).value =

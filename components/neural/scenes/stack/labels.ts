@@ -10,7 +10,7 @@
 // at the viewport edges, and never on phones.
 import type { Camera, Matrix4 } from "three";
 import { Vector3 } from "three";
-import { framing } from "../../framing";
+import { framing, scroll } from "../../framing";
 import { occluders } from "../../occluders";
 
 const v = new Vector3();
@@ -98,7 +98,7 @@ export class LabelLayer {
       return false;
     }
     if (!this.measured) this.measure();
-    occluders.sync();
+    occluders.sync(scroll.x, scroll.y);
     return true;
   }
 

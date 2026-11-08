@@ -36,7 +36,7 @@ import {
   type PerspectiveCamera,
 } from "three";
 import { measure, sceneOf, SceneStore, type Frame } from "./director";
-import { framing, zeroComposition, type Composition } from "./framing";
+import { framing, scroll, zeroComposition, type Composition } from "./framing";
 import { DEFAULT_DISTANCE, FOV, heroCamera, type CameraTarget } from "./hero-layout";
 import { readPalette, samePalette } from "./palette";
 import { contextOwner, nextIdle, onIdle } from "./runtime";
@@ -645,6 +645,10 @@ function Director({
   // (a positive priority turns R3F's own render off) so it can be timed.
   useFrame((state) => meter.begin(state.gl.getContext() as GL2, `${store.active}|${quality}|${dpr}`), -1000);
   useFrame((state, delta) => {
+    // One scroll read per frame, before any scene writes DOM (perf P5): the scenes read
+    // the snapshot, so no later read forces a layout pass.
+    scroll.x = window.scrollX;
+    scroll.y = window.scrollY;
     const aspect = state.size.width / Math.max(1, state.size.height);
     rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim);
   }, -1);

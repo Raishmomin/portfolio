@@ -75,12 +75,10 @@ class Occluders {
     this.read = -1e9;
   }
 
-  /** Bring the cached rects up to date (cheap when called every frame). */
-  sync() {
+  /** Bring the cached rects up to date (cheap when called every frame). `x`/`y` is the frame's scroll snapshot (framing.scroll). */
+  sync(x: number, y: number) {
     const now = performance.now();
     this.rescan(now);
-    const y = window.scrollY;
-    const x = window.scrollX;
     if (now - this.read >= REFRESH_MS && (y !== this.readY || x !== this.readX || now - this.read >= RESCAN_MS)) {
       this.read = now;
       this.readY = y;

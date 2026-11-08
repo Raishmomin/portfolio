@@ -95,7 +95,7 @@ export const sceneFrames = Object.fromEntries(
  * content. Callers keep the occluder registry retained (a LabelLayer does).
  */
 export function clearRect(r: Rect, minH: number, out: Rect): Rect | null {
-  occluders.sync();
+  occluders.sync(scroll.x, scroll.y);
   Object.assign(out, r);
   if (out.b - out.t < minH) return null;
   if (!occluders.hits(out.l, out.t, out.r, out.b)) return out;
@@ -123,6 +123,14 @@ export function clearRect(r: Rect, minH: number, out: Rect): Rect | null {
   out.b = b;
   return out;
 }
+
+/**
+ * The page scroll, snapshotted once per frame by the director before any scene runs
+ * (perf P5). Scenes read it in place of window.scrollX/Y: in Chromium every scrollY read
+ * after a DOM write forces a style and layout pass, and the label and clearRect scenes
+ * write DOM every frame.
+ */
+export const scroll = { x: 0, y: 0 };
 
 /** Live, eased framing (written by the rig every frame, read by scenes). */
 export const framing = {
