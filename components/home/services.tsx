@@ -30,7 +30,7 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
                 Ways to <Accent>work together.</Accent>
               </>
             }
-            scene="The 3D scene builds each service as the system it delivers. Scroll the list or point at a card to switch."
+            scene="The 3D scene builds each service as the system it delivers. Point at a card or scroll the list to switch; on smaller screens the four take turns."
           />
         </div>
         <ul data-arch="" data-card-group="" className="svc-list svc-list-r mt-4 grid grid-cols-1 gap-4">
@@ -59,8 +59,9 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
                   {s.tagline}
                 </span>
                 <span className="mt-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-                  <span data-card-part="pop" className="flex flex-wrap gap-1.5">
-                    {s.techStack.slice(0, 4).map((t, k) => (
+                  {/* data-svc-tech: the 3D machine names only technologies these chips print. */}
+                  <span data-card-part="pop" data-svc-tech={s.slug} className="flex flex-wrap gap-1.5">
+                    {s.techStack.slice(0, 5).map((t, k) => (
                       <span key={t} className="pill svc-chip" style={{ "--k": k } as CSSProperties}>
                         {chipLabel(t)}
                       </span>

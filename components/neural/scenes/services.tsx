@@ -10,13 +10,15 @@
 // the card at the reading line ([data-arch] spy on the list, which also highlights that
 // card, so scene and card always agree); else scroll progress through the section; on a
 // service page the page's own service ([data-service-pin]); on a section without cards
-// (the /services intro) and on phones (where the cards cover the scene) the four take turns.
+// (the /services intro) and on phones (where the cards cover the scene; the card highlight
+// is desktop-only there, so nothing disagrees) the four take turns.
 // Where: the scene's own free rect (framing.sceneFrames.services), shrunk by the
 // visibility guard so it never sits under content. A page intro frames it beside the
 // headline and sits it on its 3D caption; on phones a page may reserve an empty room for it
-// ([data-svc-room]). Names are aria-hidden labels in the shared layer (duplicates of the
-// server-rendered cards: active scene only, never over content or each other, clamped),
-// each appearing as its part lands.
+// ([data-svc-room]). Names are aria-hidden labels in the shared layer: each one is the chip
+// this page itself prints for that service ([data-svc-tech]), so a name the page does not
+// show is never drawn (active scene only, never over content or each other, clamped), and
+// appears once the parts it names have landed. Phones get the machine's title only.
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera, type Matrix4 } from "three";
@@ -24,7 +26,7 @@ import { clearRect, framing, sceneFrames, type Rect } from "../framing";
 import { occluders } from "../occluders";
 import type { SceneProps } from "../types";
 import type { Side } from "./services/designs";
-import { emptyRegistry, ServicesRig, stagger, type ServicesFrame, type ServicesRegistry } from "./services/rig";
+import { emptyRegistry, ServicesRig, type ServicesFrame, type ServicesRegistry } from "./services/rig";
 import { LabelLayer, type Align } from "./stack/labels";
 
 const PREFIX = "service:";
@@ -43,6 +45,22 @@ const ROOM_SEL = "[data-svc-room]";
 const EDGE = 12;
 /** Px between two labels. */
 const GAP = 4;
+/** The chips a page prints for a service (home cards, the /services list, a service page's stack). */
+const TECH_SEL = "[data-svc-tech]";
+/** The first of these marks the page: when it leaves the DOM, the route changed. */
+const PAGE_SEL = "[data-svc-tech], [data-section]";
+/** A chip's name as a label prints it: "AWS (EC2, …)" -> "AWS". */
+const short = (t: string) => t.replace(/\s*\(.*?\)/g, "").replace(/\s+/g, " ").trim();
+/** Every chip this page prints for one service, in order, short. */
+function pageChips(slug: string): string[] {
+  const out: string[] = [];
+  for (const box of document.querySelectorAll(`${TECH_SEL}[data-svc-tech="${CSS.escape(slug)}"]`))
+    for (const el of box.querySelectorAll(".pill")) {
+      const t = short(el.textContent ?? "");
+      if (t && !out.includes(t)) out.push(t);
+    }
+  return out;
+}
 
 const ALIGN: Record<Side, Align> = {
   r: { x: 0, y: -0.5, dx: 10 },
@@ -52,8 +70,26 @@ const ALIGN: Record<Side, Align> = {
 };
 
 type Spy = { el: Element; slug: string };
-/** One label of a machine: its anchor, its alignment (dy nudged off other labels) and size. */
-type Slot = { id: number; x: number; y: number; z: number; side: Side; dy0: number; align: Align; off: number; w: number; h: number; at: number };
+/**
+ * One label of a machine: what it names (re; null = the title) and the page's chip it shows
+ * (text; null = the page prints none, so it is not drawn), its anchor, its alignment (dy
+ * nudged off other labels), size and eased presence.
+ */
+type Slot = {
+  id: number;
+  re: RegExp | null;
+  text: string | null;
+  x: number;
+  y: number;
+  z: number;
+  side: Side;
+  dy0: number;
+  align: Align;
+  off: number;
+  w: number;
+  h: number;
+  vis: number;
+};
 /** Scratch rects (px) for the framing (one services scene per page). */
 const px: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const clear: Rect = { l: 0, t: 0, r: 0, b: 0 };
@@ -131,8 +167,8 @@ function introRoom(sec: HTMLElement, W: number, H: number, out: Rect): number {
   const note = nr && nr.width > 0 && getComputedStyle(it.note as Element).position === "absolute" ? nr : null;
   const gridR = note ? note.right : br.right - 32;
   out.l = textR + 56;
-  const margin = W - gridR;
-  out.r = Math.min(W - 24, gridR + Math.max(margin * 0.45, Math.min(margin * 0.8, 120)));
+  // Anchored to the content grid: never more than a step past the caption's right edge.
+  out.r = Math.min(W - 24, gridR + 24);
   out.t = Math.max(HEADER_PX + 12, br.top + 12);
   out.b = Math.min(H - 12, note ? note.top - 22 : br.bottom - 16);
   if (out.r - out.l < 300) return NaN;
@@ -164,6 +200,35 @@ function sitOn(room: Rect, x: number, hw: number, hh: number) {
     room.l = cx - nw / 2;
     room.r = cx + nw / 2;
   } else room.t = room.b - rw / asp;
+}
+
+/**
+ * Keep the labels hanging off a machine's right side inside `limit` too: the machine (fitted
+ * into `room` by sitOn; px per layout unit from its width) slides left, then shrinks on its
+ * bottom, by however far its widest right-hand label would run past.
+ */
+function fitLabels(room: Rect, inner: Rect, limit: number, list: Slot[] | undefined, hw: number) {
+  if (!list) return;
+  const ppu = (room.r - room.l) / (2 * hw);
+  const cx = (room.l + room.r) / 2;
+  let right = room.r;
+  for (const sl of list) {
+    if (!sl.re || !sl.text || sl.w === 0) continue;
+    const ext = sl.side === "r" ? 10 + sl.w : sl.side === "l" ? 0 : sl.w / 2;
+    right = Math.max(right, cx + sl.x * ppu * 0.92 + ext);
+  }
+  let excess = right - limit;
+  if (excess <= 0) return;
+  const shift = Math.min(excess, Math.max(0, room.l - inner.l));
+  room.l -= shift;
+  room.r -= shift;
+  excess -= shift;
+  if (excess > 0) {
+    const w = room.r - room.l;
+    const k = Math.max(0.6, (w - excess) / w);
+    room.r = room.l + w * k;
+    room.t = room.b - (room.b - room.t) * k;
+  }
 }
 
 /**
@@ -245,7 +310,80 @@ function placeLabel(layer: LabelLayer, s: Slot, alpha: number, M: Matrix4, camer
   layer.place(s.id, s.x, s.y, s.z, M, camera, W, H, alpha);
 }
 
-type Labels = { layer: LabelLayer; slots: Slot[][]; sized: boolean };
+/** gen: the page generation the label texts were read for. title: the phones' machine name. */
+type Labels = { layer: LabelLayer; slots: Slot[][]; sized: boolean; gen: number; title: PhoneTitle; cur: number };
+type PhoneTitle = { el: HTMLDivElement; k: number; o: number; x: number; y: number; w: number; h: number };
+
+/** Fill every label with the chip this page prints for it (or leave it out). */
+function readLabels(L: Labels, slugs: string[]) {
+  const kids = L.layer.el.children;
+  L.slots.forEach((list, k) => {
+    const chips = pageChips(slugs[k]);
+    const used = new Set<string>();
+    for (const sl of list) {
+      const re = sl.re;
+      if (!re) continue;
+      const text = chips.find((c) => !used.has(c) && re.test(c)) ?? null;
+      if (text) used.add(text);
+      if (text === sl.text) continue;
+      sl.text = text;
+      const el = kids[sl.id];
+      if (el && text) el.textContent = text;
+      L.layer.style(sl.id, {}); // re-measure
+      L.sized = false;
+    }
+  });
+}
+
+/** A slot's presence eased toward `target` (0..1); returns it. */
+function present(sl: Slot, target: number, k: number) {
+  sl.vis += (target - sl.vis) * k;
+  return sl.vis;
+}
+/** A machine coming in: its names start hidden and wait for their parts. */
+function enter(L: Labels, k: number) {
+  L.cur = k;
+  for (const sl of L.slots[k]) sl.vis = 0;
+}
+
+function hideTitle(T: PhoneTitle) {
+  if (T.o === 0) return;
+  T.o = 0;
+  T.el.style.opacity = "0";
+  T.el.style.visibility = "hidden";
+}
+
+/** Phones: the machine's title over it (the label layer stays off on phones). */
+function placeTitle(T: PhoneTitle, k: number, text: string, alpha: number, x: number, y: number, z: number, M: Matrix4, camera: Camera, W: number, H: number) {
+  const el = T.el;
+  if (T.k !== k) {
+    T.k = k;
+    el.textContent = text;
+    T.w = el.offsetWidth;
+    T.h = el.offsetHeight;
+  }
+  let o = 0;
+  if (alpha > 0.03) {
+    lv.set(x, y, z).applyMatrix4(M).project(camera);
+    let px = ((lv.x + 1) / 2) * W - T.w / 2;
+    let py = ((1 - lv.y) / 2) * H - T.h - 4;
+    px = Math.round(Math.min(Math.max(px, EDGE), Math.max(EDGE, W - EDGE - T.w)) * 2) / 2;
+    py = Math.round(py * 2) / 2;
+    if (lv.z <= 1 && lv.z >= -1 && py >= 56 && !occluders.hits(px, py, px + T.w, py + T.h)) {
+      o = Math.round(alpha * 40) / 40;
+      if (px !== T.x || py !== T.y) {
+        T.x = px;
+        T.y = py;
+        el.style.transform = `translate3d(${px}px,${py}px,0)`;
+      }
+    }
+  }
+  if (o !== T.o) {
+    T.o = o;
+    el.style.opacity = String(o);
+    el.style.visibility = o > 0 ? "visible" : "hidden";
+  }
+}
 /** One batched read of every label's size (labels are laid out even while hidden). */
 function sizeLabels(L: Labels) {
   const kids = L.layer.el.children;
@@ -300,18 +438,17 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
   const pin = useRef<number>(-1);
   // A phone room reserved by the page (looked up again if it leaves the DOM).
   const slot = useRef<{ el: HTMLElement | null; at: number }>({ el: null, at: -1e9 });
+  // The page the pin, the spy and the label texts were read from (re-read after a route change).
+  const page = useRef<{ el: Element | null; at: number; gen: number }>({ el: null, at: -1e9, gen: 0 });
   useEffect(() => {
     const onArch = (e: Event) => {
       const slug = (e as CustomEvent<{ slug?: string | null }>).detail?.slug;
       if (e.target instanceof Element && slug?.startsWith(PREFIX)) spy.current = { el: e.target, slug: slug.slice(PREFIX.length) };
     };
     document.addEventListener("cp:arch", onArch);
-    const el = document.querySelector<HTMLElement>("[data-arch-slug^='service:']");
-    if (el?.dataset.archSlug) spy.current = { el, slug: el.dataset.archSlug.slice(PREFIX.length) };
-    const p = document.querySelector<HTMLElement>("[data-service-pin]")?.dataset.servicePin;
-    pin.current = p ? (index.get(p) ?? -1) : -1;
     return () => document.removeEventListener("cp:arch", onArch);
-  }, [index]);
+  }, []);
+  const slugs = useMemo(() => services.map((s) => s.slug), [services]);
 
   // Labels: each machine's technology names, then its title.
   const host = useThree((s) => s.gl.domElement.parentElement);
@@ -324,26 +461,35 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       const list: Slot[] = [];
       for (const l of d.labels) {
         const base = ALIGN[l.side];
-        const id = layer.add(l.text, "", "rounded-full border px-2 py-[3px] font-mono text-[10.5px] leading-none tracking-[0.02em]", base);
+        // Empty until the page's chips are read (readLabels).
+        const id = layer.add("", "", "rounded-full border px-2 py-[3px] font-mono text-[10.5px] leading-none tracking-[0.02em]", base);
         layer.style(id, { color: palette.fg, background: chip, borderColor: `color-mix(in srgb, ${palette.muted} 55%, transparent)` });
-        // A name appears once its part has landed (the machine assembles left to right).
-        list.push({ id, x: l.x, y: l.y, z: l.z, side: l.side, dy0: base.dy ?? 0, align: { ...base }, off: 0, w: 0, h: 0, at: stagger(l.x) + 0.25 });
+        list.push({ id, re: l.re, text: null, x: l.x, y: l.y, z: l.z, side: l.side, dy0: base.dy ?? 0, align: { ...base }, off: 0, w: 0, h: 0, vis: 0 });
       }
       // The title goes last: the names keep their places, the title steps up over them.
-      const title = layer.add(`● ${services[k].title}`, "", "font-mono text-xs uppercase tracking-[0.16em]", { x: -0.5, y: -1 });
+      const text = `● ${services[k].title}`;
+      const title = layer.add(text, "", "font-mono text-xs uppercase tracking-[0.16em]", { x: -0.5, y: -1 });
       layer.style(title, { color: palette.fg, textShadow: `0 0 10px ${palette.bg}, 0 0 4px ${palette.bg}` });
-      list.push({ id: title, x: d.title[0], y: d.title[1], z: d.title[2], side: "t", dy0: 0, align: { x: -0.5, y: -1, dy: 0 }, off: 0, w: 0, h: 0, at: 0.25 });
+      list.push({ id: title, re: null, text, x: d.title[0], y: d.title[1], z: d.title[2], side: "t", dy0: 0, align: { x: -0.5, y: -1, dy: 0 }, off: 0, w: 0, h: 0, vis: 0 });
       return list;
     });
-    const L: Labels = { layer, slots, sized: false };
+    // Phones: one title over the machine, in the same voice as the desktop title.
+    const el = document.createElement("div");
+    el.setAttribute("aria-hidden", "true");
+    el.className = "font-mono text-[11px] uppercase tracking-[0.16em]";
+    el.style.cssText = `position:absolute;left:0;top:0;white-space:nowrap;pointer-events:none;user-select:none;opacity:0;visibility:hidden;color:${palette.fg};text-shadow:0 0 10px ${palette.bg},0 0 4px ${palette.bg};`;
+    host.appendChild(el);
+    const L: Labels = { layer, slots, sized: false, gen: -1, title: { el, k: -1, o: 0, x: NaN, y: NaN, w: 0, h: 0 }, cur: -1 };
     labels.current = L;
     // Sizes change once the web fonts arrive.
     document.fonts?.ready.then(() => {
       L.sized = false;
+      L.title.k = -1;
     });
     return () => {
       labels.current = null;
       layer.dispose();
+      el.remove();
     };
   }, [host, rig, services, palette]);
 
@@ -371,6 +517,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     const { root, tilt } = reg.current;
     if (!active || services.length === 0 || !root || !tilt) {
       L?.layer.hideAll();
+      if (L) hideTitle(L.title);
       return;
     }
     const time = state.clock.elapsedTime;
@@ -379,6 +526,25 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     const sf = sceneFrames.services;
     const sec = sf.el;
     const phone = framing.phone;
+    const now = performance.now();
+
+    // A new page (route change, or the first frame): read its pin, spy and chips again.
+    const pg = page.current;
+    if ((!pg.el || !pg.el.isConnected) && now - pg.at > 400) {
+      pg.at = now;
+      pg.el = document.querySelector(PAGE_SEL);
+      pg.gen++;
+      const p = document.querySelector<HTMLElement>("[data-service-pin]")?.dataset.servicePin;
+      pin.current = p ? (index.get(p) ?? -1) : -1;
+      const el = document.querySelector<HTMLElement>("[data-arch-slug^='service:']");
+      spy.current = el?.dataset.archSlug ? { el, slug: el.dataset.archSlug.slice(PREFIX.length) } : null;
+      slot.current.el = null;
+      slot.current.at = -1e9;
+    }
+    if (L && L.gen !== pg.gen) {
+      L.gen = pg.gen;
+      readLabels(L, slugs);
+    }
 
     // Which service. Phones: the cards cover the scene, so the four take turns in its room.
     let idx = -1;
@@ -389,23 +555,19 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     if (idx < 0 && pin.current >= 0) idx = pin.current;
     if (idx < 0) idx = Math.floor(time / CYCLE) % services.length;
 
-    // Coming back after a while: assemble the machine again.
-    if (time - seen.current.last > 0.8) rig.reassemble(idx);
-    seen.current.last = time;
-
     // Where: the free rect in px, minus anything content covers.
     const W = size.width;
     const H = size.height;
+    camera.updateMatrixWorld();
     px.l = sf.rect.l * W;
     px.r = sf.rect.r * W;
     px.t = Math.max(sf.rect.t * H, phone ? 56 : HEADER_PX);
     px.b = Math.min(sf.rect.b * H, H - 8);
     const mid = (sf.rect.l + sf.rect.r) / 2;
-    const d = rig.designs[rig.current >= 0 ? rig.current : idx];
+    const d = rig.designs[idx];
     const side = phone ? 0 : mid < 0.45 ? -1 : mid > 0.55 ? 1 : 0;
     const c = cache.current;
-    const now = performance.now();
-    const key = px.l + px.t * 7 + px.r * 13 + px.b * 17 + W * 19 + H * 23 + (sec ? 1 : 0) + rig.current * 29;
+    const key = px.l + px.t * 7 + px.r * 13 + px.b * 17 + W * 19 + H * 23 + (sec ? 1 : 0) + idx * 29 + (L?.sized ? 31 : 0);
     if (key !== c.key || now - c.at > (now - scrolledAt.current < 200 ? ROOM_MS : ROOM_IDLE_MS)) {
       c.key = key;
       c.at = now;
@@ -430,7 +592,9 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
         } else if (!phone && sec.dataset.section === "intro") {
           const x = introRoom(sec, W, H, room1);
           if (x === x && clearRect(room1, MIN_H.desk, clear)) {
+            const limit = clear.r;
             sitOn(clear, x, d.hw, d.hh);
+            fitLabels(clear, room1, limit, L?.slots[idx], d.hw);
             c.ok = c.doc = true;
           }
         }
@@ -442,10 +606,22 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       if (c.ok) Object.assign(room0, clear);
     }
     const room = c.ok ? room0 : null;
+    seen.current.room += ((room ? 1 : 0) - seen.current.room) * Math.min(1, dt * 6);
+    if (!room && seen.current.room < 0.01) {
+      // No room and faded out: nothing is simulated, uploaded or drawn until a room returns
+      // (the machine then assembles again).
+      seen.current.room = 0;
+      root.visible = false;
+      if (L) {
+        L.layer.hideAll();
+        hideTitle(L.title);
+      }
+      return;
+    }
+    root.visible = true;
     if (room) {
       // A room on the page moves with it between measurements.
       const shift = c.doc ? c.y - window.scrollY : 0;
-      camera.updateMatrixWorld();
       const cw = room.r - room.l;
       const ch = room.b - room.t;
       toWorld(camera, room.l + cw / 2, room.t + shift + ch / 2, W, H, pt);
@@ -461,7 +637,10 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       const cx = (room.l + cw / 2) / W;
       o.turn = phone ? 0 : cx < 0.45 ? 1 : cx > 0.55 ? -1 : 0;
     }
-    seen.current.room += ((room ? 1 : 0) - seen.current.room) * Math.min(1, dt * 6);
+
+    // Coming back after a while (or into a room again): assemble the machine again.
+    if (time - seen.current.last > 0.8) rig.reassemble(idx);
+    seen.current.last = time;
     o.active = idx;
     o.weight = weight;
     o.pointer.x = pointer.x;
@@ -470,20 +649,42 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     rig.frame(time, dt, o, root, tilt);
 
     if (!L) return;
+    // Labels follow this frame's transform (rig.frame just moved and scaled the root).
+    root.updateMatrixWorld(true);
+    const M = tilt.matrixWorld;
+    const k0 = rig.current;
+    if (k0 !== L.cur) enter(L, k0);
+    const ease = Math.min(1, dt * 9);
+    if (phone) {
+      L.layer.hideAll();
+      const t = L.slots[k0][L.slots[k0].length - 1];
+      const vis = present(t, smooth01((rig.clock - 0.25) / 0.35), ease);
+      const D = rig.designs[k0];
+      placeTitle(L.title, k0, t.text ?? "", rig.labelAlpha[k0] * vis * (o.room > 0.6 ? o.room : 0) * Math.min(1, weight * 1.6), D.title[0], D.title[1], D.title[2], M, camera, W, H);
+      return;
+    }
+    hideTitle(L.title);
     const { layer } = L;
     if (!layer.begin(weight * (o.room > 0.6 ? 1 : 0))) return;
     if (!L.sized) sizeLabels(L);
-    tilt.updateMatrixWorld(true);
-    const M = tilt.matrixWorld;
     for (let k = 0; k < rig.designs.length; k++) {
       const a = rig.labelAlpha[k] * o.room;
       const list = L.slots[k];
-      const cur = k === rig.current;
+      const cur = k === k0;
       nPlaced = 0;
       for (let j = 0; j < list.length; j++) {
         const sl = list[j];
-        // The incoming machine's names wait for their parts to land.
-        placeLabel(layer, sl, cur ? a * smooth01((rig.clock - sl.at) / 0.35) : a, M, camera, W, H);
+        if (!sl.text) {
+          layer.hide(sl.id);
+          continue;
+        }
+        let alpha = a;
+        if (cur) {
+          // The incoming machine's names wait for the parts they name to land; the title
+          // comes first.
+          alpha = a * present(sl, sl.re ? smooth01((rig.labelReveal(j) - 0.55) / 0.4) : smooth01((rig.clock - 0.25) / 0.35), ease);
+        }
+        placeLabel(layer, sl, alpha, M, camera, W, H);
       }
     }
   });

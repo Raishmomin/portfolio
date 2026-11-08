@@ -3,8 +3,9 @@
 // static blueprint (glass panels, solids, links, sprites, label anchors) plus a program
 // that animates it every frame (packets, filling blocks, containers in flight, a token
 // bucket). Coordinates are layout units: x right, y up, z toward the viewer, the machine
-// inside about x ±4, y ±2.6. Labels are the service's real technology names, exactly as
-// the DOM lists them; a name the data does not have is simply not drawn.
+// inside about x ±4, y ±2.6. A label names the part it sits on by a pattern; the scene
+// fills it with the matching chip the page itself prints for that service (so a name the
+// page does not show is simply not drawn).
 import type { NeuralData } from "../../types";
 
 /** Palette slots: fg, accent (orange), ok (green), muted, ai (blue). */
@@ -36,7 +37,8 @@ export type LinkDef = {
   alpha: number;
 };
 export type Side = "l" | "r" | "t" | "b";
-export type LabelDef = { text: string; x: number; y: number; z: number; side: Side };
+/** A label: the pattern its technology name matches, where it sits and on which side. */
+export type LabelDef = { re: RegExp; x: number; y: number; z: number; side: Side };
 
 /** What a program may write each frame (no allocation: preallocated by the rig). */
 export interface Live {
@@ -126,7 +128,6 @@ class Builder {
   readonly sprites: SpriteDef[] = [];
   readonly links: LinkDef[] = [];
   readonly labels: LabelDef[] = [];
-  constructor(private readonly tech: string[]) {}
 
   slab(x: number, y: number, z: number, w: number, h: number, tint: Tint, style: number = SLAB.glass, fill = 1, flat = 0) {
     return this.slabs.push({ x, y, z, w, h, tint, style, flat, fill }) - 1;
@@ -175,10 +176,9 @@ class Builder {
     const e = [0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7];
     for (let i = 0; i < e.length; i += 2) this.link(c[e[i]], c[e[i + 1]], w, tint, LINK.dash, 1, i * 0.37, 0.85);
   }
-  /** A label naming the service's technology that matches `re` (skipped when it has none). */
+  /** A label naming the technology that matches `re` (drawn only when the page shows one). */
   label(re: RegExp, x: number, y: number, z: number, side: Side) {
-    const text = this.tech.find((t) => re.test(t));
-    if (text) this.labels.push({ text, x, y, z, side });
+    this.labels.push({ re, x, y, z, side });
   }
 }
 
@@ -201,8 +201,8 @@ const tmp2 = new Float32Array(3);
 
 // ---------- 1. Next.js: an App Router route tree streams server components into a page ----------
 
-function nextjs(slug: string, tech: string[]): Design {
-  const b = new Builder(tech);
+function nextjs(slug: string): Design {
+  const b = new Builder();
   // app/ directory panel behind the route tree.
   b.slab(-2.5, -0.05, -0.4, 2.9, 3.8, T.muted);
   const X0 = -3.5;
@@ -316,8 +316,8 @@ function pass(t: number, n: number, u0: number) {
 
 // ---------- 2. MERN: MongoDB, Express, React and Node pass data round one loop ----------
 
-function mern(slug: string, tech: string[], low: boolean): Design {
-  const b = new Builder(tech);
+function mern(slug: string, low: boolean): Design {
+  const b = new Builder();
   const R = [-2.45, 1.05, 0];
   const E = [2.45, 1.05, 0];
   const N = [2.45, -1.3, 0];
@@ -394,8 +394,8 @@ const graphY = (k: number, t: number, base: number) => base - 0.25 + 0.38 * (0.5
 
 // ---------- 3. DevOps & AWS: a CI/CD loop builds containers and ships them to a cluster ----------
 
-function devops(slug: string, tech: string[], low: boolean): Design {
-  const b = new Builder(tech);
+function devops(slug: string, low: boolean): Design {
+  const b = new Builder();
   const CX = -1.95;
   const CY = 0.35;
   const A = 1.72;
@@ -501,8 +501,8 @@ function devops(slug: string, tech: string[], low: boolean): Design {
 
 type Req = { on: boolean; t0: number; client: number; ok: boolean; phase: number; traced: boolean };
 
-function api(slug: string, tech: string[]): Design {
-  const b = new Builder(tech);
+function api(slug: string): Design {
+  const b = new Builder();
   // Phase lengths: in, gateway → node, node → db, db → node, node → gateway, gateway → client.
   const D = [0.55, 0.42, 0.4, 0.4, 0.42, 0.55];
   const clients = [1.15, 0, -1.15].map((y) => [-3.6, y, 0.1]);
@@ -683,7 +683,7 @@ function api(slug: string, tech: string[]): Design {
 // ---------- fallback: a hub of the service's own technologies ----------
 
 function hub(slug: string, tech: string[]): Design {
-  const b = new Builder(tech);
+  const b = new Builder();
   b.sprite(0, 0, 0.1, 0.8, T.accent, SPRITE.orb);
   b.sprite(0, 0, 0.1, 1.4, T.accent, SPRITE.ring);
   const n = Math.min(8, tech.length);
@@ -692,12 +692,14 @@ function hub(slug: string, tech: string[]): Design {
     const p = [Math.cos(a) * 2.6, Math.sin(a) * 1.8, Math.sin(a) * 0.4];
     b.sprite(p[0], p[1], p[2], 0.45, (i % 4) as Tint, SPRITE.orb);
     b.link([0, 0, 0.1], p, 0.05, T.muted, LINK.flow, 0.8);
-    b.labels.push({ text: tech[i], x: p[0], y: p[1] + 0.32, z: p[2], side: "t" });
+    // The entry's first name ("Express / Fastify" -> "Express"), as a chip may print it alone.
+    const name = tech[i].split(" / ")[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    b.label(new RegExp(`^${name}`), p[0], p[1] + 0.32, p[2], "t");
   }
   return { slug, ...b, title: [0, 2.55, 0], hw: 3.6, hh: 2.7, animate() {} };
 }
 
-const BUILDERS: [RegExp, (slug: string, tech: string[], low: boolean) => Design][] = [
+const BUILDERS: [RegExp, (slug: string, low: boolean) => Design][] = [
   [/next/i, nextjs],
   [/mern/i, mern],
   [/devops|aws|cloud/i, devops],
@@ -708,6 +710,6 @@ const BUILDERS: [RegExp, (slug: string, tech: string[], low: boolean) => Design]
 export function buildDesigns(services: NeuralData["services"], low: boolean): Design[] {
   return services.map((s) => {
     const make = BUILDERS.find(([re]) => re.test(s.slug))?.[1];
-    return make ? make(s.slug, s.tech, low) : hub(s.slug, s.tech);
+    return make ? make(s.slug, low) : hub(s.slug, s.tech);
   });
 }

@@ -246,7 +246,10 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
           <div {...card("flip")} className="panel self-start p-6 md:p-8 lg:col-span-5">
             <Kicker>stack</Kicker>
             <h3 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">Tech stack</h3>
-            <PopPills items={config.techStack} className="mt-6 gap-2" pillClassName="normal-case tracking-normal text-xs" />
+            {/* data-svc-tech: the 3D machine above names only technologies this list prints. */}
+            <div data-svc-tech={config.slug} className="mt-6">
+              <PopPills items={config.techStack} className="gap-2" pillClassName="normal-case tracking-normal text-xs" />
+            </div>
           </div>
         </div>
       </PageSection>

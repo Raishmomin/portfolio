@@ -146,6 +146,40 @@ class Track {
   }
 }
 
+/** A label waits for the parts within this reach of its anchor (layout units). */
+const REACH = 0.9;
+/** Part code: (track << 10) | slot (tracks: slabs, boxes, cylinders, sprites, links). */
+const code = (track: number, slot: number) => (track << 10) | slot;
+
+/** The parts of machine D that a label at (x, y, z) names: those within REACH (nearest 6), else the nearest. */
+function nearParts(D: Design, x: number, y: number, z: number): Int32Array {
+  const found: [number, number][] = [];
+  const add = (track: number, slot: number, d: number) => found.push([Math.max(0, d), code(track, slot)]);
+  D.slabs.forEach((s, i) => {
+    const dx = Math.max(0, Math.abs(x - s.x) - s.w / 2);
+    const flat = s.flat > 0.5;
+    const dy = flat ? Math.abs(y - s.y) : Math.max(0, Math.abs(y - s.y) - s.h / 2);
+    const dz = flat ? Math.max(0, Math.abs(z - s.z) - s.h / 2) : Math.abs(z - s.z);
+    add(0, i, Math.hypot(dx, dy, dz));
+  });
+  D.boxes.forEach((s, i) => add(1, i, Math.hypot(x - s.x, y - s.y, z - s.z) - Math.max(s.sx, s.sy, s.sz) / 2));
+  D.cyls.forEach((s, i) => add(2, i, Math.hypot(x - s.x, y - s.y, z - s.z) - Math.max(s.sx, s.sy, s.sz) / 2));
+  D.sprites.forEach((s, i) => add(3, i, Math.hypot(x - s.x, y - s.y, z - s.z) - s.size * 0.35));
+  D.links.forEach((s, i) => {
+    // Distance to the segment (graph lines rewritten by a program sit at the origin: skipped).
+    const ex = s.bx - s.ax;
+    const ey = s.by - s.ay;
+    const ez = s.bz - s.az;
+    const l2 = ex * ex + ey * ey + ez * ez;
+    if (l2 < 1e-6) return;
+    const u = clamp01(((x - s.ax) * ex + (y - s.ay) * ey + (z - s.az) * ez) / l2);
+    add(4, i, Math.hypot(x - s.ax - ex * u, y - s.ay - ey * u, z - s.az - ez * u) - s.w);
+  });
+  found.sort((a, b) => a[0] - b[0]);
+  const within = found.filter((f) => f[0] <= REACH).slice(0, 6);
+  return Int32Array.from((within.length ? within : found.slice(0, 1)).map((f) => f[1]));
+}
+
 export type ServicesRegistry = { root: Group | null; tilt: Group | null };
 export const emptyRegistry = (): ServicesRegistry => ({ root: null, tilt: null });
 
@@ -228,6 +262,8 @@ export class ServicesRig {
   readonly lineSet = new Uint8Array(STATIC.links);
   /** Label presence per machine (the component places them). */
   readonly labelAlpha: Float32Array;
+  /** Per machine, per label: the parts it names (see nearParts). */
+  private readonly near: Int32Array[][];
   current = -1;
   private prev = -1;
   /** Seconds since the current machine started assembling. */
@@ -251,6 +287,7 @@ export class ServicesRig {
     const g = this.gl;
     this.attrs = [g.sAttr, g.bAttr, g.cAttr, g.lAttr, g.pAttr].map((a) => Object.values(a));
     this.labelAlpha = new Float32Array(this.designs.length);
+    this.near = this.designs.map((D) => D.labels.map((l) => nearParts(D, l.x, l.y, l.z)));
     this.gl.slabMat.uniforms.uDetail.value = this.low ? 0 : 1;
   }
 
@@ -376,6 +413,33 @@ export class ServicesRig {
     this.current = d;
     this.clock = 0;
     this.apply(d);
+  }
+
+  /** How far one part of the current machine has landed: present, in place, drawn (0..1). */
+  private partReveal(c: number) {
+    const tr = this.tracks[c >> 10];
+    const i = c & 1023;
+    if (i >= tr.n) return 1;
+    if (tr.talpha[i] === 0 || tr.pend[i] || tr.wait[i] > 0) return 0;
+    const o = i * tr.ch;
+    const cur = tr.cur;
+    const tgt = tr.tgt;
+    let d = Math.hypot(cur[o] - tgt[o], cur[o + 1] - tgt[o + 1], cur[o + 2] - tgt[o + 2]);
+    let r = tr.alpha[i];
+    if (tr === this.links) {
+      d = Math.max(d, Math.hypot(cur[o + 3] - tgt[o + 3], cur[o + 4] - tgt[o + 4], cur[o + 5] - tgt[o + 5]));
+      r *= tr.draw[i];
+    }
+    return r * clamp01(1 - d / 0.45);
+  }
+
+  /** How far the parts label j of the current machine names have landed (the least of them). */
+  labelReveal(j: number) {
+    const list = this.current >= 0 ? this.near[this.current][j] : undefined;
+    if (!list) return 0;
+    let m = 1;
+    for (let k = 0; k < list.length; k++) m = Math.min(m, this.partReveal(list[k]));
+    return m;
   }
 
   emitSprite(i: number, x: number, y: number, z: number, size: number, tint: Tint, a: number) {

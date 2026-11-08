@@ -115,7 +115,8 @@ void main() {
     float sweep = smoothstep(0.5, 0.0, abs(fract(vP.x * 0.1 + vP.y * 0.05 - uTime * 0.05) - 0.5) - 0.34);
     float bar = step(1.5, vStyle) * step(h.y - 0.34, vP.y);
     vec3 glass = mix(uBg, vTint, 0.08 + 0.05 * bar) + sweep * 0.03;
-    vec3 glassL = mix(mix(uBg, uFg, 0.035), vTint, 0.08 + 0.08 * bar);
+    // Paper: glass panels carry a real tint body (a window stays near white for its blocks).
+    vec3 glassL = mix(mix(uBg, uFg, 0.035), vTint, mix(0.08, 0.2, step(vStyle, 0.5)) + 0.08 * bar);
     col = mix(glass, glassL, uLight);
     a = body * mix(0.42 + 0.18 * bar, 0.93, uLight);
     col = mix(col, mix(vTint, uFg, 0.3 * uLight), grid * 0.45);
@@ -266,7 +267,7 @@ void main() {
   vec3 colD = mix(bodyD, vTint * 1.35 + 0.08, edge);
   float aD = mix(0.8, 1.0, edge);
   // Paper: tinted faces (lit top, darker sides) with inked edges, so solids read as solid.
-  vec3 bodyL = mix(uBg, vTint, 0.3 + 0.2 * (1.0 - diff));
+  vec3 bodyL = mix(uBg, vTint, 0.46 + 0.2 * (1.0 - diff));
   vec3 colL = mix(bodyL, mix(vTint, uFg, 0.4), edge);
   float aL = mix(0.97, 1.0, edge);
   vec3 col = mix(colD, colL, uLight);
@@ -291,6 +292,7 @@ attribute float aSpeed;
 attribute float aDraw;
 attribute vec3 aColor;
 uniform float uScale;
+uniform float uLight;
 varying float vT;
 varying float vU;
 varying float vLen;
@@ -308,7 +310,8 @@ void main() {
   dir = l2 > 1e-5 ? dir / l2 : vec2(1.0, 0.0);
   vec2 side = vec2(-dir.y, dir.x);
   vec4 p = mix(a, b, position.x);
-  p.xy += side * position.y * aW * uScale;
+  // Paper: ink lines half as thick again, so they read next to the dark theme's glow.
+  p.xy += side * position.y * aW * uScale * (1.0 + 0.5 * uLight);
   vT = position.x;
   vU = position.y;
   vLen = distance(aA, aB);
@@ -351,13 +354,13 @@ void main() {
   // Path position: seed carries the offset of this segment along its whole path.
   float s = vT * vLen;
   float ends = vKind > 0.5 && vKind < 1.5 ? 1.0 : smoothstep(0.0, 0.05, vT) * smoothstep(1.0, 0.95, vT);
-  float a = core * mix(0.5, 0.72, uLight) + soft * mix(0.16, 0.04, uLight);
+  float a = core * mix(0.5, 0.9, uLight) + soft * mix(0.16, 0.04, uLight);
   vec3 col = vColor;
   if (vKind > 0.5 && vKind < 1.5) {
     // Flow: comets in the direction of vSpeed (continuous across a path's segments).
     float dir = sign(vSpeed);
     float c = comet(dir * (s + vSeed), abs(vSpeed), 1.15, 0.0) * (1.0 - smoothstep(0.0, 0.75, u)) * uComets;
-    a = a * 0.6 + c;
+    a = a * mix(0.6, 0.85, uLight) + c;
     col = mix(col, mix(col * 1.5 + 0.15, col, uLight), c);
   } else if (vKind > 1.5 && vKind < 2.5) {
     // Dashed (infrastructure outlines, traces): marching slowly.

@@ -9,8 +9,11 @@ import { Accent } from "../../ui/primitives";
 import { PageSection, PopPills, SectionHead, card, column, lit, nn, part, type PageScene } from "../ui";
 
 const lastWord = (text: string) => text.slice(text.lastIndexOf(" ") + 1);
-/** Single-line chips: "AWS (EC2, …)" -> "AWS", "Express / Fastify" -> "Express", "Fastify". */
-const chips = (stack: string[], max = 8) => [...new Set(stack.flatMap((t) => t.replace(/\s*\(.*?\)/g, "").split(" / ").map((x) => x.trim())))].slice(0, max);
+/**
+ * Single-line chips for whole stack entries (an entry is never cut in half):
+ * "AWS (EC2, …)" -> "AWS", "Express / Fastify" -> "Express", "Fastify".
+ */
+const chips = (stack: string[]) => [...new Set(stack.flatMap((t) => t.replace(/\s*\(.*?\)/g, "").split(" / ").map((x) => x.trim())))];
 const lead = (text: string) => text.slice(0, text.lastIndexOf(" ") + 1);
 /** The services scene (a stage scene key the shared PageScene type does not list yet). */
 export const SERVICES_SCENE = "services" as PageScene;
@@ -37,7 +40,7 @@ export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
                 {services.length} ways to <Accent>work together.</Accent>
               </>
             }
-            scene="The 3D scene builds each engagement as the system it delivers. Scroll the list or point at one to switch."
+            scene="The 3D scene builds each engagement as the system it delivers. Point at one or scroll the list to switch; on smaller screens the four take turns."
             lead="Each one has a fixed starting price and a clear scope. Pick the closest fit; the details page shows the process, deliverables and FAQ."
           />
         </div>
@@ -73,7 +76,10 @@ export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
                 <p {...part} className="mt-3 text-[17px] leading-7 text-muted-foreground">
                   {s.tagline}
                 </p>
-                <PopPills items={chips(s.techStack.slice(0, 6))} label={`${s.h1} stack`} className="mb-6 mt-5" pillClassName="svc-chip" />
+                {/* data-svc-tech: the 3D machine names only technologies these chips print. */}
+                <div data-svc-tech={s.slug} className="mb-6 mt-5">
+                  <PopPills items={chips(s.techStack.slice(0, 6))} label={`${s.h1} stack`} pillClassName="svc-chip" />
+                </div>
                 <dl {...part} className="mt-auto flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-border pt-5">
                   <div className="flex items-baseline gap-2">
                     <dt className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">From</dt>

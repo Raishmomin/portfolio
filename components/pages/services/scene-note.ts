@@ -13,14 +13,13 @@ export const serviceSceneNote = (slug: string) =>
   NOTES[slug] ?? "In 3D: this engagement runs as the system it delivers, built from its real stack.";
 
 /**
- * Phones: an empty room above the page intro where the services machine runs (the scene
- * frames itself into [data-svc-room]; a section of its own, so the stage keeps it clear).
- * Hidden from 1024px, where the machine sits beside the headline.
+ * Phones: an empty room at the top of the page intro where the services machine runs (the
+ * scene frames itself into [data-svc-room]). Not a section of its own: it overlays the
+ * intro's top padding (globals, fm3-services), so it is the intro's opening, the stage keeps
+ * it clear, and the intro stays the page's first [data-section]. Hidden from 1024px, where
+ * the machine sits beside the headline.
  */
 export const SERVICE_ROOM = {
-  "data-section": "service-room",
-  "data-scene": "services",
-  "data-stage": "left",
   "data-svc-room": "",
   "aria-hidden": true,
   className: "svc-room lg:hidden",
