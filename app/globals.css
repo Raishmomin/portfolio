@@ -1262,6 +1262,30 @@ html.motion-live details.faq[open] .faq-a {
     scale: 1 1;
   }
 }
+/* Below lg: an empty slot opens under the open card while the FAQ scene runs
+   ([data-faq-live], set by the scene); it draws that answer's picture there. */
+.faq-pic {
+  height: 0;
+}
+@media (max-width: 1023px) {
+  [data-faq-live] .faq-li:has(> details[open]) > .faq-pic {
+    height: 220px;
+  }
+  html.motion-live [data-faq-live] .faq-pic {
+    transition: height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+/* 3D switched off: no note promising a scene, no empty window column. */
+html[data-motion="off"] .faq-note,
+html[data-motion="off"] .faq-win-col {
+  display: none;
+}
+@media (min-width: 1024px) {
+  html[data-motion="off"] .faq-grid {
+    display: block;
+    max-width: 52rem;
+  }
+}
 /* end fm3-faq */
 /* fm3-contact */
 /* Contact form: the sent card takes the form's place in the same grid cell, so the

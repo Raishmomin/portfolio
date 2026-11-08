@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { FAQ } from "@/lib/seo";
-import { FAQ_SCENE_NOTE, FaqItems, FaqLayout } from "../../ui/faq-list";
+import { FaqItems, FaqLayout, FaqNote } from "../../ui/faq-list";
 import { PageSection, SectionHead, card, panel, type PageScene, type StageLayout } from "../ui";
 
 /**
@@ -15,7 +15,7 @@ export function FaqList({ faqs, name = "faq" }: { faqs: FAQ[]; name?: string }) 
 /**
  * FAQ section of a subpage, in the home FAQ's design: the head panel and the question cards
  * on the `stage` side, the FAQ scene's window on the other (desktop), the scene in the
- * section's opening on phones. The section always drives the "faq" scene; `scene` is kept
+ * section's opening on phones (each answer's picture under its card). The section always drives the "faq" scene; `scene` is kept
  * for existing callers and ignored.
  */
 export function FaqSection({
@@ -44,7 +44,8 @@ export function FaqSection({
       data-scene="faq"
       stage={stage as StageLayout}
       labelledBy={`${id}-heading`}
-      className="pt-[38svh] lg:pt-28"
+      // md:pt too: PageSection's md:py-24 would otherwise win at 768-1023px (no opening).
+      className="pt-[38svh] md:pt-[38svh] lg:pt-28"
     >
       <FaqLayout
         side={stage}
@@ -52,7 +53,8 @@ export function FaqSection({
         faqs={faqs}
         head={
           <div {...card()} className={`${panel} p-6 md:p-8`}>
-            <SectionHead id={`${id}-heading`} index={index} kicker="faq" scene={FAQ_SCENE_NOTE} title={title} />
+            <SectionHead id={`${id}-heading`} index={index} kicker="faq" title={title} />
+            <FaqNote />
           </div>
         }
       />
