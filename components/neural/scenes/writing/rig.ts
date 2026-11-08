@@ -396,7 +396,6 @@ export class WritingRig {
         if ((i === A) !== (pass === 1)) continue;
         pageOf(i, P);
         const ac = this.act[i];
-        // The title label needs a page tall enough to hold it; else its bars stand in.
         // The title label scales with the page; too small to read → its bars stand in.
         const ls = Math.min(1.15, (P[4] * (OPEN - 2 * PAGE.m)) / LABEL_W);
         if (ls > 0.9 && ac > 0.6) this.labOn[i] = 1;

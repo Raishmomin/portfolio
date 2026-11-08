@@ -5,6 +5,15 @@
 // build log, ink comets on the rail) is procedural in the fragment shader. Glow points
 // reuse the shared Sprites batch (scenes/stack/gl.ts): two draw calls in all.
 // Dark theme adds light (colour as light); paper uses normal alpha blending with ink.
+// Fragment sections by kind: floor (glass grid receding from the rail, a light pool under
+// the active page), rail (1px line in a soft glow; lit stretches carry ink comets to the
+// active page, dashed beyond it), page (meta + title bars where no DOM title label sits,
+// body lines typed by the cursor with a typewriter line feed, the caret at the write head),
+// sheet behind (rim only), terminal (title-bar lights and a running build log whose lines
+// start with a prompt tick and end in a green dot when they pass). Glass is lit from
+// above with a thick-edge glow and a slow light sweep. Varyings: vK = kind, seed, lines
+// written (rail: warmth; floor: active x), active; vM = alpha, title label shown, end fade.
+// Output: encode to sRGB first, then premultiply, so alpha reads as coverage.
 import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedBufferGeometry, Mesh, PlaneGeometry, ShaderMaterial } from "three";
 
 /** Instance kinds (aK.x). */
@@ -48,8 +57,8 @@ uniform vec3 uFg;
 uniform vec3 uOk;
 varying vec2 vUv;
 varying vec2 vS;
-varying vec4 vK; // kind, seed, lines written | rail warmth, active
-varying vec4 vM; // alpha, title label shown, rail end fade
+varying vec4 vK;
+varying vec4 vM;
 float sdBox(vec2 p, vec2 b, float r) { vec2 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
 float seg(vec2 p, float x0, float x1) { return length(vec2(p.x - clamp(p.x, x0, x1), p.y)); }
 float ink(float d, float w) { float aa = fwidth(d); return 1.0 - smoothstep(w - aa, w + aa, d); }
@@ -66,7 +75,6 @@ void main() {
   vec3 c = tint;
   float a = 0.0;
   if (k > 4.5) {
-    // Floor: a glass grid receding from the rail into depth, a light pool under the active page.
     vec2 w = vec2((vUv.x - 0.5) * vS.x, vUv.y * vS.y) / 0.8;
     vec2 g = abs(fract(w) - 0.5);
     vec2 fw = fwidth(w);
@@ -77,7 +85,6 @@ void main() {
     a = grid * fade * mix(0.22, 0.14, uLight) + pool * mix(0.22, 0.1, uLight);
     c = mix(uTint, uHot, pool / max(1e-3, grid * fade * 0.22 + pool));
   } else if (k > 2.5) {
-    // Rail: a 1px line in a soft glow; lit stretches carry ink comets to the active page.
     float y = abs(vUv.y - 0.5) * vS.y / uPer;
     float s = vUv.x * vS.x / uPer;
     float core = 1.0 - smoothstep(0.5, 1.5, y);
@@ -107,13 +114,11 @@ void main() {
     vec2 fq = q - hb + e;
     float flap = e > 0.0 ? step(0.0, fq.x) * step(0.0, fq.y) * step(fq.x + fq.y, e) : 0.0;
     rim = max(rim, flap * max(hair(fq.x, px), hair(fq.y, px)));
-    vec2 p = vec2(q.x + hb.x, hb.y - q.y); // from the top-left corner, y down
+    vec2 p = vec2(q.x + hb.x, hb.y - q.y);
     float txt = 0.0;
     float warm = 0.0;
     float ok = 0.0;
     if (k < 0.5) {
-      // Page: meta + title bars (hidden while the DOM title label sits there), then body
-      // lines typed by the cursor; a full page feeds up one line at a time (typewriter).
       float m = ${PAGE.m};
       float cw = asp - 2.0 * m;
       p -= m;
@@ -136,14 +141,11 @@ void main() {
       float fresh = exp(-max(L - li - 1.0, 0.0) * 1.2);
       txt = max(txt, b * (0.55 + 0.45 * fresh));
       warm = b * fresh * act;
-      // The light-cursor's caret at the write head.
       vec2 cp = p - vec2(lineLen(l0, vK.y) * cw * w0 + 0.01, TOP + (l0 + 0.5 - scroll) * RH);
       float caret = (1.0 - smoothstep(0.4 * px, 1.4 * px, max(abs(cp.x) - 0.004, abs(cp.y) - RH * 0.38))) * act;
       txt = max(txt, caret);
       warm = max(warm, caret);
     } else if (k > 1.5) {
-      // Build terminal: three lights on a title bar, then a build log that keeps running;
-      // each line starts with a prompt tick, passing steps end in a green dot.
       float m = 0.07;
       float tb = 0.15;
       float cw = asp - 2.0 * m;
@@ -166,7 +168,6 @@ void main() {
     vec3 txtC = mix(mix(tint, vec3(1.0), 0.5), mix(uFg, tint, 0.35), uLight);
     txtC = mix(txtC, mix(uHot, vec3(1.0), 0.25 * (1.0 - uLight)), warm);
     vec3 rimC = mix(mix(tint, vec3(1.0), 0.25), mix(tint, uFg, 0.3), uLight);
-    // Glass: lit from above, a thick-edge glow inside the rim and a slow light sweep.
     float sheen = smoothstep(0.1, 0.0, abs(fract((q.x + q.y * 0.6) * 0.7 - uTime * 0.06) - 0.5) - 0.4);
     float edgeIn = exp(min(d, 0.0) / (px * 6.0)) * body;
     c = glass;
@@ -184,7 +185,6 @@ void main() {
   }
   a = clamp(a * vM.x * uOpacity, 0.0, 1.0);
   if (a < 0.002) discard;
-  // Encode first, then premultiply (dark: added light), so alpha reads as coverage.
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
   gl_FragColor = uLight > 0.5 ? vec4(gl_FragColor.rgb, a) : vec4(gl_FragColor.rgb * a, a);
