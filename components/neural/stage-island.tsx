@@ -8,6 +8,7 @@
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { capable, contextOwner, nextIdle, onIdle, REDUCED } from "./runtime";
+import type { FallbackReason } from "./stage";
 import { SCENE_KEYS, type NeuralData } from "./types";
 
 const Stage = dynamic(
@@ -27,6 +28,12 @@ const isScene = (v: string | undefined) => !!v && (SCENE_KEYS as readonly string
 
 /** Matches the poster/canvas `duration-700` crossfade. */
 const FADE_MS = 700;
+/** A slow fallback is retried once per page view, after this cool-down (or as soon as the page is visible again). */
+const RETRY_MS = 20_000;
+const MAX_RETRIES = 1;
+/** The page must not be frozen right now: a rAF probe of PROBE_MS over the poster must hold RETRY_FPS (the stage then judges its own cost again). */
+const PROBE_MS = 2000;
+const RETRY_FPS = 20;
 
 /**
  * Any error inside the stage (a scene, the R3F reconciler, a hot reload that hands new
@@ -51,7 +58,10 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
   const [gated, setGated] = useState(false);
   const [allowed, setAllowed] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // false, or why the stage fell back: "slow" may be retried, "hard" (GPU context lost,
+  // stage error) is final for this page view.
+  const [failed, setFailed] = useState<false | "slow" | "hard">(false);
+  const [retries, setRetries] = useState(0);
   const [ready, setReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const owner = useSyncExternalStore(contextOwner.subscribe, contextOwner.get, () => null);
@@ -147,17 +157,73 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
   }, []);
 
   const onReady = useCallback((value: boolean) => setReady(value), []);
-  const onFallback = useCallback(() => setFailed(true), []);
+  const onFallback = useCallback(
+    (reason: FallbackReason) => setFailed((cur) => (cur === "hard" || reason === "lost" ? "hard" : "slow")),
+    [],
+  );
   const onError = useCallback(() => {
     setReady(false);
-    setFailed(true);
+    setFailed("hard");
   }, []);
+
+  // 6. A slow fallback is not final (a busy moment, another tab, a GC pause): after a
+  //    cool-down, while the page is visible, a short rAF probe over the poster must hold
+  //    RETRY_FPS; then the stage mounts again on the ladder's last step (stage.tsx), from
+  //    where it may climb back up. Becoming visible again
+  //    re-probes at once. Never after a lost GPU context or a stage error (and a
+  //    software renderer never passes the gate in the first place).
+  useEffect(() => {
+    if (failed !== "slow" || retries >= MAX_RETRIES) return;
+    let timer = 0;
+    let raf = 0;
+    const probe = () => {
+      if (document.hidden) return; // visibilitychange re-arms
+      const t0 = performance.now();
+      let frames = 0;
+      const tick = (t: number) => {
+        frames += 1;
+        if (t - t0 < PROBE_MS) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        if ((frames * 1000) / (t - t0) >= RETRY_FPS) {
+          setRetries((n) => n + 1);
+          setFailed(false);
+        } else arm(RETRY_MS);
+      };
+      raf = requestAnimationFrame(tick);
+    };
+    const arm = (ms: number) => {
+      window.clearTimeout(timer);
+      cancelAnimationFrame(raf);
+      timer = window.setTimeout(probe, ms);
+    };
+    const onVisible = () => {
+      if (!document.hidden) arm(1000);
+    };
+    arm(RETRY_MS << retries);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [failed, retries]);
+
+  // Exposed for QA: why the poster stands in, and how often the stage came back.
+  useEffect(() => {
+    const stage = boxRef.current?.parentElement;
+    if (!stage) return;
+    if (failed) stage.setAttribute("data-fallback", failed);
+    else stage.removeAttribute("data-fallback");
+    stage.setAttribute("data-retries", String(retries));
+  }, [failed, retries]);
 
   return (
     <div ref={boxRef} className="absolute inset-0 transition-opacity duration-700" style={{ opacity: live ? 1 : 0 }}>
       {mounted ? (
         <StageBoundary onError={onError}>
-          <Stage data={data} active={want && !hidden} onReady={onReady} onFallback={onFallback} />
+          <Stage data={data} active={want && !hidden} retry={retries > 0} onReady={onReady} onFallback={onFallback} />
         </StageBoundary>
       ) : null}
     </div>
