@@ -13,7 +13,9 @@
 // (the /services intro) and on phones (where the cards cover the scene; the card highlight
 // is desktop-only there, so nothing disagrees) the four take turns.
 // Where: the scene's own free rect (framing.sceneFrames.services), shrunk by the
-// visibility guard so it never sits under content. A page intro frames it beside the
+// visibility guard so it never sits under content. The machine belongs to its section: the
+// end of the section's content carries it out (rigidly, fading), so it never lingers over
+// the next section. A page intro frames it beside the
 // headline and sits it on its 3D caption; on phones a page may reserve an empty room for it
 // ([data-svc-room]). Names are aria-hidden labels in the shared layer: each one is the chip
 // this page itself prints for that service ([data-svc-tech]), so a name the page does not
