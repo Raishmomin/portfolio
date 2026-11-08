@@ -74,7 +74,8 @@ const scenes = {
         this.listeners.forEach((l) => l());
       },
       (err: unknown) => {
-        // A failed chunk (offline, a deploy in between) may be retried on the next need.
+        // A failed chunk (offline, a flaky network, a deploy in between): the next call
+        // fetches it again (the slot's delayed retry, or the stage's remount after a fallback).
         delete this.pending[key];
         throw err;
       },
@@ -157,14 +158,22 @@ const INPUTS = ["scroll", "wheel", "pointerdown", "pointermove", "keydown", "tou
 const CAMERA_TAU = 0.45; // s
 const POINTER_TAU = 0.18; // s
 
-export type FallbackReason = "slow" | "lost";
+/** A scene the slot needs is retried this often (after CHUNK_RETRY_MS each) before the stage falls back. */
+const CHUNK_RETRIES = 1;
+const CHUNK_RETRY_MS = 1200;
+
+export type FallbackReason = "slow" | "lost" | "chunk";
 type StageProps = {
   data: NeuralData;
   active: boolean;
   /** A remount after a slow fallback: starts at low quality. */
   retry?: boolean;
   onReady: (ready: boolean) => void;
-  /** "slow": the device could not keep up (the island may retry); "lost": the GPU dropped the context (final). */
+  /**
+   * "slow": the device could not keep up; "chunk": a scene's code failed to load (offline,
+   * a deploy in between) — the island shows the poster and may retry both; "lost": the GPU
+   * dropped the context (final).
+   */
   onFallback: (reason: FallbackReason) => void;
 };
 
@@ -572,8 +581,14 @@ const SceneSlot = memo(function SceneSlot({
   sceneKey,
   Scene,
   store,
+  onChunkError,
   ...rest
-}: Omit<SceneProps, "progress" | "weight"> & { sceneKey: SceneKey; Scene: SceneComponent | undefined; store: SceneStore }) {
+}: Omit<SceneProps, "progress" | "weight"> & {
+  sceneKey: SceneKey;
+  Scene: SceneComponent | undefined;
+  store: SceneStore;
+  onChunkError: () => void;
+}) {
   const snap = useSyncExternalStore(
     useCallback((l: () => void) => store.subscribe(sceneKey, l), [store, sceneKey]),
     () => store.get(sceneKey),
@@ -582,10 +597,24 @@ const SceneSlot = memo(function SceneSlot({
   // and compiled programs survive) and simply receives weight 0.
   const [seen, setSeen] = useState(snap.weight > 0);
   if (!seen && snap.weight > 0) setSeen(true);
-  // Needed before its chunk arrived (an anchor jump past the prefetch): load it now.
+  // Needed before its chunk arrived (an anchor jump past the prefetch, a failed prefetch):
+  // load it now; a failure is retried once after a moment, then the stage falls back to
+  // the poster (and may come back later) rather than leave the section blank.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (seen && !Scene) scenes.load(sceneKey).catch(() => undefined);
-  }, [seen, Scene, sceneKey]);
+    if (!seen || Scene) return;
+    let cancelled = false;
+    let timer = 0;
+    scenes.load(sceneKey).catch(() => {
+      if (cancelled) return;
+      if (attempt < CHUNK_RETRIES) timer = window.setTimeout(() => setAttempt((a) => a + 1), CHUNK_RETRY_MS);
+      else onChunkError();
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [seen, Scene, sceneKey, attempt, onChunkError]);
   if (!seen || !Scene) return null;
   return <Scene {...rest} weight={snap.weight} progress={snap.progress} />;
 });
@@ -596,6 +625,7 @@ function Director({
   dpr,
   onReady,
   onWindow,
+  onFallback,
 }: {
   data: NeuralData;
   quality: Quality;
@@ -603,6 +633,7 @@ function Director({
   dpr: number;
   onReady: (ready: boolean) => void;
   onWindow: (w: FrameWindow) => void;
+  onFallback: (reason: FallbackReason) => void;
 }) {
   const get = useThree((s) => s.get);
   const [store] = useState(() => {
@@ -616,6 +647,7 @@ function Director({
   const [meter] = useState(() => new Meter());
   useEffect(() => meter.attach(), [meter]);
   const mods = useSyncExternalStore(scenes.subscribe, () => scenes.mods);
+  const onChunkError = useCallback(() => onFallback("chunk"), [onFallback]);
   const lastT = useRef(0);
   const dim = useMemo(() => new Dimmer(), []);
   useEffect(() => () => dim.dispose(), [dim]);
@@ -716,7 +748,17 @@ function Director({
     let stopPrefetch = () => {};
     (async () => {
       const keys = SCENE_KEYS.filter((k) => store.frame.weight[k] > 0);
-      await Promise.all(keys.map((k) => scenes.load(k))).catch(() => undefined);
+      const missing = await Promise.all(keys.map((k) => scenes.load(k))).then(
+        () => false,
+        () => true,
+      );
+      if (cancelled) return;
+      // A scene in view could not load (the bundler already retried it once): keep the
+      // poster up instead of fading it out over a blank section; the island may retry.
+      if (missing) {
+        onFallback("chunk");
+        return;
+      }
       await nextIdle(500);
       if (cancelled) return;
       const { gl, scene, camera } = get();
@@ -735,7 +777,7 @@ function Director({
       cancelAnimationFrame(raf);
       stopPrefetch();
     };
-  }, [get, onReady, store]);
+  }, [get, onReady, onFallback, store]);
 
   // The R3F loop, bracketed for the frame monitor: begin (first), the rig (camera,
   // composition), the scenes (priority 0), then the render, which this stage issues itself
@@ -781,6 +823,7 @@ function Director({
           sceneKey={key}
           Scene={mods[key]}
           store={store}
+          onChunkError={onChunkError}
           data={data}
           pointer={rig.pointer}
           focus={focus}
@@ -927,7 +970,7 @@ export default function Stage({ data, active, retry = false, onReady, onFallback
         );
       }}
     >
-      <Director data={safe} quality={quality} dpr={level} onReady={onReady} onWindow={onWindow} />
+      <Director data={safe} quality={quality} dpr={level} onReady={onReady} onWindow={onWindow} onFallback={onFallback} />
     </Canvas>
   );
 }

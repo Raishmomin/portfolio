@@ -28,8 +28,12 @@ const isScene = (v: string | undefined) => !!v && (SCENE_KEYS as readonly string
 
 /** Matches the poster/canvas `duration-700` crossfade. */
 const FADE_MS = 700;
-/** A slow fallback is retried once per page view, after this cool-down (or as soon as the page is visible again). */
+/**
+ * A slow or chunk fallback is retried once per page view, after this cool-down (or as soon
+ * as the page is visible again). A chunk failure says nothing about the device: it retries sooner.
+ */
 const RETRY_MS = 20_000;
+const CHUNK_RETRY_MS = 5_000;
 const MAX_RETRIES = 1;
 /** The page must not be frozen right now: a rAF probe of PROBE_MS over the poster must hold RETRY_FPS (the stage then judges its own cost again). */
 const PROBE_MS = 2000;
@@ -60,8 +64,10 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
   const [hidden, setHidden] = useState(false);
   // false, or why the stage fell back: "slow" may be retried, "hard" (GPU context lost,
   // stage error) is final for this page view.
-  const [failed, setFailed] = useState<false | "slow" | "hard">(false);
+  const [failed, setFailed] = useState<false | "slow" | "chunk" | "hard">(false);
   const [retries, setRetries] = useState(0);
+  // The retried stage starts on the ladder's last step only after a slow fallback.
+  const [retryLow, setRetryLow] = useState(false);
   const [ready, setReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const owner = useSyncExternalStore(contextOwner.subscribe, contextOwner.get, () => null);
@@ -158,7 +164,7 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
 
   const onReady = useCallback((value: boolean) => setReady(value), []);
   const onFallback = useCallback(
-    (reason: FallbackReason) => setFailed((cur) => (cur === "hard" || reason === "lost" ? "hard" : "slow")),
+    (reason: FallbackReason) => setFailed((cur) => (cur === "hard" || reason === "lost" ? "hard" : reason)),
     [],
   );
   const onError = useCallback(() => {
@@ -166,14 +172,17 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
     setFailed("hard");
   }, []);
 
-  // 6. A slow fallback is not final (a busy moment, another tab, a GC pause): after a
-  //    cool-down, while the page is visible, a short rAF probe over the poster must hold
-  //    RETRY_FPS; then the stage mounts again on the ladder's last step (stage.tsx), from
-  //    where it may climb back up. Becoming visible again
-  //    re-probes at once. Never after a lost GPU context or a stage error (and a
-  //    software renderer never passes the gate in the first place).
+  // 6. A slow fallback is not final (a busy moment, another tab, a GC pause), nor is a
+  //    chunk fallback (a scene's code failed to load: offline, a flaky network, a deploy in
+  //    between): after a cool-down, while the page is visible, a short rAF probe over the
+  //    poster must hold RETRY_FPS; then the stage mounts again (after a slow fallback on
+  //    the ladder's last step, stage.tsx, from where it may climb back up) and fetches the
+  //    missing scene again. Becoming visible again re-probes at once. Never after a lost
+  //    GPU context or a stage error (and a software renderer never passes the gate).
   useEffect(() => {
-    if (failed !== "slow" || retries >= MAX_RETRIES) return;
+    if ((failed !== "slow" && failed !== "chunk") || retries >= MAX_RETRIES) return;
+    const cooldown = failed === "chunk" ? CHUNK_RETRY_MS : RETRY_MS;
+    const low = failed === "slow";
     let timer = 0;
     let raf = 0;
     const probe = () => {
@@ -188,8 +197,9 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
         }
         if ((frames * 1000) / (t - t0) >= RETRY_FPS) {
           setRetries((n) => n + 1);
+          setRetryLow(low);
           setFailed(false);
-        } else arm(RETRY_MS);
+        } else arm(cooldown);
       };
       raf = requestAnimationFrame(tick);
     };
@@ -201,7 +211,7 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
     const onVisible = () => {
       if (!document.hidden) arm(1000);
     };
-    arm(RETRY_MS << retries);
+    arm(cooldown << retries);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearTimeout(timer);
@@ -223,7 +233,7 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
     <div ref={boxRef} className="absolute inset-0 transition-opacity duration-700" style={{ opacity: live ? 1 : 0 }}>
       {mounted ? (
         <StageBoundary onError={onError}>
-          <Stage data={data} active={want && !hidden} retry={retries > 0} onReady={onReady} onFallback={onFallback} />
+          <Stage data={data} active={want && !hidden} retry={retryLow} onReady={onReady} onFallback={onFallback} />
         </StageBoundary>
       ) : null}
     </div>
