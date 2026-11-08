@@ -47,7 +47,7 @@ export type ContactSignal = { kind: "focus" | "blur" | "type" | "copy" | "send" 
 
 const HEADER_PX = 64;
 const SPAN_X = 1.62; // half-width of globe + orbits + labels, in globe radii
-const SPAN_X_NARROW = 1.3; // a narrow column (small laptops): the outer orbits may run past it
+const SPAN_X_NARROW = 1.48; // a narrow column (small laptops): the labels may run past it
 const SPAN_Y = 1.38;
 const MAX_R = 300; // px
 const COMPACT_R = 160; // px: the smaller globe beside a call-to-action panel
@@ -243,7 +243,10 @@ export class ContactRig {
   /** The content column ([data-contact-col]): left / right edges, vertical middle (px; colR 0 = none). */
   private colL = 0;
   private colR = 0;
+  private colT = 0;
   private colY = 0;
+  /** Compact: above the panel (its band) instead of beside it. */
+  private above = false;
   /** No column (a row of cards under a heading): the heading text's right edge, the cards' top, the last card's middle. */
   private headR = 0;
   private headB = 0;
@@ -625,6 +628,7 @@ export class ContactRig {
       const r = col.getBoundingClientRect();
       this.colL = r.left;
       this.colR = r.right;
+      this.colT = r.top;
       this.colY = (r.top + r.bottom) / 2;
       return;
     }
@@ -678,17 +682,29 @@ export class ContactRig {
         }
       }
     } else {
-      // Compact: beside a call-to-action panel (band / full sections), on its wider side;
-      // with no panel, beside the heading above a row of cards.
+      // Compact: beside a call-to-action panel (band / full sections) on its wider side, or
+      // above it when that leaves a bigger globe (narrower screens); with no panel, beside
+      // the heading above a row of cards.
       compact = true;
       pxRect.t = HEADER_PX + 8;
       pxRect.b = H - 8;
       if (this.colR > 0) {
         const lw = this.colL - SIDE_GAP - EDGE;
         const rw = W - EDGE - this.colR - SIDE_GAP;
-        side = rw >= lw ? 1 : -1;
-        pxRect.l = side > 0 ? this.colR + SIDE_GAP : EDGE;
-        pxRect.r = side > 0 ? W - EDGE : this.colL - SIDE_GAP;
+        const vt = Math.max(pxRect.t, this.secTop + 8);
+        const rSide = Math.min(Math.max(lw, rw) / 3.5, (Math.min(pxRect.b, this.secBottom - 8) - vt) / (2 * SPAN_Y));
+        const rTop = (this.colT - 16 - vt) / (2 * SPAN_Y);
+        // Hysteresis: a scroll that shrinks the band never flips the globe back and forth.
+        this.above = this.above ? rTop * 1.25 > rSide : rTop > rSide * 1.25;
+        if (this.above) {
+          pxRect.l = EDGE;
+          pxRect.r = W - EDGE;
+          pxRect.b = this.colT - 16;
+        } else {
+          side = rw >= lw ? 1 : -1;
+          pxRect.l = side > 0 ? this.colR + SIDE_GAP : EDGE;
+          pxRect.r = side > 0 ? W - EDGE : this.colL - SIDE_GAP;
+        }
       } else if (this.headR > 0) {
         side = 1;
         pxRect.l = this.headR + SIDE_GAP;
@@ -716,9 +732,11 @@ export class ContactRig {
     const spanX = compact ? 1.75 : w < 2 * SPAN_X * 140 ? SPAN_X_NARROW : SPAN_X;
     let tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), phone ? 140 : compact ? COMPACT_R : MAX_R));
     // Beside a heading: above the row's last card (/about: "Contact").
-    const tx = compact && !this.colR && this.headX ? Math.min(Math.max(this.headX, clear.l + tr * spanX), clear.r - tr * spanX) : (clear.l + clear.r) / 2;
+    // Above a panel: over its middle; above a row of cards: over the last one.
+    const ax = !compact ? 0 : this.colR ? (this.above ? (this.colL + this.colR) / 2 : 0) : this.headX;
+    const tx = ax ? Math.min(Math.max(ax, clear.l + tr * spanX), clear.r - tr * spanX) : (clear.l + clear.r) / 2;
     // Beside a panel: level with its middle, as far as the room allows.
-    const ty = compact && this.colR ? Math.min(Math.max(this.colY, clear.t + tr * SPAN_Y), clear.b - tr * SPAN_Y) : (clear.t + clear.b) / 2;
+    const ty = compact && this.colR && !this.above ? Math.min(Math.max(this.colY, clear.t + tr * SPAN_Y), clear.b - tr * SPAN_Y) : (clear.t + clear.b) / 2;
     // A delivery in flight never sees the globe re-fit under it.
     if (this.placed && time < this.holdUntil) tr = this.r;
     if (!this.placed) {
@@ -1224,7 +1242,8 @@ export class ContactRig {
       const i = 2 + k;
       const ak = this.satSide[k] > 0 ? this.satX[k] + 16 : this.satX[k] - 16 - tags.w[i];
       const at = this.satY[k] - tags.h[i] / 2;
-      let hide = this.satVis[k] < 0.2;
+      // Hidden behind the planet, or (unlit) in front of its face, where a tag reads as clutter.
+      let hide = this.satVis[k] < 0.2 || (this.hot[k] < 0.5 && Math.hypot(this.satX[k] - this.cx, this.satY[k] - this.cy) < rPx * 1.04);
       if (!hide && this.hot[k] < 0.5) {
         if (cityOn && ak < cr + 4 && ak + tags.w[i] > cl - 4 && at < cb + 4 && at + tags.h[i] > ct - 4) hide = true;
         for (let m = 0; m < this.nSat && !hide; m++) {

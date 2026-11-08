@@ -40,8 +40,9 @@ export function CtaSection({
       scene={scene}
       stage={stage}
       labelledBy={`${id}-heading`}
-      // Phones / tablets: a centred card opens with a window onto the globe, like a band.
-      className={globe && center ? "pt-[30svh] md:pt-[30svh] lg:pt-28" : undefined}
+      // Below 1536 px the sides of a centred card are too narrow for the globe: the section
+      // opens with a window onto it instead, like a band.
+      className={globe && center ? "pt-[30svh] md:pt-[30svh] 2xl:pt-28" : undefined}
     >
       {/* The globe reads this untransformed wrapper (the card itself zooms in from depth). */}
       <div
