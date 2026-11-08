@@ -77,8 +77,11 @@ export function ProjectIndex({ projects, stacks }: { projects: Project[]; stacks
                 {...part}
                 id={`${slug}-title`}
                 className={cn(
-                  "mt-5 font-semibold leading-[1.1] tracking-[-0.025em] text-foreground",
+                  "mt-5 font-semibold tracking-[-0.025em] text-foreground",
+                  // The leading comes after the size: tailwind-merge reads text-[clamp(...)] as a
+                  // font size and drops any leading-* written before it.
                   featured ? "text-[clamp(1.75rem,3vw,2.5rem)]" : "text-[clamp(1.375rem,2.4vw,1.875rem)]",
+                  "leading-[1.1]",
                 )}
               >
                 {p.title}
