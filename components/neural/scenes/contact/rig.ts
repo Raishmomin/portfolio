@@ -161,7 +161,6 @@ export class ContactRig {
   private readonly sprites: Sprites;
   private readonly dustSeed: Float32Array;
   private nDust = DUST_HI;
-  private hi = true;
   // sprite index ranges
   private readonly sPin = 0;
   private readonly sHalo = 1;
@@ -531,17 +530,12 @@ export class ContactRig {
   }
 
   /**
-   * Render quality, applied in place: a drop to "low" mid-visit never rebuilds the rig, so
-   * the arrival never replays and a hovered channel or a packet in flight carries on.
+   * Render quality, applied in place (fewer specks on "low"; the planet's cost is its
+   * fragment shader, not its mesh): a drop mid-visit never rebuilds the rig, so the arrival
+   * never replays and a hovered channel or a packet in flight carries on.
    */
   setQuality(quality: "high" | "low") {
-    const hi = quality === "high";
-    if (hi === this.hi) return;
-    this.hi = hi;
-    const old = this.earth.geometry;
-    this.earth.geometry = new SphereGeometry(1, hi ? 96 : 64, hi ? 64 : 40);
-    old.dispose();
-    this.nDust = hi ? DUST_HI : DUST_LO;
+    this.nDust = quality === "high" ? DUST_HI : DUST_LO;
     for (let i = this.nDust; i < DUST_HI; i++) this.sprites.alpha[this.sDust + i] = 0;
   }
 

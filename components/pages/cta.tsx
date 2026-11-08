@@ -34,7 +34,15 @@ export function CtaSection({
   const center = stage === "full";
   const globe = scene === "contact";
   return (
-    <PageSection id={id} section="cta" scene={scene} stage={stage} labelledBy={`${id}-heading`}>
+    <PageSection
+      id={id}
+      section="cta"
+      scene={scene}
+      stage={stage}
+      labelledBy={`${id}-heading`}
+      // Phones / tablets: a centred card opens with a window onto the globe, like a band.
+      className={globe && center ? "pt-[30svh] md:pt-[30svh] lg:pt-28" : undefined}
+    >
       {/* The globe reads this untransformed wrapper (the card itself zooms in from depth). */}
       <div
         data-contact-col={globe ? "" : undefined}
