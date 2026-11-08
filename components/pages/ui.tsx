@@ -14,7 +14,7 @@ import { revealProps } from "../reveal";
 /** Where a section's content sits; the stage frames its scene around it. */
 export type StageLayout = "left" | "right" | "full" | "band";
 /** Scene keys of the stage contract (`ambient`: the calm neural field). */
-export type PageScene = "hero" | "stack" | "experience" | "ai" | "work" | "services" | "faq" | "contact" | "ambient";
+export type PageScene = "hero" | "stack" | "experience" | "ai" | "work" | "services" | "writing" | "faq" | "contact" | "ambient";
 
 /** Readable surface over the canvas (app/globals.css `.panel`). */
 export const panel = "panel";
