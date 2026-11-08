@@ -610,7 +610,7 @@ export class AiRig {
       this.gl.U.uOpacity.value = 0;
       return;
     }
-    const dt = Math.min(delta, 0.1);
+    const dt = Math.min(Math.max(delta, 0), 0.1);
     const time = state.clock.elapsedTime;
     const model = this.model;
     if (f.project !== this.cur) this.show(f.project);

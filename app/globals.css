@@ -995,7 +995,8 @@ html.motion-live [data-ai-sync] [data-ai-shown] > .panel {
     0 0 0 1px hsl(var(--ai) / 0.14),
     0 18px 50px -28px hsl(var(--ai) / 0.6);
 }
-/* Phones: the caption under the opening shows only while the 3D draws its system. */
+/* Phones: the caption under the opening shows only while the 3D draws its system there
+   (data-ai-drawn: the system is on screen, not merely running). */
 .ai-caption {
   visibility: hidden;
   opacity: 0;
@@ -1003,7 +1004,7 @@ html.motion-live [data-ai-sync] [data-ai-shown] > .panel {
     opacity 0.4s,
     visibility 0s 0.4s;
 }
-[data-ai-sync] .ai-caption {
+[data-ai-sync][data-ai-drawn] .ai-caption {
   visibility: visible;
   opacity: 1;
   transition: opacity 0.4s;
