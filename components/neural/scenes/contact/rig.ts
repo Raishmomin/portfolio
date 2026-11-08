@@ -245,9 +245,10 @@ export class ContactRig {
   private colL = 0;
   private colR = 0;
   private colY = 0;
-  /** No column (a row of cards under a heading): the heading text's right edge, the cards' top. */
+  /** No column (a row of cards under a heading): the heading text's right edge, the cards' top, the last card's middle. */
   private headR = 0;
   private headB = 0;
+  private headX = 0;
   private readonly range = document.createRange();
   /** 1: the globe sits right of the content (the city turns left, toward it); -1: left of it. */
   private side = -1;
@@ -638,6 +639,8 @@ export class ContactRig {
       this.range.selectNodeContents(h); // the heading's text, not its full-width block
       this.headR = this.range.getBoundingClientRect().right;
       this.headB = cards.getBoundingClientRect().top;
+      const last = cards.lastElementChild?.getBoundingClientRect();
+      this.headX = last ? (last.left + last.right) / 2 : 0;
     }
   }
 
@@ -661,17 +664,23 @@ export class ContactRig {
     let side = -1;
     this.labL = EDGE;
     this.labR = W - EDGE;
-    if (phone || !sec || frame.layout === "right") {
+    if (phone || !sec || frame.layout === "right" || frame.layout === "left") {
       // The composition's free rect (phones: the section's opening), never under the
-      // content column: on a narrow desktop (1024 px) the column starts left of the free
+      // content column: on a narrow desktop (1024 px) the column reaches into the free
       // rect, so the globe takes the room beside it instead of giving up.
       pxRect.l = fr.l * W;
       pxRect.r = fr.r * W;
       pxRect.t = Math.max(fr.t * H, phone ? 56 : HEADER_PX + 8);
       pxRect.b = Math.min(fr.b * H, H - 8);
       if (!phone && this.colR > 0) {
-        pxRect.r = Math.min(pxRect.r, this.colL - COL_GAP);
-        this.labR = this.colL - EDGE;
+        if (frame.layout === "right") {
+          pxRect.r = Math.min(pxRect.r, this.colL - COL_GAP);
+          this.labR = this.colL - EDGE;
+        } else {
+          side = 1;
+          pxRect.l = Math.max(pxRect.l, this.colR + COL_GAP);
+          this.labL = this.colR + EDGE;
+        }
       }
     } else {
       // Compact: beside a call-to-action panel (band / full sections), on its wider side;
@@ -711,7 +720,8 @@ export class ContactRig {
     // Compact: room for the satellites' labels inside the free side.
     const spanX = compact ? 1.75 : w < 2 * SPAN_X * 140 ? SPAN_X_NARROW : SPAN_X;
     let tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), phone ? 140 : compact ? COMPACT_R : MAX_R));
-    const tx = (clear.l + clear.r) / 2;
+    // Beside a heading: above the row's last card (/about: "Contact").
+    const tx = compact && !this.colR && this.headX ? Math.min(Math.max(this.headX, clear.l + tr * spanX), clear.r - tr * spanX) : (clear.l + clear.r) / 2;
     // Beside a panel: level with its middle, as far as the room allows.
     const ty = compact && this.colR ? Math.min(Math.max(this.colY, clear.t + tr * SPAN_Y), clear.b - tr * SPAN_Y) : (clear.t + clear.b) / 2;
     // A delivery in flight never sees the globe re-fit under it.
@@ -1178,7 +1188,7 @@ export class ContactRig {
     const g = framing.phone ? 0 : smooth01((weight - 0.6) / 0.18);
     const lo = g * e * show;
     // A small globe (a call-to-action's, one leaving the viewport) keeps only the city's label.
-    const loCity = lo * smooth01((rPx - 60) / 30);
+    const loCity = lo * smooth01((rPx - 72) / 12);
     const loSat = lo * smooth01((rPx - 105) / 35);
     const minute = Math.floor(now / 60_000);
     if (minute !== this.clockMin) {
