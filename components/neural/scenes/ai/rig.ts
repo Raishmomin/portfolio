@@ -7,7 +7,7 @@
 import type { RootState } from "@react-three/fiber";
 import { Color, type Group } from "three";
 import type { ScenePalette } from "../../types";
-import { createGl, Instances, LINK, LINK_SPEC, MAX_COND, MAX_TOK, PANEL_SPEC, PULSE, ROLE, SEG, SHAPE, SPRITE, SPRITE_SPEC, VAR, type Gl } from "./gl";
+import { createGl, DYN, Instances, LINK, LINK_SPEC, MAX_COND, MAX_TOK, PANEL_SPEC, PORTS, PULSE, ROLE, SEG, SHAPE, SPRITE, SPRITE_SPEC, VAR, type Gl } from "./gl";
 import { CLEAR, EXT, MAX_RINGS, MAX_SLOTS, PORT, TRAVEL, type AiModel, type Plan } from "./layout";
 import { clamp01, damp, isLight, rng, smooth } from "./shared";
 import type { StageKind } from "./system";
@@ -101,7 +101,7 @@ class Builder {
 // ---------- the stage objects (slot-local space, about ±1 unit) ----------
 
 /** Text lines [x0, y, length, start, tone], typed / assembled left to right in turn. */
-function bars(b: Builder, g: number, rows: [number, number, number, number, Tone][], variant: number, h = 0.042) {
+function bars(b: Builder, g: number, rows: [number, number, number, number, Tone][], variant: number, h = 0.034) {
   rows.forEach(([x0, y, len, start, tone]) =>
     b.panel(g, tone, { pos: [x0 + len / 2, y, 0.01], u: [len / 2, 0, 0], v: [0, h, 0], shape: SHAPE.pill, role: ROLE.text, variant, p: [start, 0.24] }),
   );
@@ -116,7 +116,7 @@ function waves(b: Builder, g: number, tone: Tone, variant: number, y: number, n:
 
 /** Three window dots and a title rule across the top of a window (half extents hx, hy). */
 function titleBar(b: Builder, g: number, hx: number, hy: number, variant: number) {
-  [T.accent, T.muted, T.ok].forEach((tone, k) =>
+  [T.muted, T.ai, T.ok].forEach((tone, k) =>
     b.panel(g, tone, { pos: [-hx + 0.14 + k * 0.11, hy - 0.13, 0.01], u: [0.034, 0, 0], v: [0, 0.034, 0], shape: SHAPE.pill, variant }),
   );
   b.panel(g, T.muted, { pos: [0, hy - 0.26, 0.01], u: [hx - 0.05, 0, 0], v: [0, 0.006, 0], shape: SHAPE.pill, variant, alpha: 0.6 });
@@ -128,9 +128,9 @@ function titleBar(b: Builder, g: number, hx: number, hy: number, variant: number
  * voice waveform. All three are built; the project's input kind shows one.
  */
 function buildInput(b: Builder, g: number) {
-  b.sprite(g, T.ai, [0, 0, -0.1], 1.8, SPRITE.halo, 0, 0.45);
-  b.panel(g, T.fg, { pos: [0, 0.06, 0], u: [0.76, 0, 0], v: [0, 0.5, 0], shape: SHAPE.bubble, role: ROLE.body, variant: VAR.notCode });
-  b.panel(g, T.fg, { pos: [0, 0.02, 0], u: [0.8, 0, 0], v: [0, 0.58, 0], shape: SHAPE.card, role: ROLE.body, variant: VAR.code });
+  b.sprite(g, T.ai, [0, 0, -0.1], 1.55, SPRITE.halo, 0, 0.45);
+  b.panel(g, T.ai, { pos: [0, 0.06, 0], u: [0.76, 0, 0], v: [0, 0.5, 0], shape: SHAPE.bubble, role: ROLE.body, variant: VAR.notCode });
+  b.panel(g, T.ai, { pos: [0, 0.02, 0], u: [0.8, 0, 0], v: [0, 0.58, 0], shape: SHAPE.card, role: ROLE.body, variant: VAR.code });
   bars(
     b,
     g,
@@ -150,61 +150,90 @@ function buildInput(b: Builder, g: number) {
     b,
     g,
     [
-      [-0.4, 0.16, 0.3, 0.04, T.accent],
+      [-0.4, 0.16, 0.3, 0.04, T.ok],
       [-0.06, 0.16, 0.42, 0.12, T.fg],
       [-0.28, 0.06, 0.62, 0.22, T.ai],
       [-0.16, -0.04, 0.5, 0.36, T.ok],
       [-0.16, -0.14, 0.3, 0.48, T.fg],
       [-0.28, -0.24, 0.24, 0.6, T.ai],
-      [-0.4, -0.34, 0.12, 0.72, T.accent],
+      [-0.4, -0.34, 0.12, 0.72, T.muted],
     ],
     VAR.code,
     0.026,
   );
   waves(b, g, T.ai, VAR.voice, 0.06, 11, 1.0, 0.3);
   // Send: lights as the prompt leaves.
-  b.sprite(g, T.accent, [0.58, -0.3, 0.03], 0.17, SPRITE.orb, 0, 1, 0, VAR.notCode);
-  b.sprite(g, T.accent, [0.64, -0.44, 0.03], 0.17, SPRITE.orb, 0, 1, 0, VAR.code);
+  b.sprite(g, T.ai, [0.58, -0.3, 0.03], 0.15, SPRITE.orb, 0, 1, 0.3, VAR.notCode);
+  b.sprite(g, T.ai, [0.64, -0.44, 0.03], 0.15, SPRITE.orb, 0, 1, 0.3, VAR.code);
 }
 
 /** Speech-to-text / text-to-speech: a voice waveform. */
 function buildSpeech(b: Builder, g: number, tone: Tone) {
-  b.sprite(g, tone, [0, 0, -0.1], 1.7, SPRITE.halo, 0, 0.45);
-  b.panel(g, tone, { pos: [0, 0, 0], u: [0.72, 0, 0], v: [0, 0.46, 0], shape: SHAPE.card, role: ROLE.body });
+  b.sprite(g, tone, [0, 0, -0.1], 1.5, SPRITE.halo, tone === T.accent ? 2 : 0, 0.45);
+  b.panel(g, tone, { pos: [0, 0, 0], u: [0.72, 0, 0], v: [0, 0.46, 0], shape: SHAPE.card, role: ROLE.body, p: [tone === T.accent ? 1 : 0, 0] });
   waves(b, g, tone, 0, -0.04, 13, 1.06, 0.24);
 }
 
-/** Retrieval (RAG): a vector store whose embeddings a query searches; its nearest matches light. */
+/** Corners of a box (half extents x, y, z), and its 12 edges as corner index pairs. */
+function box(x: number, y: number, z: number, at: Pt = [0, 0, 0]): Pt[] {
+  return Array.from({ length: 8 }, (_, i): Pt => [at[0] + (i & 1 ? x : -x), at[1] + (i & 2 ? y : -y), at[2] + (i & 4 ? z : -z)]);
+}
+/** A glass frame: 1 px lit edges with a glow dot at every corner. */
+function frame(b: Builder, g: number, tone: Tone, corners: Pt[], w: number, dot: number, alpha: number) {
+  corners.forEach((p, i) => {
+    b.sprite(g, tone, p, dot, SPRITE.orb, 0, alpha);
+    for (const k of [1, 2, 4]) if (!(i & k)) b.link(g, tone, p, corners[i | k], LINK.line, w, alpha * 0.8);
+  });
+}
+
+/** Clusters of the vector space (centres); the query lands by the first. */
+const CLUSTERS: Pt[] = [
+  [0.2, -0.1, 0.2],
+  [-0.24, 0.26, -0.12],
+  [-0.2, -0.3, -0.2],
+  [0.28, 0.3, -0.22],
+];
+const QUERY: Pt = [0.26, 0.08, 0.26];
+
+/**
+ * Retrieval (RAG): a vector space, a glass cube of embedding points in semantic clusters
+ * (green and blue). A query drops in and lines reach to its nearest matches, which light.
+ */
 function buildStore(b: Builder, g: number, tier: number, rand: () => number, matches: Pt[]) {
-  const levels = [0.5, 0, -0.5];
-  if (tier === 0) {
-    b.sprite(g, T.ok, [0, 0, -0.1], 1.8, SPRITE.halo, 0, 0.45);
-    for (const y of levels) b.panel(g, T.ok, { pos: [0, y, 0], u: [0.64, 0, 0], v: [0, 0, 0.64], shape: SHAPE.disc, role: ROLE.body, alpha: 0.9 });
-    for (const x of [-0.64, 0.64]) b.link(g, T.ok, [x, 0.5, 0], [x, -0.5, 0], LINK.line, 0.011, 0.75);
+  const c = 0.56;
+  const pts: Pt[] = [];
+  const n = tier === 0 ? 110 : 80;
+  for (let k = 0; k < n; k++) {
+    const cl = CLUSTERS[k % 4];
+    const r = k % 6 === 5 ? 0.6 : 0.2;
+    const j = () => (rand() + rand() + rand() - 1.5) * r;
+    pts.push([cl[0] + j(), cl[1] + j(), cl[2] + j()].map((v) => Math.max(-c * 0.92, Math.min(c * 0.92, v))) as Pt);
   }
-  const per = tier === 0 ? 14 : 12;
-  levels.forEach((y, l) => {
-    for (let k = 0; k < per; k++) {
-      const r = 0.5 * Math.sqrt(0.08 + 0.92 * rand());
-      const a = rand() * Math.PI * 2;
-      const p: Pt = [r * Math.cos(a), y + 0.03 + (rand() - 0.5) * 0.06, r * Math.sin(a)];
-      const match = tier === 0 && ((l === 0 && k === 3) || (l === 1 && (k === 5 || k === 10)) || (l === 2 && k === 6));
-      const rank = match ? matches.length : -1;
-      if (match) matches.push(p);
-      b.sprite(g, T.ai, p, match ? 0.11 : 0.07 + rand() * 0.035, SPRITE.embed, rank, 1, match ? 0.2 : rand() * 0.45);
-    }
+  // The query's nearest matches (top-k).
+  const d2 = (p: Pt) => (p[0] - QUERY[0]) ** 2 + (p[1] - QUERY[1]) ** 2 + (p[2] - QUERY[2]) ** 2;
+  const top = tier === 0 ? pts.map((p, i) => [d2(p), i]).sort((x, y) => x[0] - y[0]).slice(0, 4).map((x) => x[1]) : [];
+  if (tier === 0) {
+    b.sprite(g, T.ok, [0, 0, -0.1], 1.55, SPRITE.halo, 0, 0.4);
+    frame(b, g, T.ok, box(c, c, c), 0.01, 0.08, 0.9);
+    // A faint glass floor gives the space its depth.
+    b.panel(g, T.ok, { pos: [0, -c, 0], u: [c, 0, 0], v: [0, 0, c], shape: SHAPE.face, alpha: 0.45 });
+  }
+  pts.forEach((p, k) => {
+    const rank = top.indexOf(k);
+    if (rank >= 0) matches[rank] = p;
+    const tone = k % 4 === 1 || k % 4 === 3 ? T.ai : T.ok;
+    b.sprite(g, rank >= 0 ? T.ok : tone, p, rank >= 0 ? 0.12 : 0.07 + rand() * 0.04, SPRITE.embed, rank, 1, rank >= 0 ? 0.2 : rand() * 0.4);
   });
   if (tier === 0) {
-    const q: Pt = [0, 0.56, 0.1];
-    b.sprite(g, T.accent, q, 0.2, SPRITE.embed, -2);
-    matches.forEach((m, k) => b.link(g, T.accent, q, m, LINK.query, 0.012, 1, k));
+    b.sprite(g, T.accent, QUERY, 0.18, SPRITE.embed, -2);
+    matches.forEach((m, k) => b.link(g, T.accent, QUERY, m, LINK.query, 0.011, 1, k));
   }
 }
 
 /** Agent / tools: a planner on a hex plate calling four tool modules in turn. */
 function buildAgent(b: Builder, g: number) {
   const y0 = -0.16;
-  b.sprite(g, T.ai, [0, 0, -0.1], 1.9, SPRITE.halo, 0, 0.45);
+  b.sprite(g, T.ai, [0, 0, -0.1], 1.65, SPRITE.halo, 0, 0.45);
   b.panel(g, T.ai, { pos: [0, y0, 0], u: [0.82, 0, 0], v: [0, 0, 0.82], shape: SHAPE.ring, alpha: 0.5 });
   b.panel(g, T.ai, { pos: [0, y0, 0], u: [0.42, 0, 0], v: [0, 0, 0.42], shape: SHAPE.hex, role: ROLE.body });
   const core: Pt = [0, 0.12, 0];
@@ -213,10 +242,12 @@ function buildAgent(b: Builder, g: number) {
     const a = (45 + 90 * i) * DEG;
     const c: Pt = [0.82 * Math.cos(a), y0 + h, 0.82 * Math.sin(a)];
     b.link(g, T.ai, core, c, LINK.spoke, 0.013, 0.7, i);
+    // A glass tool box: three faces (lit orange while it is called) and glow dots on its corners.
     const tool = { shape: SHAPE.face, role: ROLE.tool, p: [i, 0] };
-    b.panel(g, T.ai, { pos: [c[0] + h, c[1], c[2]], u: [0, 0, -h], v: [0, h, 0], ...tool, alpha: 0.8 }, 0.45);
-    b.panel(g, T.ai, { pos: [c[0], c[1], c[2] + h], u: [h, 0, 0], v: [0, h, 0], ...tool, alpha: 0.9 }, 0.6);
-    b.panel(g, T.fg, { pos: [c[0], c[1] + h, c[2]], u: [h, 0, 0], v: [0, 0, h], ...tool });
+    b.panel(g, T.ai, { pos: [c[0] + h, c[1], c[2]], u: [0, 0, -h], v: [0, h, 0], ...tool, alpha: 0.85 });
+    b.panel(g, T.ai, { pos: [c[0], c[1], c[2] + h], u: [h, 0, 0], v: [0, h, 0], ...tool }, 0.12);
+    b.panel(g, T.ai, { pos: [c[0], c[1] + h, c[2]], u: [h, 0, 0], v: [0, 0, h], ...tool }, 0.3);
+    box(h, h, h, c).forEach((p) => b.sprite(g, T.ai, p, 0.055, SPRITE.orb, 0, 0.7, 0.3));
   }
   b.sprite(g, T.ai, core, 0.46, SPRITE.orb);
 }
@@ -314,16 +345,16 @@ const EDIT: Row[] = [
  * voice systems; for a code system, an edit with its changed lines marked.
  */
 function buildOutput(b: Builder, g: number) {
-  b.sprite(g, T.accent, [0, 0, -0.1], 1.8, SPRITE.halo, 0, 0.45);
+  b.sprite(g, T.accent, [0, 0, -0.1], 1.55, SPRITE.halo, 2, 0.45);
   b.panel(g, T.accent, { pos: [0, 0, 0], u: [0.64, 0, 0], v: [0, 0.84, 0], shape: SHAPE.card, role: ROLE.body, p: [1, 0] });
-  b.panel(g, T.accent, { pos: [-0.3, 0.68, 0.01], u: [0.18, 0, 0], v: [0, 0.042, 0], shape: SHAPE.pill, alpha: 0.9 });
+  b.panel(g, T.accent, { pos: [-0.3, 0.68, 0.01], u: [0.18, 0, 0], v: [0, 0.034, 0], shape: SHAPE.pill, role: ROLE.body, p: [1, 0], alpha: 0.9 });
   const rows = (list: Row[], variant: number) =>
     list.forEach(([x0, len, tone, mark], i) => {
       const y = 0.36 - i * 0.16;
       const pos = [x0 + len / 2, y, 0.01];
-      const shape = { u: [len / 2, 0, 0], v: [0, 0.04, 0], shape: SHAPE.pill, variant };
+      const shape = { u: [len / 2, 0, 0], v: [0, 0.032, 0], shape: SHAPE.pill, variant };
       // The placeholder row, then the row that assembles over it.
-      b.panel(g, T.fg, { pos, ...shape, alpha: 0.13 });
+      b.panel(g, T.fg, { pos, ...shape, alpha: 0.12 });
       b.panel(g, tone, { pos, ...shape, role: ROLE.text, p: [0.04 + i * 0.145, 0.17] });
       if (mark >= 0) b.panel(g, mark as Tone, { pos: [-0.5, y, 0.01], u: [0.035, 0, 0], v: [0, 0.035, 0], shape: SHAPE.pill, role: ROLE.text, variant, p: [0.04 + i * 0.145, 0.05] });
     });
@@ -333,7 +364,7 @@ function buildOutput(b: Builder, g: number) {
 }
 
 function buildGeneric(b: Builder, g: number) {
-  b.sprite(g, T.ai, [0, 0, -0.1], 1.4, SPRITE.halo, 0, 0.45);
+  b.sprite(g, T.ai, [0, 0, -0.1], 1.3, SPRITE.halo, 0, 0.45);
   b.panel(g, T.ai, { pos: [0, 0, 0], u: [0.4, 0, 0], v: [0, 0.12, 0.38], shape: SHAPE.ring, role: ROLE.body });
   b.sprite(g, T.ai, [0, 0, 0], 0.5, SPRITE.orb);
 }
@@ -393,7 +424,7 @@ export class AiRig {
 
   constructor(model: AiModel) {
     this.model = model;
-    const gl = (this.gl = createGl({ panels: 64 * MAX_SLOTS, links: MAX_COND * SEG + 420, sprites: MAX_TOK + 520, glows: 4 * MAX_SLOTS }));
+    const gl = (this.gl = createGl({ panels: 64 * MAX_SLOTS, links: MAX_COND * SEG + 440, sprites: DYN + 600, glows: 4 * MAX_SLOTS }));
     this.tp = new Tones(gl.panels.capacity);
     this.tl = new Tones(gl.links.capacity);
     this.ts = new Tones(gl.sprites.capacity);
@@ -409,8 +440,9 @@ export class AiRig {
         gl.links.arr.aK.set([LINK.conduit, c, 0], i * 3);
         gl.links.arr.aT.set([s / SEG, (s + 1) / SEG], i * 2);
       }
-    gl.sprites.reserve(MAX_TOK + 1);
-    for (let i = 0; i <= MAX_TOK; i++) {
+    // Tokens, the arrival pulse, then a glow dot at each end of every conduit (its joints).
+    gl.sprites.reserve(DYN);
+    for (let i = 0; i < DYN; i++) {
       gl.sprites.arr.aGroup[i] = -1;
       gl.sprites.arr.aK[i * 3] = i === PULSE ? SPRITE.pulse : SPRITE.token;
     }
@@ -469,7 +501,7 @@ export class AiRig {
     U.uHot.value.set(p.ai).lerp(U.uFg.value, light ? 0.35 : 0.6);
     this.paint(gl.panels.arr.aColor, gl.panels.count, this.tp, 0);
     this.paint(gl.links.arr.aColor, gl.links.count, this.tl, MAX_COND * SEG);
-    this.paint(gl.sprites.arr.aColor, gl.sprites.count, this.ts, MAX_TOK + 1);
+    this.paint(gl.sprites.arr.aColor, gl.sprites.count, this.ts, DYN);
     this.paint(gl.glows.arr.aColor, gl.glows.count, this.tg, 0);
     // Whole buffers as one range each, so the per-frame token range cannot narrow the upload.
     for (const set of [gl.panels, gl.links, gl.sprites, gl.glows]) set.touch("aColor", 0, set.count);
@@ -490,7 +522,8 @@ export class AiRig {
 
   private paintCond(c: number) {
     const col = this.gl.links.arr.aColor;
-    const base = this.tones[this.cond[c].tone > 0.5 ? T.accent : T.ai];
+    // At rest every conduit is AI blue; the answer's run lights orange only while it streams.
+    const base = this.tones[T.ai];
     const muted = this.tones[T.muted];
     for (let s = 0; s < SEG; s++) {
       const i = (c * SEG + s) * 3;
@@ -629,7 +662,8 @@ export class AiRig {
       slot[g * 4 + 1] = this.lp[g * 3 + 1] - (1 - grow) * 0.25;
       slot[g * 4 + 2] = this.lp[g * 3 + 2];
       slot[g * 4 + 3] = Math.max(1e-3, 0.35 + 0.65 * grow);
-      slotB[g * 4] = this.lyaw[g];
+      // The vector space turns slowly (its points shift in depth).
+      slotB[g * 4] = this.lyaw[g] + (model.slots[g]?.kind === "rag" ? 0.62 + 0.35 * Math.sin(time * 0.25) : 0);
       slotB[g * 4 + 1] = pr;
       slotB[g * 4 + 2] = 0;
       slotB[g * 4 + 3] = 0;
@@ -654,6 +688,7 @@ export class AiRig {
     // Conduits between the live stages.
     const cond = U.uCond.value;
     const L = gl.links.arr;
+    const Sp = gl.sprites.arr;
     for (let c = 0; c < MAX_COND; c++) {
       const e = this.cond[c];
       e.alpha = damp(e.alpha, e.on ? 1 : 0, e.on ? 3.5 : 6, dt);
@@ -663,6 +698,7 @@ export class AiRig {
       cond[c * 4 + 2] = e.tone;
       if (alpha < 0.003) {
         for (let s = 0; s < SEG; s++) L.aAlpha[c * SEG + s] = 0;
+        Sp.aAlpha[PORTS + 2 * c] = Sp.aAlpha[PORTS + 2 * c + 1] = 0;
         continue;
       }
       this.shapeCond(e);
@@ -681,13 +717,17 @@ export class AiRig {
         z0 = L.aB[i * 3 + 2] = this.tmp[2];
         L.aAlpha[i] = alpha;
       }
+      const tone = this.tones[T.ai];
+      this.tmp.set(e.c.subarray(0, 3));
+      this.token(PORTS + 2 * c, this.tmp, 0.12, tone, alpha * 0.9);
+      this.tmp.set(e.c.subarray(9, 12));
+      this.token(PORTS + 2 * c + 1, this.tmp, 0.12, tone, alpha * 0.9);
     }
     gl.links.touch("aA", 0, MAX_COND * SEG);
     gl.links.touch("aB", 0, MAX_COND * SEG);
     gl.links.touch("aAlpha", 0, MAX_COND * SEG);
 
     // Tokens: the request packet travelling between stages, then the model's answer stream.
-    const Sp = gl.sprites.arr;
     let n = 0;
     let fx = NaN;
     let fy = 0;
@@ -746,10 +786,10 @@ export class AiRig {
       this.token(PULSE, this.tmp, (0.9 + 1.5 * smooth(0, 1, q)) * Math.max(ext[0], ext[1]) * 1.3, this.tones[k - 1 >= plan.llmAt && plan.llmAt >= 0 ? T.accent : T.ai], (1 - q) * (1 - q) * 0.9);
       break;
     }
-    gl.sprites.touch("aPos", 0, MAX_TOK + 1);
-    gl.sprites.touch("aSize", 0, MAX_TOK + 1);
-    gl.sprites.touch("aAlpha", 0, MAX_TOK + 1);
-    gl.sprites.touch("aColor", 0, MAX_TOK + 1);
+    gl.sprites.touch("aPos", 0, DYN);
+    gl.sprites.touch("aSize", 0, DYN);
+    gl.sprites.touch("aAlpha", 0, DYN);
+    gl.sprites.touch("aColor", 0, DYN);
 
     // Follow: drift a little toward the request (the packet in flight, else the stage working).
     if (Number.isNaN(fx) && this.lit >= 0) {

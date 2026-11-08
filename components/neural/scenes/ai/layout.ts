@@ -16,7 +16,7 @@ export const MAX_RINGS = 3;
 export const EXT: Record<StageKind, readonly [number, number]> = {
   input: [0.8, 0.62],
   stt: [0.72, 0.5],
-  rag: [0.66, 0.72],
+  rag: [0.8, 0.8],
   agent: [0.86, 0.6],
   llm: [1.2, 1.2],
   tts: [0.72, 0.5],
@@ -24,7 +24,7 @@ export const EXT: Record<StageKind, readonly [number, number]> = {
   generic: [0.42, 0.42],
 };
 /** Where links attach: distance from the object's centre. */
-export const PORT: Record<StageKind, number> = { input: 0.8, stt: 0.7, rag: 0.7, agent: 0.86, llm: 1.08, tts: 0.7, output: 0.72, generic: 0.42 };
+export const PORT: Record<StageKind, number> = { input: 0.8, stt: 0.7, rag: 0.78, agent: 0.86, llm: 1.08, tts: 0.7, output: 0.72, generic: 0.42 };
 
 /** Seconds a request spends inside each kind of stage, and between two stages. */
 const DWELL: Record<StageKind, number> = { input: 1.15, stt: 1.2, rag: 1.65, agent: 2.0, llm: 1.45, tts: 1.2, output: 1.9, generic: 1.0 };

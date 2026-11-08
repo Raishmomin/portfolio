@@ -1,7 +1,7 @@
 // AI scene GPU side: the whole system in four instanced draw calls (halos, then the three below).
-// 1. panels:  flat shapes oriented in 3D (glass chat window / answer card / store platters /
-//             agent plate / tool-cube faces, text bars, waveform bars, model rings), drawn as
-//             signed-distance shapes in the fragment shader
+// 1. panels:  flat shapes oriented in 3D (glass chat window / answer card / agent plate /
+//             tool-cube faces, text bars, waveform bars, model rings), drawn as
+//             signed-distance shapes in the fragment shader, in the Work slabs' glass language
 // 2. links:   camera-facing ribbons (the conduits between stages, synapses inside the model
 //             core, the agent's spokes to its tools, retrieval query lines)
 // 3. sprites: camera-facing glows (neurons, embedding points, tokens, halos, orbs)
@@ -29,11 +29,14 @@ import { MAX_RINGS, MAX_SLOTS } from "./layout";
 export const MAX_COND = 8;
 export const SEG = 22;
 export const MAX_TOK = 24;
-/** The arrival pulse: one ring sprite right after the tokens. */
+/** The arrival pulse: one ring sprite right after the tokens; then two joint dots per conduit. */
 export const PULSE = MAX_TOK;
+export const PORTS = MAX_TOK + 1;
+/** Sprites written per frame (tokens, pulse, joints). */
+export const DYN = PORTS + 2 * MAX_COND;
 
 /** Panel shapes (aK.x). */
-export const SHAPE = { card: 0, bubble: 1, pill: 2, ring: 3, disc: 4, hex: 5, face: 6 } as const;
+export const SHAPE = { card: 0, bubble: 1, pill: 2, ring: 3, hex: 5, face: 6 } as const;
 /** Panel roles (aK.y): what animates it. */
 export const ROLE = { none: 0, text: 1, tool: 2, ring: 3, wave: 4, body: 5 } as const;
 /** Link kinds (aK.x). */
@@ -203,7 +206,7 @@ void main() {
   if (s < 0.5) {
     d = sdBox(vP, h, min(0.16, m));
     // A header line across the top of a card.
-    inner = 1.0 - smoothstep(0.0, fwidth(vP.y) * 1.5, abs(vP.y - (h.y - 0.3)) - 0.004);
+    inner = 1.0 - smoothstep(0.0, fwidth(vP.y) * 1.5, abs(vP.y - (h.y - 0.3)) - 0.003);
     inner *= step(abs(vP.x), h.x - 0.02);
   } else if (s < 1.5) {
     // Chat bubble: rounded box with a tail at the lower left.
@@ -214,13 +217,8 @@ void main() {
     d = sdBox(vP, h, m);
     glass = 0.0;
   } else if (s < 3.5) {
-    d = abs(length(vP / h) - 1.0) * m - 0.012;
+    d = abs(length(vP / h) - 1.0) * m;
     glass = 0.0;
-  } else if (s < 4.5) {
-    float r = length(vP / h);
-    d = (r - 1.0) * m;
-    // Platter detail: an inner track.
-    inner = 1.0 - smoothstep(0.0, fwidth(r) * 1.5, abs(r - 0.6) - 0.01);
   } else if (s < 5.5) {
     d = sdHex(vP, m * 0.9);
   } else {
@@ -228,35 +226,37 @@ void main() {
   }
   float w = fwidth(d);
   float body = 1.0 - smoothstep(-w, w, d);
-  float rim = 1.0 - smoothstep(0.0, w * 1.5, abs(d) - mix(0.011, 0.019, uLight));
-  // Outer glow, gone before the quad's edge (no boxy halo).
+  // A 1 px edge (1.5 px of ink on paper), whatever the system's size on screen.
+  float lw = w * mix(0.5, 0.75, uLight);
+  float rim = 1.0 - smoothstep(lw, lw + w, abs(d));
   float od = clamp(max(d, 0.0) / uPad, 0.0, 1.0);
   float halo = (1.0 - od) * (1.0 - od) * exp(-od * 2.5) * (1.0 - body);
   float g = vGlow;
+  // A neutral body (the idle answer card) is grey glass; its colour is light while active.
+  vec3 tint = mix(vColor, mix(mix(uFg, uBg, 0.5), vColor, g), vNeutral);
   vec3 col;
   float a;
   if (glass < 0.5) {
-    // Solid strokes and bars.
-    col = mix(vColor * (1.1 + 0.6 * g), mix(vColor, uFg, 0.15), uLight);
-    a = body * mix(0.92, 0.9, uLight) + halo * mix(0.35 + 0.5 * g, 0.06, uLight);
+    // Lines of light: text and waveform bars, rings.
+    col = mix(tint * (1.05 + 0.6 * g), mix(tint, uFg, 0.2), uLight);
+    a = max(body, rim) * mix(0.8, 0.72, uLight) + halo * mix(0.28 + 0.5 * g, 0.04, uLight);
   } else {
-    // Glass: tinted fill, bright rim, soft outer glow (a drop shadow on paper). A neutral
-    // body keeps its colour for the rim and takes it into the fill only while active.
-    vec3 tint = mix(vColor, mix(uFg, vColor, g * 0.6), vNeutral);
-    vec3 fillD = mix(uBg, tint, 0.05 + 0.06 * g);
-    vec3 fillL = mix(vec3(1.0), tint, 0.04 + 0.1 * g);
-    float fa = body * mix(0.66 + 0.16 * g, 0.86, uLight);
-    vec3 rimC = mix(vColor * (1.15 + 0.5 * g), mix(vColor, uFg, 0.3), uLight);
-    col = mix(fillD, fillL, uLight);
-    col = mix(col, rimC, max(rim, inner * 0.55));
-    fa = max(fa, max(rim * 0.95, inner * body * 0.5));
-    float oa = halo * mix(0.12 + 0.4 * g, 0.07, uLight);
+    // Glass, as the Work slabs: a translucent tinted body, a glowing 1 px edge with a soft
+    // glow just inside it, an outer glow on dark (a soft shadow on paper).
+    float inGlow = body * exp(max(d, -1.0) * 18.0);
+    vec3 fillD = mix(uBg, tint, 0.1 + 0.08 * g);
+    vec3 fillL = mix(vec3(1.0), tint, 0.04 + 0.08 * g);
+    float fa = body * mix(0.34 + 0.14 * g, 0.78, uLight);
+    vec3 rimC = mix(tint * (1.2 + 0.5 * g), mix(tint, uFg, 0.35), uLight);
+    float e = max(rim, max(inGlow * mix(0.5, 0.12, uLight), inner * 0.5));
+    col = mix(mix(fillD, fillL, uLight), rimC, e);
+    fa = max(fa, max(rim * mix(0.95, 0.7, uLight), max(inGlow * mix(0.45, 0.1, uLight), inner * body * 0.45)));
+    float oa = halo * mix(0.14 + 0.4 * g, 0.05, uLight);
     if (uLight > 0.5 && s < 1.5) {
-      // Paper: a soft shadow under windows and cards.
       float ds = sdBox(vP + vec2(0.0, 0.07), h, s < 0.5 ? min(0.16, m) : 0.2);
-      oa = max(oa, (1.0 - smoothstep(-0.05, 0.17, ds)) * 0.15 * (1.0 - body));
+      oa = max(oa, (1.0 - smoothstep(-0.05, 0.17, ds)) * 0.12 * (1.0 - body));
     }
-    vec3 oc = mix(vColor, uFg, uLight);
+    vec3 oc = mix(tint, uFg, uLight);
     a = fa + oa * (1.0 - fa);
     col = (col * fa + oc * oa * (1.0 - fa)) / max(a, 1e-4);
   }
@@ -458,10 +458,11 @@ void main() {
   } else if (kind < 2.5) {
     core = 0.95;
   } else if (kind < 3.5) {
-    // A halo (k1 = 1: the model's inner glow, which breathes while idle).
-    a *= aK.y > 0.5 ? 0.42 + 0.58 * B.z + 0.1 * sin(uTime * 1.7) : 0.22 + 0.78 * B.z;
+    // A halo; k1 = 1: the model's inner glow (breathes while idle), 2: only while active.
+    float hot = step(0.5, aK.y) * step(aK.y, 1.5);
+    a *= hot > 0.5 ? 0.42 + 0.58 * B.z + 0.1 * sin(uTime * 1.7) : (aK.y > 1.5 ? B.z : 0.22 + 0.78 * B.z);
     size *= 0.9 + 0.22 * B.z;
-    col = mix(aColor, uHot, 0.35 * aK.y);
+    col = mix(aColor, uHot, 0.35 * hot);
     core = 0.0;
   } else if (kind < 4.5) {
     if (aK.y > 0.5) {

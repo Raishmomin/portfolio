@@ -35,8 +35,9 @@ const MIN_RECT = 140;
 const NEAR_Z = 1.3;
 /** Clearance (px) kept between the system and its section's top / bottom edge. */
 const EDGE = 28;
-/** The system fades out as the section's part in view drops from FADE[1] to FADE[0] px tall. */
-const FADE = [90, 210] as const;
+/** Leaving at the top, the system fades as its foot rises from FADE[1] to FADE[0] px (under
+ *  the header); entering, as its top rises FADE[2] px into the viewport. */
+const FADE = [60, 220, 160] as const;
 const BELOW: Align = { x: -0.5, y: 0 };
 const ABOVE: Align = { x: -0.5, y: -1 };
 
@@ -54,9 +55,9 @@ function toWorld(camera: Camera, px: number, py: number, w: number, h: number, o
 
 type Labels = { layer: LabelLayer; name: number[]; chip: HTMLElement[]; tech: HTMLElement[]; title: number[]; plan: number; lit: number };
 type Chips = { project: number; lit: number; els: HTMLElement[]; sections: HTMLElement[] };
-/** The driving section's edges and its phone caption's top (canvas px, NaN none), its first
- *  card's project and the project of the card nearest the viewport's centre. */
-type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; cap: number; first: number; near: number };
+/** The driving section's edges and the foot of its phone opening (canvas px: above the
+ *  caption, else the heading), its first card's project and the card nearest the centre's. */
+type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; open: number; first: number; near: number };
 
 export default function AiScene({ data, progress, weight, pointer, focus, palette, quality }: SceneProps) {
   const model = useMemo(() => buildModel(data.ai ?? [], data.work ?? []), [data.ai, data.work]);
@@ -87,7 +88,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
   // before this frame renders), so the cut follows the page without a frame of lag; only
   // while this scene shows (and once as it starts showing).
   const gl = useThree((s) => s.gl);
-  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, cap: NaN, first: -1, near: -1 });
+  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, open: 0, first: -1, near: -1 });
   const measure = useMemo(
     () => () => {
       const st = sec.current;
@@ -105,7 +106,8 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       st.top = r.top - c.top;
       st.bottom = r.bottom - c.top;
       const cap = el.querySelector<HTMLElement>("[data-ai-caption]")?.getBoundingClientRect();
-      st.cap = cap && cap.height > 0 ? cap.top - c.top : NaN;
+      const head = el.querySelector<HTMLElement>("h2")?.getBoundingClientRect();
+      st.open = (cap && cap.height > 0 ? cap.top - 6 : head ? head.top - 28 : r.bottom) - c.top;
       // The card nearest the viewport's centre (the first one until any card is in view).
       const vh = c.height || window.innerHeight;
       let best = Infinity;
@@ -273,71 +275,60 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     const { camera, size } = state;
     const n = model.plans.length;
     // Which project: hover/focus wins, then the live deck's top card, then (phones) the
-    // first card while the opening shows the system (its caption names it), then the card
+    // first card while its opening is on screen (the caption names it), then the card
     // nearest the viewport's centre, else equal scroll slices.
     const d = deck.current;
     const deckId = d && d.el.hasAttribute("data-deck-live") ? d.id : null;
     const st = sec.current;
     const sf = sceneFrames.ai;
-    const opening = framing.phone && sf.rect.b - sf.rect.t > 0.01 && st.first >= 0;
+    const H = size.height;
+    const opening = framing.phone && st.ok && st.open > 0 && st.top < H && st.first >= 0;
     const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined) ?? (opening ? st.first : st.near >= 0 ? st.near : undefined);
     live.current.project = picked ?? Math.min(n - 1, Math.floor(Math.max(0, Math.min(1, progress)) * n));
 
-    // Where: the scene's own free rect (unblended, from the director), else the blended framing.
+    // Where: the scene's own free rect (unblended, from the director; phones: the section's
+    // whole opening, where it is on the page), fitted at full size. The system is attached
+    // to its section like content: when a section edge reaches it, it scrolls away (or in)
+    // with the page instead of shrinking, and fades as it leaves the viewport.
     const box = rig.box[2] > 0 ? rig.box : model.plans[live.current.project].box;
     const hw = box[2];
     const hh = box[3];
     const rl = sf.rect.l * size.width;
-    let rt = sf.rect.t * size.height;
-    let rb = sf.rect.b * size.height;
     const rw = (sf.rect.r - sf.rect.l) * size.width;
-    const fit = lastFit.current;
-    let room = 1;
-    let clip = false;
-    if (framing.phone) {
-      // Phones: the section's opening above its heading (less the caption at its foot). Cut
-      // by a viewport edge below MIN_RECT, a MIN_RECT frame keeps to the opening's other edge
-      // (the heading's side as it leaves at the top), so the system slides with the page and
-      // fades, never over the heading or the cards; it follows the page exactly.
-      if (st.ok && st.cap === st.cap) rb = Math.min(rb, st.cap - 6);
-      const open = rb - rt;
-      room = Math.max(0, Math.min(1, open / MIN_RECT));
-      clip = true;
-      if (open < MIN_RECT) {
-        if (rt <= 1) rt = rb - MIN_RECT;
-        else rb = rt + MIN_RECT;
-      }
-    } else if (st.ok) {
-      // Desktop: only the part of the free rect inside the section (less a clearance) is
-      // the system's; as the section scrolls in or out the system shrinks and slides with
-      // it, and fades before that part gets too small. It never reaches the next heading.
-      const top = st.top + EDGE;
-      const bottom = st.bottom - EDGE;
-      const cutTop = top > rt;
-      const cutBottom = bottom < rb;
-      clip = cutTop || cutBottom;
-      if (cutTop) rt = top;
-      if (cutBottom) rb = bottom;
-      room = smooth(FADE[0], FADE[1], rb - rt);
-      // Keep fitting a smallest frame on the side that is still open while it fades.
-      if (rb - rt < MIN_RECT) {
-        if (cutBottom) rt = rb - MIN_RECT;
-        else rb = rt + MIN_RECT;
-      }
+    let rt = sf.rect.t * H;
+    let rb = sf.rect.b * H;
+    if (framing.phone && st.ok) {
+      rt = st.top + 8;
+      rb = st.open;
     }
     const rh = rb - rt;
-    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×);
-    // from the whole area, so the system keeps its shape while a section edge cuts it.
+    const fit = lastFit.current;
+    let room = framing.phone && !st.ok ? 0 : 1;
+    let clip = framing.phone;
+    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×).
     const own = model.plans[live.current.project].box;
-    const rh0 = (sf.rect.b - sf.rect.t) * size.height;
-    const stretch = rw > 0 && rh0 > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh0))) : 1;
+    const stretch = rw > 0 && rh > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh))) : 1;
     if (sf.el && rw >= MIN_RECT && rh >= MIN_RECT) {
       camera.updateMatrixWorld();
-      toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
+      let cy = rt + rh / 2;
+      toWorld(camera, rl + rw / 2, cy, size.width, size.height, pt);
+      const x = pt[0];
+      const y = pt[1];
+      toWorld(camera, rl, rt, size.width, size.height, pt);
+      const s = Math.min(CAP, (Math.abs(x - pt[0]) * 0.9) / hw, (Math.abs(pt[1] - y) * 0.94) / hh);
+      // The system's half height on screen (px), and the section edges it keeps inside.
+      const hpx = (s * hh * rh) / 2 / Math.max(1e-6, Math.abs(pt[1] - y));
+      if (st.ok && !framing.phone) {
+        const down = st.top + EDGE - (cy - hpx);
+        const up = st.bottom - EDGE - (cy + hpx);
+        if (up < 0) cy += up;
+        else if (down > 0) cy += down;
+        clip = up < 0 || down > 0;
+      }
+      room = Math.min(room, smooth(FADE[0], FADE[1], cy + hpx), 1 - smooth(H - FADE[2], H, cy - hpx));
+      toWorld(camera, rl + rw / 2, cy, size.width, size.height, pt);
       fit.x = pt[0];
       fit.y = pt[1];
-      toWorld(camera, rl, rt, size.width, size.height, pt);
-      const s = Math.min(CAP, (Math.abs(fit.x - pt[0]) * 0.9) / hw, (Math.abs(pt[1] - fit.y) * 0.94) / hh);
       const dist = Math.max(4, camera.position.z);
       fit.scale = (s * dist) / (dist + NEAR_Z * s);
     } else if (framing.phone) {
@@ -379,22 +370,23 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
         layer.style(ids.name[g], {});
       });
     }
-    // The stage the request is in: its chip lights like the DOM chip.
+    // The stage the request is in: its chip lights (the Work labels' dark plate and 1 px
+    // border, lit in the stage's colour; orange only for the answer).
     const litSlot = rig.lit >= 0 ? plan.steps[rig.lit].slot : -1;
     if (litSlot !== ids.lit) {
       model.slots.forEach((s, g) => {
         const on = g === litSlot;
-        const tint = s.kind === "llm" ? palette.ai : s.kind === "output" || s.kind === "tts" ? palette.accent : s.kind === "rag" ? palette.ok : palette.fg;
+        const tint = s.kind === "output" || s.kind === "tts" ? palette.accent : s.kind === "rag" ? palette.ok : palette.ai;
         Object.assign(ids.chip[g].style, {
-          color: on ? palette.bg : s.kind === "llm" ? palette.ai : palette.fg,
-          background: on ? tint : `color-mix(in srgb, ${palette.bg} 80%, transparent)`,
-          borderColor: on ? tint : `color-mix(in srgb, ${tint} 50%, transparent)`,
-          boxShadow: on ? `0 0 14px color-mix(in srgb, ${tint} 55%, transparent)` : "none",
+          color: on ? tint : palette.fg,
+          background: `color-mix(in srgb, ${palette.bg} 80%, transparent)`,
+          borderColor: on ? tint : `color-mix(in srgb, ${tint === palette.accent ? palette.muted : tint} 50%, transparent)`,
+          boxShadow: on ? `0 0 12px color-mix(in srgb, ${tint} 45%, transparent)` : "none",
         });
       });
       ids.lit = litSlot;
     }
-    const { width: W, height: H } = size;
+    const W = size.width;
     // rig.frame just moved the root: refresh it too, or labels trail their objects by a frame.
     r.inner.updateWorldMatrix(true, false);
     const M = r.inner.matrixWorld;
