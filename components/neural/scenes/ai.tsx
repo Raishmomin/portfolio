@@ -6,14 +6,17 @@
 // calling its tools in turn, a dense neural core (one orbit ring per model provider) that
 // streams the answer token by token, and an answer card whose lines assemble. One request
 // runs through the system on a clock; the stage chips of the project's DOM card light in
-// sync (data-ai-lit / data-ai-done, and a bubbling "cp:ai-stage" event); hovering or
-// focusing a stage chip holds the request in that stage. The project comes from a hovered
-// card, else the top card of the AI deck ("cp:deck"), else the card nearest the viewport's
-// centre (phones: the first card while the section opens); switching projects rebuilds the
-// system (shared stages glide, others grow or dissolve). The system's free area is cut to
-// the part of its section in view, so it shrinks, slides and fades with the section and
-// never draws over the neighbouring sections' content.
-// Names are aria-hidden labels in the shared layer that duplicate the DOM cards.
+// sync (data-ai-lit / data-ai-done, and a bubbling "cp:ai-stage" event), and the shown
+// card is marked (data-ai-shown); hovering a stage chip (with a mouse) holds the request in
+// that stage. The project comes from a hovered or focused card, else the top card of the AI
+// deck ("cp:deck"), else the card nearest the viewport's centre (phones: the first card
+// while the section's opening is in view); switching projects rebuilds the system (shared
+// stages glide, others grow or dissolve). The system is fitted at full size into its free
+// area (phones: the section's opening above the heading) and is attached to its section
+// like content: it scrolls in and away with the section and fades as it leaves the
+// viewport, so it never shrinks into a corner or draws over the neighbouring content.
+// Names are aria-hidden labels in the shared layer that duplicate the DOM cards (phones,
+// where the layer shows none: the section's aria-hidden caption under the opening).
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera } from "three";
@@ -33,8 +36,9 @@ const MIN_RECT = 140;
 const NEAR_Z = 1.3;
 /** Clearance (px) kept between the system and its section's top / bottom edge. */
 const EDGE = 28;
-/** The system fades out as the section's part in view drops from FADE[1] to FADE[0] px tall. */
-const FADE = [90, 210] as const;
+/** Leaving at the top, the system fades as its foot rises from FADE[1] to FADE[0] px (under
+ *  the header); entering, as its top rises FADE[2] px into the viewport. */
+const FADE = [80, 300, 160] as const;
 const BELOW: Align = { x: -0.5, y: 0 };
 const ABOVE: Align = { x: -0.5, y: -1 };
 
@@ -52,8 +56,9 @@ function toWorld(camera: Camera, px: number, py: number, w: number, h: number, o
 
 type Labels = { layer: LabelLayer; name: number[]; chip: HTMLElement[]; tech: HTMLElement[]; title: number[]; plan: number; lit: number };
 type Chips = { project: number; lit: number; els: HTMLElement[]; sections: HTMLElement[] };
-/** The driving section's edges (canvas px) and the project of the card nearest the viewport's centre. */
-type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; near: number };
+/** The driving section's edges and the foot of its phone opening (canvas px: above the
+ *  caption, else the heading), its first card's project and the card nearest the centre's. */
+type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; open: number; first: number; near: number };
 
 export default function AiScene({ data, progress, weight, pointer, focus, palette, quality }: SceneProps) {
   const model = useMemo(() => buildModel(data.ai ?? [], data.work ?? []), [data.ai, data.work]);
@@ -80,20 +85,22 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     return () => document.removeEventListener("cp:deck", onDeck);
   }, [model]);
 
-  // The section in view: measured in the scroll / resize handlers themselves (they run
-  // before this frame renders), so the cut follows the page without a frame of lag; only
-  // while this scene shows (and once as it starts showing).
+  // The section in view: flagged by scroll / resize (they fire before the frame) and read
+  // at most once per frame, at its start, so the fit follows the page without a frame of
+  // lag; only while this scene shows. The card at the viewport's centre line comes from an
+  // IntersectionObserver (no per-card rects).
   const gl = useThree((s) => s.gl);
-  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, near: -1 });
+  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, open: 0, first: -1, near: -1 });
+  const dirty = useRef(true);
   const measure = useMemo(
     () => () => {
       const st = sec.current;
       const own = sceneFrames.ai.el;
       const el = own?.isConnected ? own : document.querySelector<HTMLElement>(AI_SECTION);
       st.el = el;
-      if (!el || !el.isConnected) {
+      if (!el) {
         st.ok = false;
-        st.near = -1;
+        st.near = st.first = -1;
         return;
       }
       const c = gl.domElement.getBoundingClientRect();
@@ -101,48 +108,44 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       st.ok = r.height > 0;
       st.top = r.top - c.top;
       st.bottom = r.bottom - c.top;
-      // The card nearest the viewport's centre (the first one until any card is in view).
-      const vh = c.height || window.innerHeight;
-      let best = Infinity;
-      let near = -1;
-      let first = -1;
-      el.querySelectorAll<HTMLElement>("[data-focus-id]").forEach((card) => {
-        const j = model.index.get(card.dataset.focusId ?? "");
-        if (j === undefined) return;
-        if (first < 0) first = j;
-        const b = card.getBoundingClientRect();
-        if (b.bottom < c.top || b.top > c.top + vh) return;
-        const d = Math.abs((b.top + b.bottom) / 2 - c.top - vh / 2);
-        if (d < best) {
-          best = d;
-          near = j;
-        }
-      });
-      st.near = near >= 0 ? near : first;
+      st.first = model.index.get(el.querySelector<HTMLElement>("[data-focus-id]")?.dataset.focusId ?? "") ?? -1;
+      if (st.near < 0) st.near = st.first;
+      const cap = el.querySelector<HTMLElement>("[data-ai-caption]")?.getBoundingClientRect();
+      const head = el.querySelector<HTMLElement>("h2")?.getBoundingClientRect();
+      st.open = (cap && cap.height > 0 ? cap.top - 6 : head ? head.top - 28 : r.bottom) - c.top;
     },
     [gl, model],
   );
-  const on = useRef(false);
   useEffect(() => {
-    on.current = active;
-    if (active) measure();
-  }, [active, measure]);
-  useEffect(() => {
-    const read = () => {
-      if (on.current) measure();
+    const flag = () => {
+      dirty.current = true;
     };
-    const ro = new ResizeObserver(read);
+    const ro = new ResizeObserver(flag);
     ro.observe(document.body);
-    window.addEventListener("scroll", read, { passive: true });
-    window.addEventListener("resize", read, { passive: true });
+    window.addEventListener("scroll", flag, { passive: true });
+    window.addEventListener("resize", flag, { passive: true });
+    // The card crossing the viewport's centre line (kept while the line is between cards).
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const j = model.index.get((e.target as HTMLElement).dataset.focusId ?? "");
+          if (e.isIntersecting && j !== undefined) sec.current.near = j;
+        }
+      },
+      { rootMargin: "-50% 0px -50% 0px" },
+    );
+    document.querySelectorAll<HTMLElement>(`:is(${AI_SECTION}) [data-focus-id]`).forEach((card) => io.observe(card));
     return () => {
       ro.disconnect();
-      window.removeEventListener("scroll", read);
-      window.removeEventListener("resize", read);
+      io.disconnect();
+      window.removeEventListener("scroll", flag);
+      window.removeEventListener("resize", flag);
     };
-  }, [measure]);
+  }, [model]);
 
-  // A hovered / focused stage chip (data-ai-stage inside a project's card) holds the request there.
+  // A stage chip (data-ai-stage inside a project's card) under the pointer holds the request
+  // there. Chips are not focusable (no nested interactives in the /projects card links); a
+  // focused card still picks its project through the stage's focus delegation.
   const hold = useRef<{ slug: string; stage: string } | null>(null);
   useEffect(() => {
     const chipOf = (t: EventTarget | null) => (t instanceof Element ? t.closest<HTMLElement>("[data-ai-stage]") : null);
@@ -155,21 +158,18 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     };
     const leave = (e: Event) => {
       const from = chipOf(e.target);
-      if (from && from !== chipOf((e as PointerEvent | FocusEvent).relatedTarget) && hold.current?.stage === from.dataset.aiStage) hold.current = null;
+      if (from && from !== chipOf((e as PointerEvent).relatedTarget) && hold.current?.stage === from.dataset.aiStage) hold.current = null;
     };
     document.addEventListener("pointerover", enter, { passive: true });
     document.addEventListener("pointerout", leave, { passive: true });
-    document.addEventListener("focusin", enter);
-    document.addEventListener("focusout", leave);
     return () => {
       document.removeEventListener("pointerover", enter);
       document.removeEventListener("pointerout", leave);
-      document.removeEventListener("focusin", enter);
-      document.removeEventListener("focusout", leave);
     };
   }, [model]);
 
-  // The DOM side of the clock: the shown project's stage chips (data-ai-stage="<name>").
+  // The DOM side of the clock: the shown project's card (data-ai-shown) and its stage chips
+  // (data-ai-stage="<name>"), in its card and in the phone caption (data-ai-caption="<slug>").
   const chips = useRef<Chips>({ project: -1, lit: -1, els: [], sections: [] });
   const syncChips = useMemo(
     () => (project: number, lit: number) => {
@@ -181,6 +181,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       for (const el of st.els) {
         el.removeAttribute("data-ai-lit");
         el.removeAttribute("data-ai-done");
+        el.removeAttribute("data-ai-shown");
       }
       st.els.length = 0;
       if (!plan) {
@@ -188,21 +189,27 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
         st.sections.length = 0;
         return;
       }
+      const slug = CSS.escape(plan.slug);
       document.querySelectorAll<HTMLElement>(AI_SECTION).forEach((sec) => {
         if (!sec.hasAttribute("data-ai-sync")) {
           sec.setAttribute("data-ai-sync", "");
           st.sections.push(sec);
         }
-        const card = sec.querySelector<HTMLElement>(`[data-focus-id="${CSS.escape(plan.slug)}"]`);
-        if (!card) return;
-        plan.stages.forEach((name, j) => {
-          if (j > lit) return;
-          const chip = card.querySelector<HTMLElement>(`[data-ai-stage="${CSS.escape(name)}"]`);
-          if (!chip) return;
-          chip.setAttribute(j === lit ? "data-ai-lit" : "data-ai-done", "");
-          st.els.push(chip);
-        });
-        if (lit >= 0) card.dispatchEvent(new CustomEvent("cp:ai-stage", { bubbles: true, detail: { slug: plan.slug, stage: plan.stages[lit], index: lit } }));
+        const card = sec.querySelector<HTMLElement>(`[data-focus-id="${slug}"]`);
+        if (card) {
+          card.setAttribute("data-ai-shown", "");
+          st.els.push(card);
+        }
+        sec.querySelectorAll<HTMLElement>(`[data-focus-id="${slug}"], [data-ai-caption="${slug}"]`).forEach((scope) =>
+          plan.stages.forEach((name, j) => {
+            if (j > lit) return;
+            const chip = scope.querySelector<HTMLElement>(`[data-ai-stage="${CSS.escape(name)}"]`);
+            if (!chip) return;
+            chip.setAttribute(j === lit ? "data-ai-lit" : "data-ai-done", "");
+            st.els.push(chip);
+          }),
+        );
+        if (card && lit >= 0) card.dispatchEvent(new CustomEvent("cp:ai-stage", { bubbles: true, detail: { slug: plan.slug, stage: plan.stages[lit], index: lit } }));
       });
     },
     [model],
@@ -260,63 +267,69 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     }
     const { camera, size } = state;
     const n = model.plans.length;
-    // Which project: hover/focus wins, then the live deck's top card, then the card nearest
-    // the viewport's centre, else equal scroll slices.
+    if (dirty.current || !sec.current.el?.isConnected) {
+      dirty.current = false;
+      measure();
+    }
+    // Which project: hover/focus wins, then the live deck's top card, then (phones) the
+    // first card while its opening is on screen (the caption names it), then the card
+    // nearest the viewport's centre, else equal scroll slices.
     const d = deck.current;
     const deckId = d && d.el.hasAttribute("data-deck-live") ? d.id : null;
     const st = sec.current;
-    const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined) ?? (st.near >= 0 ? st.near : undefined);
+    const sf = sceneFrames.ai;
+    const H = size.height;
+    const opening = framing.phone && st.ok && st.open > 0 && st.top < H && st.first >= 0;
+    const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined) ?? (opening ? st.first : st.near >= 0 ? st.near : undefined);
     live.current.project = picked ?? Math.min(n - 1, Math.floor(Math.max(0, Math.min(1, progress)) * n));
 
-    // Where: the scene's own free rect (unblended, from the director), else the blended framing.
+    // Where: the scene's own free rect (unblended, from the director; phones: the section's
+    // whole opening, where it is on the page), fitted at full size. The system is attached
+    // to its section like content: when a section edge reaches it, it scrolls away (or in)
+    // with the page instead of shrinking, and fades as it leaves the viewport.
     const box = rig.box[2] > 0 ? rig.box : model.plans[live.current.project].box;
     const hw = box[2];
     const hh = box[3];
-    const sf = sceneFrames.ai;
     const rl = sf.rect.l * size.width;
-    let rt = sf.rect.t * size.height;
-    let rb = sf.rect.b * size.height;
     const rw = (sf.rect.r - sf.rect.l) * size.width;
-    const fit = lastFit.current;
-    let room = 1;
-    // Desktop: only the part of the free rect inside the section (less a clearance) is the
-    // system's; as the section scrolls in or out the system shrinks and slides with it, and
-    // fades before that part gets too small. It never reaches the next section's heading.
-    let clip = false;
-    if (!framing.phone && st.ok) {
-      const top = st.top + EDGE;
-      const bottom = st.bottom - EDGE;
-      const cutTop = top > rt;
-      const cutBottom = bottom < rb;
-      clip = cutTop || cutBottom;
-      if (cutTop) rt = top;
-      if (cutBottom) rb = bottom;
-      room = smooth(FADE[0], FADE[1], rb - rt);
-      // Keep fitting a smallest frame on the side that is still open while it fades.
-      if (rb - rt < MIN_RECT) {
-        if (cutBottom) rt = rb - MIN_RECT;
-        else rb = rt + MIN_RECT;
-      }
+    let rt = sf.rect.t * H;
+    let rb = sf.rect.b * H;
+    if (framing.phone && st.ok) {
+      rt = st.top + 8;
+      rb = st.open;
     }
     const rh = rb - rt;
-    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×);
-    // from the whole area, so the system keeps its shape while a section edge cuts it.
+    const fit = lastFit.current;
+    let room = framing.phone && !st.ok ? 0 : 1;
+    let clip = framing.phone;
+    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×).
     const own = model.plans[live.current.project].box;
-    const rh0 = (sf.rect.b - sf.rect.t) * size.height;
-    const stretch = rw > 0 && rh0 > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh0))) : 1;
+    const stretch = rw > 0 && rh > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh))) : 1;
     if (sf.el && rw >= MIN_RECT && rh >= MIN_RECT) {
       camera.updateMatrixWorld();
-      toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
+      let cy = rt + rh / 2;
+      toWorld(camera, rl + rw / 2, cy, size.width, size.height, pt);
+      const x = pt[0];
+      const y = pt[1];
+      toWorld(camera, rl, rt, size.width, size.height, pt);
+      const s = Math.min(CAP, (Math.abs(x - pt[0]) * 0.9) / hw, (Math.abs(pt[1] - y) * 0.94) / hh);
+      // The system's half height on screen (px), and the section edges it keeps inside.
+      const hpx = (s * hh * rh) / 2 / Math.max(1e-6, Math.abs(pt[1] - y));
+      if (st.ok && !framing.phone) {
+        const down = st.top + EDGE - (cy - hpx);
+        const up = st.bottom - EDGE - (cy + hpx);
+        if (up < 0) cy += up;
+        else if (down > 0) cy += down;
+        clip = up < 0 || down > 0;
+      }
+      room = Math.min(room, smooth(FADE[0], FADE[1], cy + hpx), 1 - smooth(H - FADE[2], H, cy - hpx));
+      toWorld(camera, rl + rw / 2, cy, size.width, size.height, pt);
       fit.x = pt[0];
       fit.y = pt[1];
-      toWorld(camera, rl, rt, size.width, size.height, pt);
-      const s = Math.min(CAP, (Math.abs(fit.x - pt[0]) * 0.9) / hw, (Math.abs(pt[1] - fit.y) * 0.94) / hh);
       const dist = Math.max(4, camera.position.z);
       fit.scale = (s * dist) / (dist + NEAR_Z * s);
     } else if (framing.phone) {
-      // Phones: the system lives in the section's opening; as it scrolls away the system
-      // stays put and fades, so the cards below read on a clean background.
-      room = fit.scale > 0 ? Math.max(0, Math.min(1, rh / MIN_RECT)) : 0;
+      room = 0;
     } else {
       fit.x = fit.y = 0;
       const s = fitFree(camera, size, hw, hh, CAP, CAP) * 0.94;
@@ -354,23 +367,25 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
         layer.style(ids.name[g], {});
       });
     }
-    // The stage the request is in: its chip lights like the DOM chip.
+    // The stage the request is in: its chip lights (the Work labels' dark plate and 1 px
+    // border, lit in the stage's colour; orange only for the answer).
     const litSlot = rig.lit >= 0 ? plan.steps[rig.lit].slot : -1;
     if (litSlot !== ids.lit) {
       model.slots.forEach((s, g) => {
         const on = g === litSlot;
-        const tint = s.kind === "llm" ? palette.ai : s.kind === "output" || s.kind === "tts" ? palette.accent : s.kind === "rag" ? palette.ok : palette.fg;
+        const tint = s.kind === "output" || s.kind === "tts" ? palette.accent : s.kind === "rag" ? palette.ok : palette.ai;
         Object.assign(ids.chip[g].style, {
-          color: on ? palette.bg : s.kind === "llm" ? palette.ai : palette.fg,
-          background: on ? tint : `color-mix(in srgb, ${palette.bg} 80%, transparent)`,
-          borderColor: on ? tint : `color-mix(in srgb, ${tint} 50%, transparent)`,
-          boxShadow: on ? `0 0 14px color-mix(in srgb, ${tint} 55%, transparent)` : "none",
+          color: on ? tint : palette.fg,
+          background: `color-mix(in srgb, ${palette.bg} 80%, transparent)`,
+          borderColor: on ? tint : `color-mix(in srgb, ${tint === palette.accent ? palette.muted : tint} 50%, transparent)`,
+          boxShadow: on ? `0 0 12px color-mix(in srgb, ${tint} 45%, transparent)` : "none",
         });
       });
       ids.lit = litSlot;
     }
-    const { width: W, height: H } = size;
-    r.inner.updateMatrixWorld(true);
+    const W = size.width;
+    // rig.frame just moved the root: refresh it too, or labels trail their objects by a frame.
+    r.inner.updateWorldMatrix(true, false);
     const M = r.inner.matrixWorld;
     for (let g = 0; g < model.slots.length; g++) {
       const pr = rig.presence[g];

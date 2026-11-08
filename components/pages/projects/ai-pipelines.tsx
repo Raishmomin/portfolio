@@ -3,9 +3,11 @@
 // system (data-focus-id = slug; its stage pills, data-ai-stage, light as the 3D request
 // passes) and links to the project's full card below. On desktop the cards stack as a
 // deck while you scroll (data-deck), like the home AI section; on phones the section opens
-// with a window onto the 3D system (pt-[34svh]), as the home scene sections do.
+// with a window onto the 3D system (pt-[34svh], up to lg: the scene's phone framing runs
+// below 1024 px), as the home scene sections do, captioned with the project it draws.
 import type { NeuralData } from "../../neural";
 import { Accent } from "../../ui/primitives";
+import { AiCaption } from "../../home/ai";
 import { NeuralGlyph } from "../ai-badge";
 import { PageSection, SectionHead, aiText, card, column, part, pop } from "../ui";
 import { cn } from "@/lib/utils";
@@ -13,8 +15,9 @@ import { cn } from "@/lib/utils";
 export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number }) {
   if (!ai.length) return null;
   return (
-    <PageSection id="ai" section="ai" scene="ai" stage="left" labelledBy="ai-heading" className="pt-[34svh] lg:pt-28">
-      <div className={column.left}>
+    <PageSection id="ai" section="ai" scene="ai" stage="left" labelledBy="ai-heading" className="pt-[34svh] md:pt-[34svh] lg:pt-28">
+      <div className={cn(column.left, "relative")}>
+        <AiCaption slug={ai[0].slug} title={ai[0].title} stages={ai[0].stages} />
         <div {...card()} className="panel p-6 md:p-8">
           <SectionHead
             id="ai-heading"
@@ -25,7 +28,7 @@ export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number
                 {ai.length} of {total} projects <Accent>use AI.</Accent>
               </>
             }
-            scene="The 3D draws each AI project as a working system: a request runs from the input through its real stages to the answer, and the project's stages light as it passes. Hover a project to rebuild its system, or one of its stages to hold the request there."
+            scene="The 3D draws each AI project as a working system: a request runs from the input through its real stages to the answer, and the project's stages light as it passes. With a mouse, hover a project to rebuild its system, or one of its stages to hold the request there."
           />
         </div>
         <ol aria-label="AI projects" data-deck="" data-card-group="" className="mt-4 flex flex-col gap-4">

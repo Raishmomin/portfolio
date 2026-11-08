@@ -991,8 +991,9 @@ html.motion-live [data-arch-active] > .panel {
 /* AI: while the 3D system runs (components/neural/scenes/ai.tsx sets [data-ai-sync] on the
    section), the shown project's stage chips follow its request: data-ai-done for stages
    it has passed, data-ai-lit for the stage it is in (orange after the model: the answer).
-   Without the 3D the CSS signal above runs instead. */
-html.motion-live [data-ai-sync] .stage-chip::after {
+   Without the 3D the CSS signal above runs instead (hovering a card included). */
+html.motion-live [data-ai-sync] .stage-chip::after,
+html.motion-live [data-ai-sync] [data-ai-card]:hover .stage-chip::after {
   animation: none;
 }
 [data-ai-stage] {
@@ -1020,6 +1021,34 @@ html.motion-live [data-ai-sync] .stage-chip::after {
   box-shadow:
     0 0 0 1px hsl(var(--primary) / 0.35),
     0 0 16px hsl(var(--primary) / 0.45);
+}
+/* The card whose system the 3D draws (data-ai-shown) wears the AI accent. */
+html.motion-live [data-ai-sync] .panel[data-focus-id],
+html.motion-live [data-ai-sync] [data-focus-id] > .panel {
+  transition:
+    color 0.15s,
+    border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+html.motion-live [data-ai-sync] .panel[data-ai-shown],
+html.motion-live [data-ai-sync] [data-ai-shown] > .panel {
+  border-color: hsl(var(--ai) / 0.6);
+  box-shadow:
+    0 0 0 1px hsl(var(--ai) / 0.14),
+    0 18px 50px -28px hsl(var(--ai) / 0.6);
+}
+/* Phones: the caption under the opening shows only while the 3D draws its system. */
+.ai-caption {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.4s,
+    visibility 0s 0.4s;
+}
+[data-ai-sync] .ai-caption {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.4s;
 }
 /* end fm3-ai */
 
