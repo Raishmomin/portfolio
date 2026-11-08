@@ -273,9 +273,11 @@ function relDots(pts: [number, number][]) {
 function ContactPoster({ city }: { city: string }) {
   const R = 200;
   const ROWS = 40;
-  const geo = CITY_GEO[city] ?? { lat: 23, lon: 72.6 };
-  const yaw = (-geo.lon * Math.PI) / 180 + 0.5;
-  const tilt = (geo.lat * Math.PI) / 180 + 0.12;
+  // As the contact rig does: a city missing from CITY_GEO gets no beacon and a neutral pose
+  // (longitude 0 turned toward the content, the rig's pitch plus its globe tilt).
+  const geo = CITY_GEO[city];
+  const yaw = (-(geo?.lon ?? 0) * Math.PI) / 180 + 0.5;
+  const tilt = geo ? (geo.lat * Math.PI) / 180 + 0.12 : 0.46;
   const view = (lat: number, lon: number): [number, number, number] => {
     const x0 = Math.cos(lat) * Math.sin(lon);
     const y0 = Math.sin(lat);
@@ -301,8 +303,8 @@ function ContactPoster({ city }: { city: string }) {
       (z > 0.45 ? near : far).push([r1(x * R), r1(-y * R)]);
     }
   }
-  const [px, py] = view((geo.lat * Math.PI) / 180, (geo.lon * Math.PI) / 180);
-  const pin = { x: r1(px * R), y: r1(-py * R) };
+  const at = geo && view((geo.lat * Math.PI) / 180, (geo.lon * Math.PI) / 180);
+  const pin = at && at[2] > 0 ? { x: r1(at[0] * R), y: r1(-at[1] * R) } : null;
   return (
     <div data-neural-poster="contact" className="absolute inset-0">
       <svg className="nw-side" viewBox="-250 -250 500 500" fill="none">
@@ -317,8 +319,12 @@ function ContactPoster({ city }: { city: string }) {
         <circle className="nw-e" r={R} strokeWidth="1.5" />
         <path className="nw-n nw-a" strokeOpacity=".45" strokeWidth="4" d={relDots(far)} />
         <path className="nw-n nw-a" strokeOpacity=".9" strokeWidth="5.5" d={relDots(near)} />
-        <circle className="nw-okr nw-k" cx={pin.x} cy={pin.y} r="8" />
-        <circle className="nw-ok" cx={pin.x} cy={pin.y} r="7" />
+        {pin ? (
+          <>
+            <circle className="nw-okr nw-k" cx={pin.x} cy={pin.y} r="8" />
+            <circle className="nw-ok" cx={pin.x} cy={pin.y} r="7" />
+          </>
+        ) : null}
       </svg>
     </div>
   );
