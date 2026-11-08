@@ -35,7 +35,7 @@ const expo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -8 * t));
 
 export class WritingRig {
   readonly root = new Group();
-  private readonly q = createQuads(MAXP * 3 + 1 + MAXP + 1);
+  private readonly q = createQuads(MAXP * 3 + 1 + MAXP + 2);
   private readonly sp: Sprites;
   private nTok = 60;
   private nDust = 46;
@@ -53,6 +53,9 @@ export class WritingRig {
   private readonly dom = { top: 0, cx: new Float32Array(MAXP), row: false, colW: 0, ok: false };
   // Per page: eased active amount, lines written, layout (px) of the last frame.
   private readonly act = new Float32Array(MAXP);
+  /** Title label per page: shown (hysteresis on the page size) and its eased opacity. */
+  private readonly labOn = new Uint8Array(MAXP);
+  private readonly labA = new Float32Array(MAXP);
   private readonly L = new Float32Array(MAXP);
   private readonly X = new Float32Array(MAXP);
   private target = 0;
@@ -129,6 +132,8 @@ export class WritingRig {
     });
     this.L.fill(0);
     this.act.fill(0);
+    this.labOn.fill(0);
+    this.labA.fill(0);
     this.lit = -1;
     this.labels();
     this.measure();
@@ -277,7 +282,7 @@ export class WritingRig {
       lay.l = c.l;
       lay.r = c.r;
       lay.rail = c.b - bandH * 0.07;
-      let hs = bandH * 0.62;
+      let hs = bandH * 0.6;
       if (row) {
         hs = Math.min(hs, (dom.colW * 0.52) / ASPECT);
         for (let i = 0; i < n; i++) this.X[i] = dom.cx[i];
@@ -308,7 +313,7 @@ export class WritingRig {
     let t = this.focusAt;
     if (t < 0 && dom.ok) {
       const top = dom.top - window.scrollY;
-      const s = clamp01((H * (phone ? 1.3 : 1.2) - top) / (H * (phone ? 0.75 : 0.8)));
+      const s = clamp01((H * (phone ? 1.3 : 1.1) - top) / (H * (phone ? 0.75 : 0.55)));
       t = Math.min(n - 1, Math.floor(s * n));
     }
     if (t >= 0) this.target = t;
@@ -324,8 +329,20 @@ export class WritingRig {
     const a = q.a;
     this.k = 0;
     const put = this.put;
-    // Rail: port → each page's foot → the far end (fading out). Lit up to the active page.
+    // Floor: from the rail back into depth (a flat quad: aY points away from the viewer).
     const rail = lay.rail;
+    {
+      this.lift(lay.l, rail, 0, v0);
+      this.lift(lay.r, rail, 0, v1);
+      const k = this.k++;
+      const fw = v1.x - v0.x;
+      a.C.setXYZ(k, (v0.x + v1.x) / 2, v0.y, -3.5);
+      a.X.setXYZ(k, fw, 0, 0);
+      a.Y.setXYZ(k, 0, 0, -7);
+      a.K.setXYZW(k, KIND.floor, 0, (this.X[A] - lay.l) / Math.max(1, lay.r - lay.l), this.act[A]);
+      a.M.setXYZW(k, vis * expo(since), 0, 0, 0);
+    }
+    // Rail: port → each page's foot → the far end (fading out). Lit up to the active page.
     const portX = lay.tw > 40 ? lay.tx + lay.tw / 2 : lay.l + 8;
     const endX = lay.r - 12;
     let from = portX;
@@ -340,7 +357,7 @@ export class WritingRig {
 
     // Pages, back to front: the sheets behind them, the terminal, then the pages (active last).
     const hs = lay.hs;
-    const grow = Math.min(1.26, (lay.bandH * 0.84) / Math.max(1, hs));
+    const grow = Math.min(1.26, (lay.bandH * 0.76) / Math.max(1, hs));
     for (let i = 0; i < n; i++) {
       const on = i === A ? 1 : 0;
       this.act[i] += (on - this.act[i]) * ka;
@@ -379,7 +396,10 @@ export class WritingRig {
         // The title label needs a page tall enough to hold it; else its bars stand in.
         // The title label scales with the page; too small to read → its bars stand in.
         const ls = Math.min(1.15, (P[4] * (OPEN - 2 * PAGE.m)) / LABEL_W);
-        const lab = labels ? clamp01((ls - 0.8) / 0.08) * ac * ac : 0;
+        if (ls > 0.9 && ac > 0.6) this.labOn[i] = 1;
+        else if (ls < 0.84 || ac < 0.4) this.labOn[i] = 0;
+        this.labA[i] += ((labels && this.labOn[i] ? 1 : 0) - this.labA[i]) * (1 - Math.exp(-d * 12));
+        const lab = this.labA[i] < 0.02 ? 0 : this.labA[i];
         put(P[0], P[1], P[2], P[3], P[4], P[5], P[6], KIND.page, this.posts[i].seed, this.L[i], ac, vis * P[7] * (0.8 + 0.2 * ac), lab, 0);
         if (layer && labels) {
           // Labels ride the page's content corner (local sheet coords → world).
@@ -505,7 +525,7 @@ export class WritingRig {
     const h = lay.hs * (1 + (this.grow - 1) * ac) * (0.35 + 0.65 * e);
     const u = Math.max(-1, Math.min(1, (this.X[i] - this.W / 2) / (this.W / 2)));
     out[0] = this.X[i];
-    out[1] = lay.rail - lay.bandH * 0.035 * ac - h / 2 + Math.sin(this.time * 0.8 + i * 1.9) * 2.5 * (1 - ac);
+    out[1] = lay.rail - lay.bandH * 0.025 * ac - h / 2 + Math.sin(this.time * 0.8 + i * 1.9) * 2.5 * (1 - ac);
     out[2] = 0.6 * ac - 0.3 * (1 - ac);
     out[3] = h * (ASPECT + (OPEN - ASPECT) * ac);
     out[4] = h;

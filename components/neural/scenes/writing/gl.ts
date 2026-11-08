@@ -8,7 +8,7 @@
 import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedBufferGeometry, Mesh, PlaneGeometry, ShaderMaterial } from "three";
 
 /** Instance kinds (aK.x). */
-export const KIND = { page: 0, back: 1, term: 2, lit: 3, dim: 4 } as const;
+export const KIND = { page: 0, back: 1, term: 2, lit: 3, dim: 4, floor: 5 } as const;
 /** Page text layout (sheet-height units), mirrored by the CPU cursor (rig.ts). */
 export const PAGE = { m: 0.085, top: 0.25, rh: 0.066 } as const;
 
@@ -65,7 +65,18 @@ void main() {
   vec3 tint = mix(uTint, uHot, act);
   vec3 c = tint;
   float a = 0.0;
-  if (k > 2.5) {
+  if (k > 4.5) {
+    // Floor: a glass grid receding from the rail into depth, a light pool under the active page.
+    vec2 w = vec2((vUv.x - 0.5) * vS.x, vUv.y * vS.y) / 0.8;
+    vec2 g = abs(fract(w) - 0.5);
+    vec2 fw = fwidth(w);
+    float grid = max(1.0 - smoothstep(0.0, fw.x * 1.2, 0.5 - g.x), 1.0 - smoothstep(0.0, fw.y * 1.2, 0.5 - g.y));
+    float fade = (1.0 - vUv.y) * (1.0 - vUv.y) * smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
+    float dx = (vUv.x - vK.z) * vS.x;
+    float pool = exp(-dx * dx * 0.5 - vUv.y * vS.y * 0.7) * vK.w;
+    a = grid * fade * mix(0.22, 0.14, uLight) + pool * mix(0.22, 0.1, uLight);
+    c = mix(uTint, uHot, pool / max(1e-3, grid * fade * 0.22 + pool));
+  } else if (k > 2.5) {
     // Rail: a 1px line in a soft glow; lit stretches carry ink comets to the active page.
     float y = abs(vUv.y - 0.5) * vS.y / uPer;
     float s = vUv.x * vS.x / uPer;
