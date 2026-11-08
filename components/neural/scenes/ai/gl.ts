@@ -430,8 +430,8 @@ void main() {
     float e = clamp(act * (wave * 1.3 + spark) + (1.0 - act) * 0.5 * idle + 0.18 * spark, 0.0, 1.0);
     local *= 1.0 + 0.025 * sin(uTime * 1.3 + r * 2.0);
     col = mix(aColor, uHot, e);
-    a *= (0.5 + 0.35 * act + e * 0.9) * (1.0 + 0.3 * uLow) * (1.0 + 0.6 * uLight);
-    size *= (1.0 + e * 0.8) * (1.0 + 0.3 * uLow);
+    a *= (0.45 + 0.3 * act + e * 0.8) * (1.0 + 0.12 * uLow) * (1.0 + 0.6 * uLight);
+    size *= (1.0 + e * 0.7) * (1.0 + 0.12 * uLow);
   } else if (kind < 1.5) {
     float rank = aK.y;
     float ph = B.w;
