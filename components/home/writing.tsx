@@ -27,7 +27,7 @@ export function WritingSection({ posts }: { posts: PostRow[] }) {
               Notes from <Accent>the build.</Accent>
             </>
           }
-          scene="The glass pages above are these posts, one above each card, typed line by line from a running build. Hover a post to bring its page forward."
+          scene="The glass pages above are these posts, typed line by line from a running build. Hover a post, or scroll, to bring its page forward."
         />
         <Link
           href="/blog"

@@ -291,10 +291,13 @@ export class WritingRig {
         const w = c.r - c.l;
         const left = c.l + Math.min(w * 0.24, hs * 0.95);
         const slot = (c.r - w * 0.02 - left) / n;
-        hs = Math.min(hs, (slot * (phone ? 1.3 : 0.8)) / ASPECT);
+        hs = Math.min(hs, (slot * (phone ? 1.15 : 0.8)) / ASPECT);
         for (let i = 0; i < n; i++) this.X[i] = left + slot * (i + 0.5);
       }
       lay.hs = hs;
+      // Never past the rect's edges, even fully open (active: taller and wider).
+      const half = (hs * Math.min(1.26, (bandH * 0.76) / Math.max(1, hs)) * OPEN) / 2 + 4;
+      for (let i = 0; i < n; i++) this.X[i] = Math.max(c.l + half, Math.min(c.r - half, this.X[i]));
       // The build terminal: left of the first page, standing on the rail.
       const room = this.X[0] - (hs * ASPECT) / 2 - c.l;
       lay.th = hs * 0.62;
