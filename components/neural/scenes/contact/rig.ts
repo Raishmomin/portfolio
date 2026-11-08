@@ -264,9 +264,16 @@ export class ContactRig {
   private holdUntil = -1;
   private ro: ResizeObserver | null = null;
   private attached = false;
+  /** The fitted target (re-fitted after a scroll / resize, else twice a second). */
+  private fitAt = -1e9;
+  private fitOk = false;
+  private fitX = 0;
+  private fitY = 0;
+  private fitR = 0;
   private readonly onScroll = () => {
     this.secDirty = true;
     this.gDirty = true;
+    this.fitAt = -1e9;
   };
   private lastSpark = -1;
   private shockAt = -1e9;
@@ -643,8 +650,34 @@ export class ContactRig {
     }
   }
 
-  /** Lay out the globe in the room its section leaves (px). False when there is no room. */
+  /**
+   * Ease the globe toward its fitted place. The fit (section rect, content, visibility
+   * guard) runs after a scroll / resize or a section change, else twice a second: no
+   * occluder reads on idle frames.
+   */
   private layout(W: number, H: number, time: number): boolean {
+    if (sceneFrames.contact.el !== this.secEl || time - this.fitAt > 0.5 || time < this.fitAt) {
+      this.fitAt = time;
+      this.fitOk = this.fit(W, H);
+    }
+    if (!this.fitOk) return false;
+    // A delivery in flight never sees the globe re-fit under it.
+    const tr = this.placed && time < this.holdUntil ? this.r : this.fitR;
+    if (!this.placed) {
+      this.cx = this.fitX;
+      this.cy = this.fitY;
+      this.r = tr;
+      this.placed = true;
+    } else {
+      this.cx = damp(this.cx, this.fitX, 5, this.dt);
+      this.cy = damp(this.cy, this.fitY, 5, this.dt);
+      this.r = damp(this.r, tr, 5, this.dt);
+    }
+    return true;
+  }
+
+  /** Fit the globe into the room its section leaves (px). False when there is no room. */
+  private fit(W: number, H: number): boolean {
     const frame = sceneFrames.contact;
     const fr = frame.rect;
     const phone = framing.phone;
@@ -730,25 +763,15 @@ export class ContactRig {
     const h = clear.b - clear.t;
     // Compact: room for the satellites' labels inside the free side.
     const spanX = compact ? 1.75 : w < 2 * SPAN_X * 140 ? SPAN_X_NARROW : SPAN_X;
-    let tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), phone ? 140 : compact ? COMPACT_R : MAX_R));
-    // Beside a heading: above the row's last card (/about: "Contact").
-    // Above a panel: over its middle; above a row of cards: over the last one.
+    const tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), phone ? 140 : compact ? COMPACT_R : MAX_R));
+    // Above a panel: over its middle; beside a heading: over the row's last card (/about: "Contact").
     const ax = !compact ? 0 : this.colR ? (this.above ? (this.colL + this.colR) / 2 : 0) : this.headX;
     const tx = ax ? Math.min(Math.max(ax, clear.l + tr * spanX), clear.r - tr * spanX) : (clear.l + clear.r) / 2;
     // Beside a panel: level with its middle, as far as the room allows.
     const ty = compact && this.colR && !this.above ? Math.min(Math.max(this.colY, clear.t + tr * SPAN_Y), clear.b - tr * SPAN_Y) : (clear.t + clear.b) / 2;
-    // A delivery in flight never sees the globe re-fit under it.
-    if (this.placed && time < this.holdUntil) tr = this.r;
-    if (!this.placed) {
-      this.cx = tx;
-      this.cy = ty;
-      this.r = tr;
-      this.placed = true;
-    } else {
-      this.cx = damp(this.cx, tx, 5, this.dt);
-      this.cy = damp(this.cy, ty, 5, this.dt);
-      this.r = damp(this.r, tr, 5, this.dt);
-    }
+    this.fitX = tx;
+    this.fitY = ty;
+    this.fitR = tr;
     return true;
   }
 
@@ -857,13 +880,16 @@ export class ContactRig {
         const k = this.channels.findIndex((c) => c.toLowerCase() === "email");
         if (k >= 0) this.flash[k] = 1;
       } else if (s.kind === "go") {
-        // From the call-to-action panel's edge facing the globe, level with its button.
+        // From the call-to-action panel's edge facing the globe, level with its button
+        // (a globe above the panel: from its top edge, over the button).
         const el = this.secEl?.querySelector('[data-focus-id="contact:go"]');
         if (!live || !el || time - this.goAt < 1.2) continue;
         this.goAt = time;
         const r = el.getBoundingClientRect();
         const pr = (el.closest(".panel") ?? el).getBoundingClientRect();
-        this.spawn(COPY, this.cx > (pr.left + pr.right) / 2 ? pr.right : pr.left, r.top + r.height / 2, time);
+        const up = this.cy < pr.top;
+        const x = up ? (r.left + r.right) / 2 : this.cx > (pr.left + pr.right) / 2 ? pr.right : pr.left;
+        this.spawn(COPY, x, up ? pr.top : (r.top + r.bottom) / 2, time);
       } else if (s.kind === "send") {
         this.boost = live ? 1 : 0;
         this.holdUntil = time + 10; // until the reply (sent → the landing; error → now)
@@ -1008,7 +1034,8 @@ export class ContactRig {
     // Routes: the guide (slot 0) and packets in flight.
     const pos = this.routePos.array as Float32Array;
     const tan = this.routeTan.array as Float32Array;
-    let wrote = false;
+    let r0 = ROUTES;
+    let r1 = -1;
     for (let p = 0; p < ROUTES; p++) {
       const R = this.uR[p];
       const pk = this.packets[p];
@@ -1042,7 +1069,8 @@ export class ContactRig {
       const flying = p > 0 && alpha > 0.001 && pk.land < 0;
       if (alpha <= 0.001) R.z = 0;
       else {
-        wrote = true;
+        r0 = Math.min(r0, p);
+        r1 = p;
         this.route(sx, sy);
         for (let i = 0; i <= SEG; i++) {
           const t = i / SEG;
@@ -1084,10 +1112,13 @@ export class ContactRig {
         sp.alpha[i] = 0.65 * fall * fall * this.visible(v0);
       }
     }
-    // Upload only while a route shows (the shader discards the rest).
-    if (wrote) {
-      this.routePos.needsUpdate = true;
-      this.routeTan.needsUpdate = true;
+    // Upload only the slots that show (the shader discards the rest).
+    if (r1 >= 0) {
+      const n = (SEG + 1) * 6;
+      for (const a of [this.routePos, this.routeTan]) {
+        a.addUpdateRange(r0 * n, (r1 - r0 + 1) * n);
+        a.needsUpdate = true;
+      }
     }
 
     // The city: pin + availability beacon; flashes when a message lands.
@@ -1174,6 +1205,7 @@ export class ContactRig {
             lp[n + 2] = v1.z * a + v3.z * b + v2.z * c;
           }
       }
+      this.linkPos.addUpdateRange(MAX_SATS * ORBIT_SEG * 6, this.nSat * LINK_SEG * 6); // the links only
       this.linkPos.needsUpdate = true;
     }
     this.lines.geometry.setDrawRange(0, anyHot ? MAX_SATS * ORBIT_SEG * 2 + this.nSat * LINK_SEG * 2 : this.nSat * ORBIT_SEG * 2);

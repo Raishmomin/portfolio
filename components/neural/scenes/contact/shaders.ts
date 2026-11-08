@@ -63,29 +63,36 @@ void main() {
   float sunD = dot(n, uSun);
   float day = smoothstep(-0.1, 0.16, sunD);
   float dusk = exp(-sunD * sunD * 180.0);
-  float ang = acos(clamp(dot(n, uPin), -1.0, 1.0));
-  float home = 1.0 - smoothstep(0.035, 0.15, ang);
-  float shown = 1.0 - smoothstep(uReveal - 0.18, uReveal, ang);
-  float q = (ang - uReveal) * 9.0;
-  float front = exp(-q * q) * step(0.0, uReveal) * (1.0 - step(3.3, uReveal));
+  float c = dot(n, uPin);
+  float near = sqrt(max(2.0 - 2.0 * c, 0.0));
+  float home = 1.0 - smoothstep(0.035, 0.15, near);
+  float shown = 1.0;
+  float front = 0.0;
+  if (uReveal < 3.4) {
+    float ang = acos(clamp(c, -1.0, 1.0));
+    shown = 1.0 - smoothstep(uReveal - 0.18, uReveal, ang);
+    float q = (ang - uReveal) * 9.0;
+    front = exp(-q * q) * step(0.0, uReveal) * (1.0 - step(3.3, uReveal));
+  }
   float r = stp * uDotR * (1.0 + 0.35 * home + 0.6 * front);
   float dotA = (1.0 - smoothstep(r - aa, r + aa, d)) * land * shown;
   float rings = 0.0;
-  if (ang < 0.26) {
+  if (c > 0.966) {
     for (int k = 0; k < 3; k++) {
       float f = fract(uTime * 0.42 + float(k) / 3.0);
       float rr = 0.012 + f * 0.2;
-      float e = (ang - rr) * 75.0;
+      float e = (near - rr) * 75.0;
       rings += exp(-e * e) * (1.0 - f) * (1.0 - f);
     }
   }
   float shock = 0.0;
-  if (uShock >= 0.0 && uShock <= 1.0 && ang < 0.85) {
+  if (uShock >= 0.0 && c > 0.66) {
     float rr = 0.02 + uShock * 0.75;
-    float e = (ang - rr) * 40.0;
+    float e = (near - rr) * 40.0;
     shock = exp(-e * e) * (1.0 - uShock) * (1.0 - uShock);
   }
-  float rim = pow(1.0 - facing, 2.6);
+  float fr = 1.0 - facing;
+  float rim = fr * fr * sqrt(fr);
   vec3 ocean = mix(uOceanNight, uOceanDay, day);
   vec3 dotC = mix(uDotNight, uDotDay, day);
   dotC = mix(dotC, uOk, home * 0.85);
