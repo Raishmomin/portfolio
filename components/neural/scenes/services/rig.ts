@@ -298,9 +298,11 @@ export class ServicesRig {
     slabMat.uniforms.uBg.value.set(p.bg);
     slabMat.uniforms.uFg.value.set(p.fg);
     slabMat.uniforms.uMuted.value.set(p.muted);
+    slabMat.uniforms.uAccent.value.set(p.accent);
     for (const m of [boxMat, cylMat]) {
       m.uniforms.uBg.value.set(p.bg);
       m.uniforms.uFg.value.set(p.fg);
+      m.uniforms.uAccent.value.set(p.accent);
     }
     linkMat.uniforms.uReq.value.set(p.accent);
     linkMat.uniforms.uRes.value.set(p.ok);
@@ -639,14 +641,15 @@ export class ServicesRig {
         P[i * 3] = c[o];
         P[i * 3 + 1] = c[o + 1] + Math.sin(this.time * 1.3 + i * 0.9) * 0.018;
         P[i * 3 + 2] = c[o + 2];
-        S[i] = c[o + 3] * (1 + (touched && kind !== 3 ? gv * 0.4 : 0));
+        S[i] = c[o + 3] * (1 + (touched && kind !== 3 ? gv * 0.25 : 0));
         C[i * 3] = c[o + 4];
         C[i * 3 + 1] = c[o + 5];
         C[i * 3 + 2] = c[o + 6];
         // Dots driven by a program blink; others brighten.
         AL[i] = t.alpha[i] * (touched && kind === 3 ? 0.25 + 0.75 * gv : 1);
         K[i] = kind < 0 ? 0 : kind;
-        H[i] = touched && kind === 1 ? gv : 0;
+        // Lit orbs turn orange (neutral) or brighten (coloured); lit rings get a breathing ring.
+        H[i] = touched && kind <= 1 ? gv : 0;
         if (AL[i] > 0) live = i + 1;
       }
       for (let i = t.n + ns; i < MAX.sprites; i++) AL[i] = 0;

@@ -408,8 +408,17 @@ const smooth01 = (v: number) => {
  */
 const ROOM_MS = 100;
 const ROOM_IDLE_MS = 500;
-/** doc: the room scrolls with the page (phone room, intro): shifted by the scroll since. */
-type RoomCache = { at: number; ok: boolean; key: number; doc: boolean; y: number };
+/**
+ * doc: the room scrolls with the page (phone room, intro): shifted by the scroll since.
+ * st / sb: the driving section's top and bottom (px) at that scroll.
+ */
+type RoomCache = { at: number; ok: boolean; key: number; doc: boolean; y: number; st: number; sb: number };
+/**
+ * The machine belongs to its section: when the section's bottom edge (or top edge, coming
+ * in) crosses the room, the machine moves with that edge, rigidly, and fades over EXIT_PX
+ * of it, so it never lingers over the next section (or arrives over the previous one).
+ */
+const EXIT_PX = 160;
 const room0: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const room1: Rect = { l: 0, t: 0, r: 0, b: 0 };
 
@@ -496,7 +505,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
   const reg = useRef<ServicesRegistry>(emptyRegistry());
   const f = useRef<ServicesFrame>({ active: 0, weight: 0, pointer: { x: 0, y: 0 }, x: 0, y: 0, scale: 1, turn: 0, room: 0 });
   const seen = useRef({ last: -1e9, room: 0 });
-  const cache = useRef<RoomCache>({ at: -1e9, ok: false, key: NaN, doc: false, y: 0 });
+  const cache = useRef<RoomCache>({ at: -1e9, ok: false, key: NaN, doc: false, y: 0, st: -1e9, sb: 1e9 });
   // Scrolls mark the room stale (a passive flag: no layout read here).
   const scrolledAt = useRef(-1e9);
   useEffect(() => {
@@ -574,7 +583,12 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       c.y = window.scrollY;
       c.doc = false;
       c.ok = false;
+      c.st = -1e9;
+      c.sb = 1e9;
       if (sec) {
+        const sr = sec.getBoundingClientRect();
+        c.st = sr.top;
+        c.sb = sr.bottom;
         // A reserved phone room in view wins; then a page intro's own room; else the frame.
         let el = slot.current.el;
         if (phone && (!el || !el.isConnected) && now - slot.current.at > 1000) {
@@ -607,11 +621,19 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       if (c.ok) Object.assign(room0, clear);
     }
     const room = c.ok ? room0 : null;
+    // The section's edges now, and how far they push the room (see EXIT_PX).
+    const scrolled = c.y - window.scrollY;
+    const docShift = c.doc ? scrolled : 0;
+    let edge = 0;
+    if (room) {
+      edge = Math.min(0, c.sb + scrolled - 8 - (room.b + docShift)) + Math.max(0, c.st + scrolled + 8 - (room.t + docShift));
+    }
+    const edgeFade = smooth01(1 - Math.abs(edge) / EXIT_PX);
     seen.current.room += ((room ? 1 : 0) - seen.current.room) * Math.min(1, dt * 6);
-    if (!room && seen.current.room < 0.01) {
+    if ((!room && seen.current.room < 0.01) || (room && edgeFade === 0)) {
       // No room and faded out: nothing is simulated, uploaded or drawn until a room returns
       // (the machine then assembles again).
-      seen.current.room = 0;
+      if (!room) seen.current.room = 0;
       root.visible = false;
       if (L) {
         L.layer.hideAll();
@@ -621,8 +643,9 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     }
     root.visible = true;
     if (room) {
-      // A room on the page moves with it between measurements.
-      const shift = c.doc ? c.y - window.scrollY : 0;
+      // A room on the page moves with it between measurements; a section edge crossing the
+      // room carries it along.
+      const shift = docShift + edge;
       const cw = room.r - room.l;
       const ch = room.b - room.t;
       toWorld(camera, room.l + cw / 2, room.t + shift + ch / 2, W, H, pt);
@@ -646,7 +669,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     o.weight = weight;
     o.pointer.x = pointer.x;
     o.pointer.y = pointer.y;
-    o.room = seen.current.room;
+    o.room = seen.current.room * edgeFade;
     rig.frame(time, dt, o, root, tilt);
 
     if (!L) return;
