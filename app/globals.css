@@ -944,3 +944,223 @@ html.motion-live [data-arch-active] > .panel {
   }
 }
 /* end fm2-work */
+
+/* fm3-contact */
+/* Contact form: the sent card takes the form's place in the same grid cell, so the
+   section (and the globe framed beside it) keeps its size when a message is sent. */
+.cf-stack {
+  display: grid;
+}
+.cf-stack > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.cf-form {
+  transition: opacity 300ms ease;
+}
+.cf-form[data-off] {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 220ms ease, visibility 0s linear 220ms;
+}
+.cf-sent {
+  animation: cf-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+}
+.cf-check {
+  animation: cf-pop 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 260ms both;
+}
+@keyframes cf-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+@keyframes cf-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="on"]) .cf-sent,
+  html:not([data-motion="on"]) .cf-check {
+    animation-name: cf-fade;
+  }
+}
+@keyframes cf-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The static contact globe (components/pages/contact/static-globe.tsx): shown wherever
+   the live 3D globe is not (no JS, 3D off, before the canvas fades in, after a
+   fallback); the stage marks its posters data-paused while the canvas is live. Phones:
+   in the window that opens the section; desktop: the column beside the content, held in
+   view while the section scrolls, like the live globe. */
+.cg-poster {
+  position: absolute;
+  inset-inline: 0;
+  top: -38svh;
+  height: 38svh;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: opacity 700ms ease, visibility 0s linear 0s;
+}
+.cg-svg {
+  width: 100%;
+  height: calc(100% - 1.5rem);
+  overflow: visible;
+}
+@media (min-width: 1024px) {
+  .cg-poster {
+    inset: 0 auto 0 2rem;
+    width: calc(100% - 4rem - 40rem - 1.5rem);
+    height: auto;
+    display: block;
+  }
+  .cg-svg {
+    position: sticky;
+    top: calc(4rem + 2rem);
+    height: min(calc(100svh - 4rem - 4rem), 44rem);
+  }
+}
+html:has([data-neural-poster][data-paused]) .cg-poster {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 700ms ease, visibility 0s linear 700ms;
+}
+/* Without the live canvas, the section covers the page-wide poster behind it (the
+   hero/ambient network), softly from its top edge: only the contact globe shows here. */
+html:not(:has([data-neural-poster][data-paused])) .contact-sec {
+  background: linear-gradient(to bottom, transparent, hsl(var(--background)) 10rem);
+}
+.cg-sea-0 {
+  stop-color: color-mix(in oklab, hsl(var(--ai)) 30%, hsl(var(--background)));
+}
+.cg-sea-1 {
+  stop-color: color-mix(in oklab, hsl(var(--ai)) 7%, hsl(var(--background)));
+}
+.cg-air-0 {
+  stop-color: hsl(var(--ai));
+  stop-opacity: 0;
+}
+.cg-air-1 {
+  stop-color: hsl(var(--ai));
+  stop-opacity: 0.32;
+}
+.cg-ok {
+  stop-color: hsl(var(--ok));
+}
+.cg-dot {
+  fill: none;
+  stroke: color-mix(in oklab, hsl(var(--foreground)) 82%, hsl(var(--ai)));
+  stroke-linecap: round;
+}
+.cg-rim {
+  fill: none;
+  stroke: hsl(var(--ai) / 0.55);
+  stroke-width: 1.5;
+}
+.cg-orbit path {
+  fill: none;
+  stroke: color-mix(in oklab, hsl(var(--ai)) 70%, hsl(var(--foreground)));
+  stroke-opacity: 0.5;
+  stroke-width: 1.3;
+  transition: stroke 200ms ease, stroke-opacity 200ms ease;
+}
+.cg-orbit .cg-back {
+  stroke-opacity: 0.2;
+}
+.cg-sat {
+  fill: color-mix(in oklab, hsl(var(--foreground)) 80%, hsl(var(--ai)));
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: fill 200ms ease, transform 200ms ease;
+}
+.cg-sat-far {
+  opacity: 0.55;
+}
+.cg-pin {
+  fill: hsl(var(--ok));
+}
+.cg-ring {
+  fill: none;
+  stroke: hsl(var(--ok));
+  stroke-width: 2;
+  opacity: 0.45;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.cg-ring-2 {
+  opacity: 0;
+}
+@keyframes cg-beacon {
+  from {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  to {
+    transform: scale(3.6);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.js:not([data-motion="off"]) .cg-ring {
+    animation: cg-beacon 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  }
+  html.js:not([data-motion="off"]) .cg-ring-2 {
+    animation-delay: -1.2s;
+  }
+}
+html[data-motion="on"] .cg-ring {
+  animation: cg-beacon 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+html[data-motion="on"] .cg-ring-2 {
+  animation-delay: -1.2s;
+}
+/* Writing a message quickens the beacon; pointing at a channel lights its satellite. */
+.contact-sec:has(form:focus-within) .cg-ring {
+  animation-duration: 1.2s;
+}
+.contact-sec:has([data-focus-id="contact:email"]:is(:hover, :focus-visible)) [data-ch="email"],
+.contact-sec:has([data-focus-id="contact:github"]:is(:hover, :focus-visible)) [data-ch="github"],
+.contact-sec:has([data-focus-id="contact:linkedin"]:is(:hover, :focus-visible)) [data-ch="linkedin"],
+.contact-sec:has([data-focus-id="contact:x"]:is(:hover, :focus-visible)) [data-ch="x"] {
+  stroke: hsl(var(--primary));
+  stroke-opacity: 0.95;
+}
+.contact-sec:has([data-focus-id="contact:email"]:is(:hover, :focus-visible)) .cg-sat[data-ch="email"],
+.contact-sec:has([data-focus-id="contact:github"]:is(:hover, :focus-visible)) .cg-sat[data-ch="github"],
+.contact-sec:has([data-focus-id="contact:linkedin"]:is(:hover, :focus-visible)) .cg-sat[data-ch="linkedin"],
+.contact-sec:has([data-focus-id="contact:x"]:is(:hover, :focus-visible)) .cg-sat[data-ch="x"] {
+  fill: hsl(var(--primary));
+  stroke: none;
+  opacity: 1;
+  transform: scale(1.6);
+}
+/* Light: a cool slate-blue sea with ink dots, not a pale lilac ball. */
+html:not(.dark) .cg-sea-0 {
+  stop-color: color-mix(in oklab, color-mix(in oklab, hsl(var(--ai)) 40%, hsl(var(--foreground))) 14%, hsl(var(--background)));
+}
+html:not(.dark) .cg-sea-1 {
+  stop-color: color-mix(in oklab, color-mix(in oklab, hsl(var(--ai)) 45%, hsl(var(--foreground))) 36%, hsl(var(--background)));
+}
+html:not(.dark) .cg-air-1 {
+  stop-opacity: 0.18;
+}
+html:not(.dark) .cg-dot {
+  stroke: color-mix(in oklab, hsl(var(--foreground)) 86%, hsl(var(--ai)));
+}
+html:not(.dark) .cg-sat {
+  fill: color-mix(in oklab, hsl(var(--foreground)) 70%, hsl(var(--ai)));
+}
+html:not(.dark) .cg-orbit path {
+  stroke: color-mix(in oklab, hsl(var(--foreground)) 70%, hsl(var(--ai)));
+  stroke-opacity: 0.45;
+}
+html:not(.dark) .cg-orbit .cg-back {
+  stroke-opacity: 0.18;
+}
+/* end fm3-contact */

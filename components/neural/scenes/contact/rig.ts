@@ -47,8 +47,12 @@ export type ContactSignal = { kind: "focus" | "blur" | "type" | "copy" | "send" 
 
 const HEADER_PX = 64;
 const SPAN_X = 1.62; // half-width of globe + orbits + labels, in globe radii
+const SPAN_X_NARROW = 1.3; // a narrow column (small laptops): the outer orbits may run past it
 const SPAN_Y = 1.38;
 const MAX_R = 300; // px
+const COL_GAP = 24; // px kept free between the globe's column and the content column
+const DUST_HI = 70;
+const DUST_LO = 32;
 const ROUTES = 12; // route slots (0 = the guide)
 const SEG = 40; // ribbon segments per route
 const TRAIL = 10; // sprites behind each packet head
@@ -154,7 +158,8 @@ export class ContactRig {
   private readonly land: DataTexture;
   private readonly sprites: Sprites;
   private readonly dustSeed: Float32Array;
-  private readonly nDust: number;
+  private nDust = DUST_HI;
+  private hi = true;
   // sprite index ranges
   private readonly sPin = 0;
   private readonly sHalo = 1;
@@ -183,6 +188,10 @@ export class ContactRig {
   private readonly flash = new Float32Array(MAX_SATS);
   private readonly satVis = new Float32Array(MAX_SATS);
   private readonly satX = new Float32Array(MAX_SATS);
+  private readonly satY = new Float32Array(MAX_SATS);
+  private readonly satZ = new Float32Array(MAX_SATS);
+  /** Per satellite label: eased visibility (a label that would overlap a nearer one fades). */
+  private readonly tagVis = new Float32Array(MAX_SATS).fill(1);
   private readonly packets: Packet[];
   private readonly queue: ContactSignal[] = [];
 
@@ -193,6 +202,8 @@ export class ContactRig {
   private colSend = new Color();
   private colDust = new Color();
   private light = false;
+  private beaconK = 1;
+  private satK = 1;
 
   // layout (px, eased) and world placement
   private cx = 0;
@@ -228,10 +239,20 @@ export class ContactRig {
   private secTop = 0;
   private secBottom = 0;
   private secDirty = true;
+  /** Left edge of the section's content column (px; 0 = none), re-read on resize only. */
+  private colLeft = 0;
+  private colDirty = true;
+  /** While a sent message is in flight and landing, the globe keeps its size. */
+  private holdUntil = -1;
   private readonly ro: ResizeObserver | null;
   private readonly onScroll = () => {
     this.secDirty = true;
     this.gDirty = true;
+  };
+  private readonly onResize = () => {
+    this.secDirty = true;
+    this.gDirty = true;
+    this.colDirty = true;
   };
   private lastSpark = -1;
   private shockAt = -1e9;
@@ -248,8 +269,7 @@ export class ContactRig {
   private colMuted = new Color();
   private readonly colTag = new Color();
 
-  constructor(data: NeuralData, quality: "high" | "low") {
-    const hi = quality === "high";
+  constructor(data: NeuralData) {
     const facts = data.facts;
     this.city = facts.city;
     this.offsetMin = facts.utcOffsetMin;
@@ -292,7 +312,7 @@ export class ContactRig {
       depthWrite: true,
       toneMapped: false,
     });
-    this.earth = new Mesh(new SphereGeometry(1, hi ? 96 : 64, hi ? 64 : 40), this.earthMat);
+    this.earth = new Mesh(new SphereGeometry(1, 96, 64), this.earthMat);
     this.earth.rotation.order = "XYZ";
     this.earth.renderOrder = 2;
     this.earth.frustumCulled = false;
@@ -426,13 +446,12 @@ export class ContactRig {
     this.packets = Array.from({ length: ROUTES }, () => ({ kind: SPARK, t0: 0, sx: 0, sy: 0, land: -1, live: false }));
 
     // Sprites: pin, beacon halo, charge, landing flash, satellites, packet heads, trails, dust.
-    this.nDust = hi ? 70 : 32;
-    this.sprites = new Sprites(this.sDust + this.nDust, { core: 0.2, halo: 0.85, renderOrder: 5 });
+    this.sprites = new Sprites(this.sDust + DUST_HI, { core: 0.2, halo: 0.85, renderOrder: 5 });
     this.sprites.material.depthTest = false;
-    this.dustSeed = new Float32Array(this.nDust * 4);
+    this.dustSeed = new Float32Array(DUST_HI * 4);
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-    for (let i = 0; i < this.nDust; i++) {
+    for (let i = 0; i < DUST_HI; i++) {
       this.dustSeed[i * 4] = rnd() * Math.PI * 2;
       this.dustSeed[i * 4 + 1] = Math.acos(rnd() * 2 - 1);
       this.dustSeed[i * 4 + 2] = 1.75 + rnd() * 1.6;
@@ -455,10 +474,10 @@ export class ContactRig {
       }
     }
 
-    this.ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(this.onScroll);
+    this.ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(this.onResize);
     this.ro?.observe(document.body); // content above the section growing moves it without a scroll
     window.addEventListener("scroll", this.onScroll, { passive: true });
-    window.addEventListener("resize", this.onScroll, { passive: true });
+    window.addEventListener("resize", this.onResize, { passive: true });
     this.tags = new GlobeLabels([this.city, "Delivered", ...this.channels]);
     this.satSide.fill(1);
     occluders.retain(); // the visibility guard (framing.clearRect) reads the occluder registry
@@ -468,16 +487,32 @@ export class ContactRig {
     this.root.visible = false;
   }
 
+  /**
+   * Render quality, applied in place: a drop to "low" mid-visit never rebuilds the rig, so
+   * the arrival never replays and a hovered channel or a packet in flight carries on.
+   */
+  setQuality(quality: "high" | "low") {
+    const hi = quality === "high";
+    if (hi === this.hi) return;
+    this.hi = hi;
+    const old = this.earth.geometry;
+    this.earth.geometry = new SphereGeometry(1, hi ? 96 : 64, hi ? 64 : 40);
+    old.dispose();
+    this.nDust = hi ? DUST_HI : DUST_LO;
+    for (let i = this.nDust; i < DUST_HI; i++) this.sprites.alpha[this.sDust + i] = 0;
+  }
+
   setPalette(p: ScenePalette) {
     const light = isLightBg(p.bg);
     this.light = light;
     const u = this.earthMat.uniforms;
     if (light) {
-      (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.07)).lerp(paletteColor(p.fg), 0.03);
-      (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.16)).lerp(paletteColor(p.fg), 0.1);
-      (u.uDotDay.value as Color).copy(paletteColor(p.fg, p.bg, 0.12));
-      (u.uDotNight.value as Color).copy(paletteColor(p.ai, p.fg, 0.4));
-      (u.uRim.value as Color).copy(paletteColor(p.ai, p.bg, 0.45));
+      // A cool slate-blue sea (ink dots on the day side, blue dots on the night side), not lilac.
+      (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.14)).lerp(paletteColor(p.fg), 0.1);
+      (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.3)).lerp(paletteColor(p.fg), 0.32);
+      (u.uDotDay.value as Color).copy(paletteColor(p.fg, p.ai, 0.12));
+      (u.uDotNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.22));
+      (u.uRim.value as Color).copy(paletteColor(p.ai, p.fg, 0.2));
     } else {
       (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.1));
       (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.035));
@@ -490,13 +525,13 @@ export class ContactRig {
     u.uLight.value = light ? 1 : 0;
 
     const a = this.atmoMat.uniforms;
-    (a.uColor.value as Color).copy(paletteColor(p.ai, p.fg, light ? 0 : 0.15));
+    (a.uColor.value as Color).copy(paletteColor(p.ai, p.fg, light ? 0.3 : 0.15));
     (a.uWarm.value as Color).copy(paletteColor(p.accent));
     a.uLight.value = light ? 1 : 0;
     setGlowBlending(this.atmoMat, light);
 
     const l = this.linesMat.uniforms;
-    (l.uColor.value as Color).copy(light ? paletteColor(p.fg, p.bg, 0.35) : paletteColor(p.ai, p.fg, 0.35));
+    (l.uColor.value as Color).copy(light ? paletteColor(p.fg, p.ai, 0.3) : paletteColor(p.ai, p.fg, 0.35));
     (l.uHotColor.value as Color).copy(paletteColor(p.accent));
     l.uLight.value = light ? 1 : 0;
     setGlowBlending(this.linesMat, light);
@@ -508,7 +543,7 @@ export class ContactRig {
     r.uLight.value = light ? 1 : 0;
     setGlowBlending(this.routeMat, light);
 
-    this.colSat = light ? paletteColor(p.fg, p.bg, 0.15) : paletteColor(p.fg, p.ai, 0.25);
+    this.colSat = light ? paletteColor(p.fg, p.ai, 0.3) : paletteColor(p.fg, p.ai, 0.25);
     this.colHot = paletteColor(p.accent);
     this.colOk = paletteColor(p.ok);
     this.colSpark = light ? paletteColor(p.ai) : paletteColor(p.ai, p.fg, 0.2);
@@ -517,8 +552,15 @@ export class ContactRig {
     this.sprites.material.uniforms.uLight.value = light ? 1 : 0;
     setGlowBlending(this.sprites.material, light);
     this.colFg = paletteColor(p.fg);
-    this.colMuted = paletteColor(p.muted, p.fg, light ? 0.1 : 0.15);
-    (this.tags.material.uniforms.uHalo.value as Color).copy(paletteColor(p.bg));
+    this.colMuted = paletteColor(p.muted, p.fg, light ? 0.35 : 0.15);
+    this.beaconK = light ? 1.5 : 1;
+    this.satK = light ? 1.3 : 1;
+    // Label plates: opaque paper-white with a hairline in light, near-opaque page colour in dark.
+    const tu = this.tags.material.uniforms;
+    (tu.uHalo.value as Color).copy(light ? paletteColor(p.bg, "#ffffff", 0.75) : paletteColor(p.bg, p.fg, 0.04));
+    (tu.uBorder.value as Color).copy(light ? paletteColor(p.fg, p.bg, 0.78) : paletteColor(p.fg, p.bg, 0.8));
+    tu.uPlate.value = light ? 0.94 : 0.86;
+    tu.uBorderA.value = light ? 0.9 : 0.55;
   }
 
   /** Queue a DOM signal; handled on the next frame. */
@@ -533,7 +575,7 @@ export class ContactRig {
   }
 
   /** Lay out the globe in the scene's free rect (px). False when there is no room. */
-  private layout(W: number, H: number): boolean {
+  private layout(W: number, H: number, time: number): boolean {
     const frame = sceneFrames.contact;
     const fr = frame.rect;
     pxRect.l = fr.l * W;
@@ -546,7 +588,16 @@ export class ContactRig {
       this.secEl = frame.el;
       if (this.secEl) this.ro?.observe(this.secEl);
       this.secDirty = true;
+      this.colDirty = true;
     }
+    // Never under the content column: on a narrow desktop (1024 px) it starts left of the
+    // composition's free rect, so the globe takes the column beside it instead of giving up.
+    if (this.colDirty) {
+      this.colDirty = false;
+      const col = this.secEl?.querySelector("[data-contact-col]");
+      this.colLeft = col ? col.getBoundingClientRect().left : 0;
+    }
+    if (!framing.phone && this.colLeft > 0) pxRect.r = Math.min(pxRect.r, this.colLeft - COL_GAP);
     if (this.secEl && !framing.phone) {
       if (this.secDirty) {
         this.secDirty = false;
@@ -557,13 +608,17 @@ export class ContactRig {
       pxRect.t = Math.max(pxRect.t, this.secTop + 8);
       pxRect.b = Math.min(pxRect.b, this.secBottom - 8);
     }
+    if (pxRect.r - pxRect.l < 160) return false;
     const ok = clearRect(pxRect, framing.phone ? 150 : 220, clear);
     if (!ok) return false;
     const w = clear.r - clear.l;
     const h = clear.b - clear.t;
     const tx = (clear.l + clear.r) / 2;
     const ty = (clear.t + clear.b) / 2;
-    const tr = Math.max(40, Math.min(w / (2 * SPAN_X), h / (2 * SPAN_Y), framing.phone ? 140 : MAX_R));
+    const spanX = w < 2 * SPAN_X * 140 ? SPAN_X_NARROW : SPAN_X;
+    let tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), framing.phone ? 140 : MAX_R));
+    // A delivery in flight never sees the globe re-fit under it.
+    if (this.placed && time < this.holdUntil) tr = this.r;
     if (!this.placed) {
       this.cx = tx;
       this.cy = ty;
@@ -674,12 +729,18 @@ export class ContactRig {
         if (has) this.spawn(COPY, s.x!, s.y!, time);
         const k = this.channels.findIndex((c) => c.toLowerCase() === "email");
         if (k >= 0) this.flash[k] = 1;
-      } else if (s.kind === "send") this.boost = 1;
-      else if (s.kind === "sent") {
+      } else if (s.kind === "send") {
+        this.boost = 1;
+        this.holdUntil = time + 10; // until the reply (sent → the landing; error → now)
+      } else if (s.kind === "sent") {
         if (has) this.spawn(SEND, s.x!, s.y!, time);
         this.boost = 0;
         this.chargeOn = 0;
-      } else if (s.kind === "error") this.boost = 0;
+        this.holdUntil = time + DUR[SEND] + 1.8;
+      } else if (s.kind === "error") {
+        this.boost = 0;
+        this.holdUntil = -1;
+      }
     }
     this.queue.length = 0;
   }
@@ -705,7 +766,7 @@ export class ContactRig {
     this.H = size.height;
     camera.updateMatrixWorld();
 
-    const ok = this.layout(this.W, this.H);
+    const ok = this.layout(this.W, this.H, time);
     this.room = damp(this.room, ok ? 1 : 0, 6, d);
     if (!this.placed || (!ok && this.room < 0.01)) {
       this.root.visible = false;
@@ -901,12 +962,12 @@ export class ContactRig {
     const beacon = (time % BEACON_EVERY) / BEACON_EVERY;
     sp.set(this.sPin, pinW.x, pinW.y, pinW.z);
     sp.setColor(this.sPin, this.colOk);
-    sp.size[this.sPin] = (15 + 6 * landF + 5 * blink) * px;
+    sp.size[this.sPin] = (15 + 6 * landF + 5 * blink) * px * this.beaconK;
     sp.alpha[this.sPin] = pinVis * show;
     sp.set(this.sHalo, pinW.x, pinW.y, pinW.z);
     sp.setColor(this.sHalo, this.colOk);
-    sp.size[this.sHalo] = (44 + 26 * (1 - beacon)) * px;
-    sp.alpha[this.sHalo] = pinVis * show * (0.22 + 0.5 * (1 - beacon) * (1 - beacon));
+    sp.size[this.sHalo] = (44 + 26 * (1 - beacon)) * px * this.beaconK;
+    sp.alpha[this.sHalo] = pinVis * show * Math.min(1, (0.22 + 0.5 * (1 - beacon) * (1 - beacon)) * (this.light ? 1.6 : 1));
     sp.set(this.sFlash, pinW.x, pinW.y, pinW.z);
     sp.setColor(this.sFlash, this.colSend);
     sp.size[this.sFlash] = (40 + 120 * (1 - landF)) * px;
@@ -949,9 +1010,12 @@ export class ContactRig {
         sp.color[sat * 3 + 1] += (this.colHot.g - sp.color[sat * 3 + 1]) * h;
         sp.color[sat * 3 + 2] += (this.colHot.b - sp.color[sat * 3 + 2]) * h;
       }
-      sp.size[sat] = (17 + 17 * h) * px * (1 + 0.06 * Math.sin(time * 2.3 + k * 1.7));
+      sp.size[sat] = (17 + 17 * h) * px * this.satK * (1 + 0.06 * Math.sin(time * 2.3 + k * 1.7));
       sp.alpha[sat] = vis * (0.85 + 0.15 * h) * show;
-      this.satX[k] = this.toScreen(v0).x;
+      this.toScreen(v0);
+      this.satX[k] = v3.x;
+      this.satY[k] = v3.y;
+      this.satZ[k] = v3.z;
     }
     // Links (globe-local): satellite → city, bowed outward.
     if (anyHot) {
@@ -1011,23 +1075,52 @@ export class ContactRig {
     const done = sinceDone >= 0 && sinceDone < 3.2 ? smooth01(sinceDone / 0.3) * (1 - smooth01((sinceDone - 2.6) / 0.6)) : 0;
     if (done > 0 && lo > 0) tags.set(1, pinW.x, pinW.y, pinW.z, -12 - tags.w[1], -4 - tags.h[1], this.colOk, lo * done * pinVis);
     else tags.hide(1);
+    // Beside each satellite, on the side away from the planet, flipped where an edge (the
+    // viewport, the content column) is near.
+    const rightEdge = !framing.phone && this.colLeft > 0 ? Math.min(this.W, this.colLeft) - EDGE : this.W - EDGE;
+    for (let k = 0; k < this.nSat; k++) {
+      const x = this.satX[k];
+      const w = tags.w[2 + k];
+      let side = x > this.cx + this.r * 0.15 ? 1 : x < this.cx - this.r * 0.15 ? -1 : this.satSide[k];
+      if (side < 0 && x - 16 - w < EDGE) side = 1;
+      else if (side > 0 && x + 16 + w > rightEdge) side = -1;
+      this.satSide[k] = side;
+    }
+    // Collisions (screen space, four boxes + the city's): a label that would overlap a
+    // nearer one, or the city's, fades out until they part. A lit channel always shows.
+    const cityOn = this.hasPin && lo > 0 && pinVis > 0.3;
+    this.toScreen(pinW);
+    const cl = v3.x - 12 - tags.w[0];
+    const cr = v3.x - 12;
+    const cb = v3.y - 8;
+    const ct = cb - tags.h[0];
     for (let k = 0; k < this.nSat; k++) {
       const i = 2 + k;
-      if (lo <= 0) {
+      const ak = this.satSide[k] > 0 ? this.satX[k] + 16 : this.satX[k] - 16 - tags.w[i];
+      const at = this.satY[k] - tags.h[i] / 2;
+      let hide = this.satVis[k] < 0.2;
+      if (!hide && this.hot[k] < 0.5) {
+        if (cityOn && ak < cr + 4 && ak + tags.w[i] > cl - 4 && at < cb + 4 && at + tags.h[i] > ct - 4) hide = true;
+        for (let m = 0; m < this.nSat && !hide; m++) {
+          if (m === k || this.satVis[m] < 0.2) continue;
+          const j = 2 + m;
+          const bm = this.satSide[m] > 0 ? this.satX[m] + 16 : this.satX[m] - 16 - tags.w[j];
+          const bt = this.satY[m] - tags.h[j] / 2;
+          const overlap = ak < bm + tags.w[j] + 4 && ak + tags.w[i] > bm - 4 && at < bt + tags.h[j] + 2 && at + tags.h[i] > bt - 2;
+          // The farther one yields (ties: the higher index), unless the other is lit.
+          if (overlap && (this.hot[m] >= 0.5 || this.satZ[k] > this.satZ[m] || (this.satZ[k] === this.satZ[m] && k > m))) hide = true;
+        }
+      }
+      this.tagVis[k] = damp(this.tagVis[k], hide ? 0 : 1, hide ? 14 : 6, d);
+      if (lo <= 0 || this.tagVis[k] < 0.01) {
         tags.hide(i);
         continue;
       }
-      const x = this.satX[k];
-      const w = tags.w[i];
-      // Beside the satellite, on the side away from the planet, flipped where the edge is near.
-      let side = x > this.cx + this.r * 0.15 ? 1 : x < this.cx - this.r * 0.15 ? -1 : this.satSide[k];
-      if (side < 0 && x - 16 - w < EDGE) side = 1;
-      else if (side > 0 && x + 16 + w > this.W - EDGE) side = -1;
-      this.satSide[k] = side;
       this.colTag.copy(this.colMuted).lerp(this.colHot, this.hot[k]);
       orbitPoint(k, this.phase[k], v0);
       this.globe.localToWorld(v0);
-      tags.set(i, v0.x, v0.y, v0.z, side > 0 ? 16 : -16 - w, -tags.h[i] / 2, this.colTag, lo * this.satVis[k] * (0.75 + 0.25 * this.hot[k]));
+      const side = this.satSide[k];
+      tags.set(i, v0.x, v0.y, v0.z, side > 0 ? 16 : -16 - tags.w[i], -tags.h[i] / 2, this.colTag, lo * this.satVis[k] * this.tagVis[k] * (0.75 + 0.25 * this.hot[k]));
     }
     tags.material.uniforms.uOpacity.value = 1;
     const cam = camera as PerspectiveCamera;
@@ -1069,6 +1162,6 @@ export class ContactRig {
     occluders.release();
     this.ro?.disconnect();
     window.removeEventListener("scroll", this.onScroll);
-    window.removeEventListener("resize", this.onScroll);
+    window.removeEventListener("resize", this.onResize);
   }
 }

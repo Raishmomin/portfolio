@@ -1,7 +1,8 @@
 // Home Contact section (lane-owned: fm3-contact). Server Component; the contact form, the
 // "copy email" button and the live local time are the only client islands.
 // "right" composition: the details and the form sit on the right, the contact globe owns
-// the left of the viewport (components/neural/scenes/contact.tsx). The DOM drives the
+// the left of the viewport (components/neural/scenes/contact.tsx; its static poster,
+// StaticGlobe, stands in wherever the canvas is not live). The DOM drives the
 // globe: channel links carry data-focus-id="contact:<channel>", and the form and the copy
 // button signal focus, typing, copying and sending (components/pages/contact/signal.ts).
 import { Suspense } from "react";
@@ -11,6 +12,7 @@ import { PROFILE, SOCIAL_PROFILES } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 import { CopyEmail } from "../copy-email";
 import { LocalTime } from "../pages/contact/local-time";
+import { StaticGlobe } from "../pages/contact/static-globe";
 import { HomeSection, SectionHead, column, panel } from "./ui";
 
 /** India has a single time zone, so this follows from the profile location. */
@@ -22,8 +24,9 @@ const LABEL = "font-mono text-xs uppercase tracking-[0.14em] text-muted-foregrou
 
 export function ContactSection() {
   return (
-    <HomeSection id="contact" section="contact" stage="right" scene labelledBy="contact-heading">
-      <div className={column.right}>
+    <HomeSection id="contact" section="contact" stage="right" scene labelledBy="contact-heading" className="contact-sec">
+      <StaticGlobe />
+      <div data-contact-col="" className={column.right}>
         <div data-card="" className={cn(panel, "p-6 md:p-8")}>
           <SectionHead
             id="contact-heading"
@@ -61,8 +64,8 @@ export function ContactSection() {
             <div data-card-part="" className="border-b border-border py-4">
               <dt className={LABEL}>Local time</dt>
               <dd className="mt-2 text-[15px] leading-6 text-foreground">
-                IST (UTC+5:30) · {PROFILE.location.locality}, {PROFILE.location.country}{" "}
-                <LocalTime offsetMin={IST_OFFSET_MIN} zone="IST" />
+                IST (UTC+5:30) · {PROFILE.location.locality}, {PROFILE.location.country}
+                <LocalTime offsetMin={IST_OFFSET_MIN} className="block" />
               </dd>
             </div>
             <div data-card-part="" className="py-3 sm:col-span-2">

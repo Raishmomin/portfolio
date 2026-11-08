@@ -54,8 +54,20 @@ export function ContactForm() {
   const focusInvalid = useRef<FieldName | null>(null);
 
   useEffect(() => {
-    if (sent) sentRef.current?.focus();
-    else if (focusAfterReset.current) {
+    if (sent) {
+      // The sent card takes the form's place in the same grid cell (same size: nothing
+      // below moves). Focus without the browser's jump, then bring the heading into view
+      // only if it is off screen (scroll-margin keeps it clear of the sticky header).
+      const h = sentRef.current;
+      if (!h) return;
+      h.focus({ preventScroll: true });
+      const r = h.getBoundingClientRect();
+      const top = parseFloat(getComputedStyle(h).scrollMarginTop) || 0;
+      if (r.top < top || r.bottom > window.innerHeight) {
+        const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        h.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+      }
+    } else if (focusAfterReset.current) {
       focusAfterReset.current = false;
       formRef.current?.querySelector<HTMLElement>("input, textarea")?.focus();
     }
@@ -134,36 +146,9 @@ export function ContactForm() {
       <p role="status" className="sr-only">
         {sent ? "Message sent. Thanks for reaching out." : ""}
       </p>
-      {sent ? (
-        <div className="rounded-lg border border-border bg-card p-8 md:p-12">
-          <p className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            <span aria-hidden="true" className="grid h-6 w-6 place-items-center rounded-full border border-border">
-              <Check className="h-3.5 w-3.5 text-ok" />
-            </span>
-            Delivered
-          </p>
-          <h3
-            ref={sentRef}
-            tabIndex={-1}
-            className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-foreground outline-none"
-          >
-            Message sent.
-          </h3>
-          <p className="mt-2 text-[15px] leading-7 text-muted-foreground">
-            Thanks for reaching out — I&apos;ll reply within a couple of days.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              focusAfterReset.current = true;
-              setSent(false);
-            }}
-            className={`mt-6 inline-flex min-h-11 items-center rounded-sm text-sm text-muted-foreground underline underline-offset-4 transition-colors duration-150 hover:text-foreground ${FOCUS_RING}`}
-          >
-            Send another message
-          </button>
-        </div>
-      ) : (
+      {/* One grid cell: the sent card covers the (now inert, invisible) form, so the
+          section keeps its height and the globe beside it never re-fits. */}
+      <div className="cf-stack">
         <form
           ref={formRef}
           onSubmit={handleSubmit}
@@ -173,7 +158,9 @@ export function ContactForm() {
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget as Node | null)) signal("blur");
           }}
-          className="space-y-6"
+          className="cf-form space-y-6"
+          data-off={sent ? "" : undefined}
+          inert={sent}
           noValidate
           aria-busy={sending}
         >
@@ -216,7 +203,37 @@ export function ContactForm() {
             </button>
           </div>
         </form>
-      )}
+        {sent ? (
+          <div className="cf-sent flex flex-col justify-center rounded-lg border border-border bg-card p-8 md:p-12">
+            <p className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              <span aria-hidden="true" className="cf-check grid h-9 w-9 place-items-center rounded-full border border-ok/40 bg-ok/10">
+                <Check className="h-4 w-4 text-ok" />
+              </span>
+              Delivered
+            </p>
+            <h3
+              ref={sentRef}
+              tabIndex={-1}
+              className="mt-6 scroll-mt-20 text-2xl font-semibold tracking-[-0.02em] text-foreground outline-none md:text-[1.75rem]"
+            >
+              Message sent.
+            </h3>
+            <p className="mt-2 max-w-[44ch] text-[15px] leading-7 text-muted-foreground">
+              Thanks for reaching out — I&apos;ll reply within a couple of days.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                focusAfterReset.current = true;
+                setSent(false);
+              }}
+              className={`mt-6 inline-flex min-h-11 items-center self-start rounded-sm text-sm text-muted-foreground underline underline-offset-4 transition-colors duration-150 hover:text-foreground ${FOCUS_RING}`}
+            >
+              Send another message
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
