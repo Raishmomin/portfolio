@@ -8,6 +8,7 @@ import { SITE_URL } from "@/lib/config";
 import { Accent, ButtonLink } from "../../components/ui/primitives";
 import { NeuralStage } from "../../components/neural";
 import { SERVICES_SCENE, ServiceIndex } from "../../components/pages/services/service-index";
+import { SERVICE_ROOM } from "../../components/pages/services/scene-note";
 import { CtaSection } from "../../components/pages/cta";
 import { PageIntro, PageSection, SectionHead, card, part } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
@@ -71,11 +72,12 @@ export default async function ServicesIndex() {
       <Navbar />
       <main id="main" tabIndex={-1} className="relative outline-none">
         <NeuralStage data={neural} />
+        <div {...SERVICE_ROOM} />
         <PageIntro
           crumbs={[{ name: "Home", href: "/" }, { name: "Services" }]}
           kicker={`~/services · ${services.length} engagements`}
           scene={SERVICES_SCENE}
-          note="On the right, the four engagements take turns in 3D, each built as the system it delivers."
+          note="In 3D: the four engagements take turns, each built as the system it delivers."
           title={
             <>
               How I help <Accent>teams ship.</Accent>
@@ -107,7 +109,7 @@ export default async function ServicesIndex() {
                   Interactive and <Accent>3D web experiences.</Accent>
                 </>
               }
-              scene="The 3D brain beside this text is drawn live in your browser with WebGL; every word on this page stays server-rendered HTML."
+              scene="The glowing 3D brain is drawn live in your browser with WebGL; every word on this page stays server-rendered HTML."
             />
             <p {...part} className="mt-5 text-[17px] leading-7 text-muted-foreground">
               I also build animated, interactive sites: 3D scenes with React Three Fiber and WebGL, scroll-driven

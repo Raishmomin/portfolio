@@ -6,10 +6,14 @@ import { TEXT_LINK } from "./pages/about/subpage";
 import { CtaSection } from "./pages/cta";
 import { PageIntro, PageSection, PopPills, SectionHead, card, column, lit, nn, part } from "./pages/ui";
 import { SERVICES_SCENE } from "./pages/services/service-index";
-import { serviceSceneNote } from "./pages/services/scene-note";
+import { SERVICE_ROOM, serviceSceneNote } from "./pages/services/scene-note";
 import { TAGS } from "@/lib/cache-tags";
 import clientPromise from "@/lib/mongodb";
 import { SERVICE_SLUGS, type ServiceConfig } from "@/lib/services";
+import { getProjects } from "@/lib/data";
+import { techKey } from "@/lib/derive";
+import { slugify } from "@/lib/utils";
+import { isAiProject } from "./neural";
 import type { BlogPost } from "@/lib/blog-types";
 import { LISTED_POSTS, plainExcerpt, postTitle } from "@/lib/blog";
 
@@ -34,6 +38,47 @@ const getRelatedPosts = unstable_cache(
   { tags: [TAGS.blogs], revalidate: 3600 }
 );
 
+/**
+ * A service's stack as matching keys (lib/derive techKey): every name in an entry, the
+ * bracketed ones too, without versions: "AWS (EC2, ECS)" -> aws, ec2, ecs;
+ * "Node.js 20 LTS" -> node; "Tailwind CSS + shadcn/ui" -> tailwindcss, shadcnui.
+ */
+function stackKeys(stack: string[]): Set<string> {
+  const names = stack.flatMap((t) => t.replace(/\(([^)]*)\)/g, " / $1").split(/\s+\/\s+|\s+\+\s+|,\s*/));
+  return new Set(names.map((n) => techKey(n.replace(/\s+\d[\d.x]*(\s+lts)?\s*$/i, ""))).filter(Boolean));
+}
+
+/**
+ * The shipped project drawn above the deliverables (the work scene's architecture): the one
+ * whose real stack shares most technologies with this service, plus one for a matching
+ * category; ties go to the more focused stack. AI products only when nothing else matches
+ * (these engagements are not AI work).
+ */
+async function exampleProject(config: ServiceConfig): Promise<{ slug: string; title: string } | null> {
+  let projects: Awaited<ReturnType<typeof getProjects>>;
+  try {
+    projects = await getProjects();
+  } catch {
+    return null;
+  }
+  const keys = stackKeys(config.techStack);
+  const cats = new Set(config.relatedProjectCategories.map((c) => c.toLowerCase().replace(/[^a-z0-9]/g, "")));
+  let best: { p: (typeof projects)[number]; score: number } | null = null;
+  for (const pass of [false, true]) {
+    for (const p of projects) {
+      if (isAiProject(p) !== pass) continue;
+      const tech = p.technologies ?? [];
+      const hits = tech.filter((t) => keys.has(techKey(t))).length;
+      if (hits === 0) continue;
+      const cat = (p.category ?? []).some((c) => cats.has(c.toLowerCase().replace(/[^a-z0-9]/g, ""))) ? 1 : 0;
+      const score = hits + cat + hits / (tech.length + 1);
+      if (!best || score > best.score) best = { p, score };
+    }
+    if (best) break;
+  }
+  return best ? { slug: slugify(best.p.title), title: best.p.title } : null;
+}
+
 /** "Next.js Development Services" -> ["Next.js ", "Development Services"]: one serif clause per headline, same words. */
 function splitHeadline(text: string): [string, string] {
   const words = text.split(" ");
@@ -42,13 +87,16 @@ function splitHeadline(text: string): [string, string] {
 }
 
 /**
- * One service page in the home design language: intro (left, the stack network), the brief
- * as three floating cards (full), the approach as steps on a drawn line (right),
- * deliverables under a band of shipped projects (band, the work wall), related writing
+ * One service page in the home design language: intro (left, this service's 3D machine;
+ * on phones it runs in a room above the headline), the brief
+ * as three floating cards (full), the approach as steps on a drawn line (right, with the
+ * service's machine running again beside them),
+ * deliverables under a band holding the architecture of the shipped project closest to this
+ * service (band: the work scene in its own clear window above the panels), related writing
  * (left), FAQ (right) and the closing call to action (full).
  */
 export async function ServicePage({ config }: { config: ServiceConfig }) {
-  const relatedPosts = await getRelatedPosts(config.relatedBlogTags);
+  const [relatedPosts, example] = await Promise.all([getRelatedPosts(config.relatedBlogTags), exampleProject(config)]);
   const position = SERVICE_SLUGS.indexOf(config.slug) + 1;
   const [headLead, headAccent] = splitHeadline(config.h1);
   let n = 0;
@@ -57,6 +105,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
   return (
     // data-service-pin: the services scene shows this page's own service.
     <article data-service-pin={config.slug}>
+      <div {...SERVICE_ROOM} />
       <PageIntro
         crumbs={[{ name: "Home", href: "/" }, { name: "Services", href: "/services" }, { name: config.h1 }]}
         kicker={`service · ${nn(position)} / ${nn(SERVICE_SLUGS.length)}`}
@@ -159,7 +208,8 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
       </PageSection>
 
       {/* Approach, process, trade-offs: steps on one drawn line */}
-      <PageSection id="approach" section="approach" scene="ambient" stage="right" labelledBy="approach-heading">
+      {/* The service's own machine returns beside the steps (desktop: scene left of them). */}
+      <PageSection id="approach" section="approach" scene={SERVICES_SCENE} stage="right" labelledBy="approach-heading">
         <div className={column.right}>
           <div {...card()} className="panel p-6 md:p-8">
             <SectionHead
@@ -215,10 +265,26 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
         </div>
       </PageSection>
 
-      {/* Deliverables + stack */}
-      <PageSection id="deliverables-section" section="deliverables" scene="work" stage="band" labelledBy="deliverables">
-        <div data-card-group="" className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-          <div {...card()} className="panel p-6 md:p-8 lg:col-span-7">
+      {/* Deliverables + stack, under the architecture of the closest shipped project. Desktop:
+          the work scene frames itself into the empty window above the panels ([data-arch-window],
+          scrolling with them, so it never squeezes or slides under a panel); the [data-arch]
+          spy's one item names the project it draws. */}
+      <PageSection
+        id="deliverables-section"
+        section="deliverables"
+        scene="work"
+        stage="band"
+        labelledBy="deliverables"
+        className={example ? "lg:pt-20" : undefined}
+      >
+        {example ? <div data-arch-window="" aria-hidden="true" className="svc-arch-win" /> : null}
+        <div data-card-group="" data-arch={example ? "" : undefined} className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+          <div
+            {...card()}
+            data-arch-item={example ? "" : undefined}
+            data-focus-id={example?.slug}
+            className="panel p-6 md:p-8 lg:col-span-7"
+          >
             <SectionHead
               id="deliverables"
               index={next()}
@@ -228,7 +294,11 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
                   What you <Accent>get.</Accent>
                 </>
               }
-              scene="Above: the architecture of a project I have shipped end to end, built from its real tech stack."
+              scene={
+                example
+                  ? `Above: the architecture of ${example.title}, a project I shipped end to end, built from its real tech stack.`
+                  : "Above: the architecture of a project I have shipped end to end, built from its real tech stack."
+              }
             />
             <ul className="mt-8 divide-y divide-border border-y border-border">
               {config.deliverables.map((d) => (
@@ -244,7 +314,10 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
           <div {...card("flip")} className="panel self-start p-6 md:p-8 lg:col-span-5">
             <Kicker>stack</Kicker>
             <h3 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">Tech stack</h3>
-            <PopPills items={config.techStack} className="mt-6 gap-2" pillClassName="normal-case tracking-normal text-xs" />
+            {/* data-svc-tech: the 3D machine above names only technologies this list prints. */}
+            <div data-svc-tech={config.slug} className="mt-6">
+              <PopPills items={config.techStack} className="gap-2" pillClassName="normal-case tracking-normal text-xs" />
+            </div>
           </div>
         </div>
       </PageSection>

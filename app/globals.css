@@ -1055,8 +1055,9 @@ html.motion-live [data-ai-sync] [data-ai-shown] > .panel {
 /* fm3-services */
 /* Home + /services: the card the 3D services machine shows (marked by the [data-arch] spy)
    lights up: border and glow, a growing accent bar, its number, its chips one after
-   another, and (desktop) a wire running from the card toward the machine. Motion runtime
-   only; without it the cards are a plain list. */
+   another. Desktop only (from 1024px, where the machine follows the spy): on smaller
+   screens the four machines take turns, so no card claims to be the one shown. Motion
+   runtime only; without it the cards are a plain list. */
 .svc-bar {
   position: absolute;
   left: -1px;
@@ -1069,92 +1070,92 @@ html.motion-live [data-ai-sync] [data-ai-shown] > .panel {
   transform-origin: 50% 0;
   pointer-events: none;
 }
-html.motion-live .svc-item > .panel {
-  transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-    background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+.svc-chip {
+  white-space: nowrap;
 }
-html.motion-live .svc-item[data-arch-active] > .panel {
-  border-color: hsl(var(--primary) / 0.6);
-  background-color: hsl(var(--background) / 0.93);
-  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.14), 0 26px 60px -30px hsl(var(--primary) / 0.6);
+@media (max-width: 1023px) {
+  /* Undo the project cards' shared active-panel glow for service cards on smaller screens. */
+  html.motion-live .svc-item[data-arch-active] > .panel {
+    border-color: hsl(var(--border));
+    box-shadow: none;
+  }
 }
-html.motion-live .svc-bar {
-  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+@media (min-width: 1024px) {
+  html.motion-live .svc-item > .panel {
+    transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .svc-item[data-arch-active] > .panel {
+    border-color: hsl(var(--primary) / 0.6);
+    background-color: hsl(var(--background) / 0.93);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.14), 0 26px 60px -30px hsl(var(--primary) / 0.6);
+  }
+  html.motion-live .svc-bar {
+    transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .svc-item[data-arch-active] .svc-bar {
+    transform: scaleY(1);
+  }
+  html.motion-live .svc-num,
+  html.motion-live .svc-num > span {
+    transition: color 0.3s ease;
+  }
+  html.motion-live .svc-item[data-arch-active] .svc-num,
+  html.motion-live .svc-item[data-arch-active] .svc-num > span {
+    color: hsl(var(--primary));
+  }
+  html.motion-live .svc-item .svc-chip {
+    transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .svc-item[data-arch-active] .svc-chip {
+    border-color: hsl(var(--primary) / 0.5);
+    background-color: hsl(var(--primary) / 0.08);
+    color: hsl(var(--foreground));
+    transition-delay: calc(var(--k, 0) * 60ms + 120ms);
+  }
 }
-html.motion-live .svc-item[data-arch-active] .svc-bar {
-  transform: scaleY(1);
+/* Phones: the room at the top of a services page intro where the machine runs (the scene
+   frames itself into [data-svc-room]). It overlays the intro's top padding, so the room is
+   the intro's opening (the stage keeps it clear) without being a section of its own. The
+   intro's veil starts under it, the intro starts right under it instead of centring in a
+   full screen, and the 3D caption sits directly below the machine it describes. */
+.svc-room {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: min(58vw, 260px);
+  pointer-events: none;
 }
-html.motion-live .svc-num {
-  transition: color 0.3s ease;
+@media (max-width: 1023px) {
+  .svc-room + [data-section="intro"] {
+    padding-top: min(58vw, 260px);
+  }
+  .svc-room + [data-section="intro"] > div:first-child {
+    top: min(58vw, 260px);
+  }
+  .svc-room + [data-section="intro"] > div:last-child {
+    min-height: 0;
+    padding-top: 0.75rem;
+  }
+  .svc-room + [data-section="intro"] > div:last-child > p:last-child {
+    order: -1;
+    margin: 0 0 1.75rem;
+  }
 }
-html.motion-live .svc-item[data-arch-active] .svc-num {
-  color: hsl(var(--primary));
-}
-html.motion-live .svc-item .svc-chip {
-  transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-    background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-}
-html.motion-live .svc-item[data-arch-active] .svc-chip {
-  border-color: hsl(var(--primary) / 0.5);
-  background-color: hsl(var(--primary) / 0.08);
-  color: hsl(var(--foreground));
-  transition-delay: calc(var(--k, 0) * 60ms + 120ms);
-}
-.svc-wire {
+/* Service pages, desktop: the clear window above the deliverables where the work scene draws
+   the closest shipped project (it frames itself into [data-arch-window] and scrolls with it). */
+.svc-arch-win {
   display: none;
 }
 @media (min-width: 1024px) {
-  .svc-wire {
+  .svc-arch-win {
     display: block;
-    position: absolute;
-    top: 50%;
-    width: 64px;
-    height: 1px;
-    pointer-events: none;
-    background: linear-gradient(var(--svc-dir, 90deg), transparent, hsl(var(--primary) / 0.85));
-    transform: scaleX(0);
-    transform-origin: var(--svc-origin, 100% 50%);
-  }
-  .svc-list-r .svc-wire {
-    right: 100%;
-  }
-  .svc-list-l .svc-wire {
-    left: 100%;
-    --svc-dir: 270deg;
-    --svc-origin: 0 50%;
-  }
-  .svc-wire::before {
-    content: "";
-    position: absolute;
-    top: -3px;
-    width: 7px;
-    height: 7px;
-    border-radius: 9999px;
-    background: hsl(var(--primary));
-    box-shadow: 0 0 10px hsl(var(--primary));
-    opacity: 0;
-  }
-  .svc-list-r .svc-wire::before {
-    left: -3px;
-  }
-  .svc-list-l .svc-wire::before {
-    right: -3px;
-  }
-  html.motion-live .svc-wire {
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
-  }
-  html.motion-live .svc-wire::before {
-    transition: opacity 0.3s ease 0.45s;
-  }
-  html.motion-live .svc-item[data-arch-active] .svc-wire {
-    transform: scaleX(1);
-  }
-  html.motion-live .svc-item[data-arch-active] .svc-wire::before {
-    opacity: 1;
+    height: clamp(360px, 56vh, 480px);
+    margin-bottom: 2.5rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion="on"]) .svc-wire,
   html:not([data-motion="on"]) .svc-bar {
     transition: none;
   }
