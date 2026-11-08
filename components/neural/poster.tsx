@@ -34,7 +34,6 @@ const CSS = [
   "@keyframes nw-flow{to{stroke-dashoffset:-100}}",
   `${MOTION}.nw-p{opacity:1;animation:${RUN}}}`,
   `html[data-motion=on] .nw-p{opacity:1;animation:${RUN}}`,
-  "[data-paused] .nw-p,[data-paused] .nw-k{animation-play-state:paused}",
   ".nw-f{fill:none;stroke:var(--nw-ai);stroke-opacity:.16}.dark .nw-f{stroke-opacity:.12}",
   "[data-neural-poster]>svg{position:absolute;inset:0;width:100%;height:100%}",
   // The hero brain fills the same box as the canvas's core ([data-hero-core] in the home
@@ -46,7 +45,6 @@ const CSS = [
   "@keyframes nw-breathe{50%{transform:scale(1.025) rotate(-1deg)}}",
   `${MOTION}.nw-b{animation:nw-breathe 9s ease-in-out infinite}}`,
   "html[data-motion=on] .nw-b{animation:nw-breathe 9s ease-in-out infinite}",
-  "[data-paused] .nw-b{animation-play-state:paused}",
   "[data-neural-poster=ambient]>svg{opacity:.6}",
   // Section posters (globe, machines, rail) sit in the section's free side, as the 3D
   // framing does (framing.ts DESKTOP): content left → x 55–99 %, right → 1–45 %, a full
@@ -67,6 +65,9 @@ const CSS = [
   `main:has(${HERO_SECTION}) [data-neural-stage]:not([data-poster]) [data-neural-poster=hero],main:not(:has(${HERO_SECTION})) [data-neural-stage]:not([data-poster]) [data-neural-poster=ambient]{display:block}`,
   "[data-poster] [data-neural-poster]{display:block;opacity:0;visibility:hidden;transition:opacity .6s,visibility 0s .6s}",
   `${shown}{opacity:1;visibility:visible;transition:opacity .6s}`,
+  // Under a live canvas (the island sets data-paused once the crossfade is done) the posters
+  // leave the render tree: no CSS animation ticks, no SVG relayout, no hit testing.
+  "[data-neural-posters] [data-neural-poster][data-paused]{display:none}",
 ].join("");
 
 /** The posters' stylesheet; React hoists it into <head> once per page (href dedupes it). */
