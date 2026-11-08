@@ -793,6 +793,9 @@ export default function Stage({ data, active, retry = false, onReady, onFallback
     <Canvas
       camera={{ fov: FOV, position: [0, 0, 15], near: 0.1, far: 200 }}
       dpr={dpr}
+      // The stage is position:fixed: scrolling never moves it, so R3F need not re-measure
+      // its container on every scroll (perf R1); resizes still re-measure (debounced).
+      resize={{ scroll: false, debounce: { scroll: 0, resize: 100 } }}
       frameloop={running ? "always" : "never"}
       flat
       gl={createRenderer}
