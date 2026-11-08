@@ -966,6 +966,13 @@ html.motion-live [data-arch-active] > .panel {
 .svc-chip {
   white-space: nowrap;
 }
+@media (max-width: 1023px) {
+  /* Undo the project cards' shared active-panel glow for service cards on smaller screens. */
+  html.motion-live .svc-item[data-arch-active] > .panel {
+    border-color: hsl(var(--border));
+    box-shadow: none;
+  }
+}
 @media (min-width: 1024px) {
   html.motion-live .svc-item > .panel {
     transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),

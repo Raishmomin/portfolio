@@ -585,7 +585,8 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
         if (r && r.height > 0 && r.bottom - Math.max(r.top, 64) >= MIN_H.phone && r.top < H - MIN_H.phone) {
           room1.l = 12;
           room1.r = W - 12;
-          room1.t = Math.max(r.top, 64);
+          // Clear of the header, with a line above the machine for its title.
+          room1.t = Math.max(r.top, 64) + 20;
           room1.b = Math.min(r.bottom, H - 8);
           c.ok = !!clearRect(room1, MIN_H.phone, clear);
           c.doc = true;
