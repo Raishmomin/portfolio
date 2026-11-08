@@ -6,11 +6,17 @@ import { cn } from "@/lib/utils";
 import type { PostRow } from "./latest-posts";
 import { HomeSection, SectionHead, panel } from "./ui";
 
-/** "band" composition: the ambient field owns the top; the post cards zoom in as a wave. */
+/**
+ * "band" composition: the writing scene owns the band above the cards (on phones, the
+ * section opening): one glass page per post, standing right above its card, typed by a
+ * light-cursor from a running build terminal. data-focus-id="post:<slug>" lets a hovered
+ * or focused card bring its page forward; the scene reads titles/dates from these cards.
+ * The post cards zoom in as a wave.
+ */
 export function WritingSection({ posts }: { posts: PostRow[] }) {
   if (!posts.length) return null;
   return (
-    <HomeSection id="writing" section="writing" stage="band" labelledBy="writing-heading">
+    <HomeSection id="writing" section="writing" stage="band" scene labelledBy="writing-heading">
       <div data-card="" className="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
         <SectionHead
           id="writing-heading"
@@ -21,6 +27,7 @@ export function WritingSection({ posts }: { posts: PostRow[] }) {
               Notes from <Accent>the build.</Accent>
             </>
           }
+          scene="The glass pages above are these posts, one above each card, typed line by line from a running build. Hover a post to bring its page forward."
         />
         <Link
           href="/blog"
@@ -34,6 +41,7 @@ export function WritingSection({ posts }: { posts: PostRow[] }) {
           <li key={p.slug} data-card="zoom" className="flex">
             <Link
               href={`/blog/${p.slug}`}
+              data-focus-id={`post:${p.slug}`}
               data-tilt="4"
               data-spotlight=""
               className={cn(panel, "group flex w-full flex-col p-5 transition-colors duration-150 hover:border-foreground/30")}
