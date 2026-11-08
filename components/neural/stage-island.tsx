@@ -113,7 +113,9 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
       return () => window.clearTimeout(timer);
     }
     posters.forEach((p) => p.removeAttribute("data-paused"));
-    const first = document.querySelector('[data-section="hero"]') ?? document.querySelector("[data-section]");
+    // A services page's phone room ([data-svc-room]) is the intro's opening, not its first section.
+    const first =
+      document.querySelector('[data-section="hero"]') ?? document.querySelector("[data-section]:not([data-svc-room])");
     if (!first) {
       set("");
       return;
