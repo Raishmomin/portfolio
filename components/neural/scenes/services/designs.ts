@@ -425,7 +425,7 @@ function devops(slug: string, low: boolean): Design {
   const FY = -1.2;
   b.slab(2.15, FY, 0, 3.0, 2.3, T.muted, SLAB.glass, 0, 1);
   const pods: number[] = [];
-  for (const z of [-0.65, 0, 0.65]) for (const x of [1.35, 2.15, 2.95]) pods.push(b.box(x, FY + 0.22, z, 0.4, 0.4, 0.4, T.muted, 0.2));
+  for (const z of [-0.7, 0, 0.7]) for (const x of [1.25, 2.15, 3.05]) pods.push(b.box(x, FY + 0.2, z, 0.34, 0.34, 0.34, T.muted, 0.2));
   b.wire(0.5, FY - 0.02, -1.3, 3.8, 0.2, 1.3, T.muted);
   // Monitoring: a dashboard panel with a live graph.
   const MX = 2.15;

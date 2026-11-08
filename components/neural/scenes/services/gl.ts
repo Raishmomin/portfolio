@@ -275,7 +275,7 @@ void main() {
   vec3 tint = mix(vTint, mix(mix(vTint * 1.3 + 0.08, uAccent, neu), mix(vTint, uAccent, neu), uLight), g);
   float idle = neu * (1.0 - g);
   float bodyD = (0.035 + 0.12 * fres + 0.04 * diff) * front * (1.0 + 2.4 * g) * mix(1.0, 0.35, idle);
-  float edgeD = (line * 1.1 * rec + halo * 0.22 * min(rec, 1.0)) * mix(0.28, 1.0, front) * mix(1.0, 0.5, idle);
+  float edgeD = (line * 1.1 * rec + halo * 0.22 * min(rec, 1.0)) * mix(0.22, 1.0, front) * mix(1.0, 0.5, idle);
   vec3 colD = tint * (bodyD + edgeD) + mix(vec3(1.0), tint, 0.45) * joint * mix(0.3, 0.85, front) * mix(1.0, 0.6, idle);
   vec3 bodyCol = mix(uBg, tint, 0.24 + 0.12 * (1.0 - diff) + 0.22 * g);
   float aBody = (0.55 + 0.15 * fres) * front;

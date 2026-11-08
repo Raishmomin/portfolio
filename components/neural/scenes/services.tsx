@@ -621,18 +621,40 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       if (c.ok) Object.assign(room0, clear);
     }
     const room = c.ok ? room0 : null;
-    // The section's edges now, and how far they push the room (see EXIT_PX).
+    // Fit: the machine's centre and scale in its room (a room on the page moves with it
+    // between measurements), then how far its section's edges push it (see EXIT_PX): its
+    // drawn top / bottom (px) against the section's top / bottom now.
     const scrolled = c.y - window.scrollY;
     const docShift = c.doc ? scrolled : 0;
     let edge = 0;
     if (room) {
-      edge = Math.min(0, c.sb + scrolled - 8 - (room.b + docShift)) + Math.max(0, c.st + scrolled + 8 - (room.t + docShift));
+      const cw = room.r - room.l;
+      const ch = room.b - room.t;
+      const cy = room.t + docShift + ch / 2;
+      toWorld(camera, room.l + cw / 2, cy, W, H, pt);
+      o.x = pt[0];
+      o.y = pt[1];
+      toWorld(camera, room.l, cy - ch / 2, W, H, pt);
+      const halfW = Math.abs(o.x - pt[0]);
+      const halfH = Math.abs(pt[1] - o.y);
+      let scale = Math.min(CAP, (halfW * 0.92) / d.hw, (halfH * 0.9) / d.hh);
+      const mh = ((scale * d.hh) / halfH) * (ch / 2);
+      edge = Math.min(0, c.sb + scrolled - 8 - (cy + mh)) + Math.max(0, c.st + scrolled + 8 - (cy - mh));
+      if (edge !== 0) {
+        toWorld(camera, room.l + cw / 2, cy + edge, W, H, pt);
+        o.y = pt[1];
+      }
+      const dist = Math.max(4, camera.position.z);
+      scale = (scale * dist) / (dist + NEAR_Z * scale);
+      o.scale = scale;
+      const cx = (room.l + cw / 2) / W;
+      o.turn = phone ? 0 : cx < 0.45 ? 1 : cx > 0.55 ? -1 : 0;
     }
     const edgeFade = smooth01(1 - Math.abs(edge) / EXIT_PX);
     seen.current.room += ((room ? 1 : 0) - seen.current.room) * Math.min(1, dt * 6);
     if ((!room && seen.current.room < 0.01) || (room && edgeFade === 0)) {
-      // No room and faded out: nothing is simulated, uploaded or drawn until a room returns
-      // (the machine then assembles again).
+      // No room (faded out), or carried out with its section: nothing is simulated,
+      // uploaded or drawn until it returns (the machine then assembles again).
       if (!room) seen.current.room = 0;
       root.visible = false;
       if (L) {
@@ -642,25 +664,6 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       return;
     }
     root.visible = true;
-    if (room) {
-      // A room on the page moves with it between measurements; a section edge crossing the
-      // room carries it along.
-      const shift = docShift + edge;
-      const cw = room.r - room.l;
-      const ch = room.b - room.t;
-      toWorld(camera, room.l + cw / 2, room.t + shift + ch / 2, W, H, pt);
-      o.x = pt[0];
-      o.y = pt[1];
-      toWorld(camera, room.l, room.t + shift, W, H, pt);
-      const halfW = Math.abs(o.x - pt[0]);
-      const halfH = Math.abs(pt[1] - o.y);
-      let scale = Math.min(CAP, (halfW * 0.92) / d.hw, (halfH * 0.9) / d.hh);
-      const dist = Math.max(4, camera.position.z);
-      scale = (scale * dist) / (dist + NEAR_Z * scale);
-      o.scale = scale;
-      const cx = (room.l + cw / 2) / W;
-      o.turn = phone ? 0 : cx < 0.45 ? 1 : cx > 0.55 ? -1 : 0;
-    }
 
     // Coming back after a while (or into a room again): assemble the machine again.
     if (time - seen.current.last > 0.8) rig.reassemble(idx);

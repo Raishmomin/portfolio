@@ -1036,6 +1036,18 @@ html.motion-live [data-arch-active] > .panel {
     margin: 0 0 1.75rem;
   }
 }
+/* Service pages, desktop: the clear window above the deliverables where the work scene draws
+   the closest shipped project (it frames itself into [data-arch-window] and scrolls with it). */
+.svc-arch-win {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .svc-arch-win {
+    display: block;
+    height: clamp(360px, 56vh, 480px);
+    margin-bottom: 2.5rem;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion="on"]) .svc-bar {
     transition: none;
