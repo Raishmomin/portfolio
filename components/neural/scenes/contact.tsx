@@ -14,8 +14,15 @@ import type { SceneProps } from "../types";
 import { ContactRig, type ContactSignal } from "./contact/rig";
 
 export default function ContactScene({ data, weight, pointer, focus, palette, quality }: SceneProps) {
-  const rig = useMemo(() => new ContactRig(data, quality), [data, quality]);
+  // One rig per page: quality is applied in place (rig.setQuality), so a drop to "low"
+  // mid-visit never rebuilds it (no replayed arrival, no lost hover or packet in flight).
+  const rig = useMemo(() => new ContactRig(data), [data]);
+  useEffect(() => {
+    rig.attach();
+    return () => rig.detach();
+  }, [rig]);
   useEffect(() => () => rig.dispose(), [rig]);
+  useEffect(() => rig.setQuality(quality), [rig, quality]);
   useEffect(() => rig.setPalette(palette), [rig, palette]);
   useEffect(() => rig.setFocus(focus), [rig, focus]);
   useEffect(() => {

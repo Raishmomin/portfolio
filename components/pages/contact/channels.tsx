@@ -41,7 +41,7 @@ export function ContactChannels({ personal }: { personal: Personal }) {
       label: "Time zone",
       value: (
         <>
-          {TIMEZONE_LABEL} <LocalTime offsetMin={IST_OFFSET_MIN} zone="IST" />
+          {TIMEZONE_LABEL} <LocalTime offsetMin={IST_OFFSET_MIN} sep />
         </>
       ),
     },

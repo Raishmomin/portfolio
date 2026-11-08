@@ -3,7 +3,8 @@
 // labels may be "drawn in-canvas behind the content"). They duplicate text the section
 // already renders on the server, so they carry no content. Unlike DOM labels they cost no
 // style, layout or layerize work per frame while the satellites orbit: one atlas texture
-// (red = glyphs, green = a soft halo for legibility), one instanced draw call.
+// (red = glyphs, green = one continuous rounded plate behind the whole string, blue = its
+// hairline border), one instanced draw call.
 import {
   CanvasTexture,
   Color,
@@ -16,8 +17,8 @@ import {
   ShaderMaterial,
 } from "three";
 
-const ROW = 18; // css px per atlas row (11px text + halo)
-const PAD = 5; // css px of halo room around the text
+const ROW = 20; // css px per atlas row (11px text on an 18px plate)
+const PAD = 7; // css px between the plate's edge and the text
 const ATLAS_W = 384; // css px
 
 const VERT = /* glsl */ `
@@ -44,6 +45,9 @@ void main() {
 const FRAG = /* glsl */ `
 uniform sampler2D uAtlas;
 uniform vec3 uHalo;
+uniform vec3 uBorder;
+uniform float uPlate;
+uniform float uBorderA;
 uniform float uOpacity;
 varying vec2 vUv;
 varying vec3 vColor;
@@ -51,9 +55,10 @@ varying float vAlpha;
 void main() {
   if (vAlpha <= 0.002) discard;
   vec4 t = texture2D(uAtlas, vUv);
-  float a = max(t.r, t.g * 0.8) * vAlpha * uOpacity;
+  float a = max(t.r, max(t.g * uPlate, t.b * uBorderA)) * vAlpha * uOpacity;
   if (a <= 0.002) discard;
-  gl_FragColor = vec4(mix(uHalo, vColor, t.r), a);
+  vec3 base = mix(uHalo, uBorder, t.b * mix(1.0, uBorderA, t.g));
+  gl_FragColor = vec4(mix(base, vColor, t.r), a);
   #include <colorspace_fragment>
 }
 `;
@@ -111,7 +116,15 @@ export class GlobeLabels {
     this.material = new ShaderMaterial({
       vertexShader: VERT,
       fragmentShader: FRAG,
-      uniforms: { uAtlas: { value: this.tex }, uHalo: { value: new Color() }, uOpacity: { value: 1 }, uPxK: { value: 0.001 } },
+      uniforms: {
+        uAtlas: { value: this.tex },
+        uHalo: { value: new Color() },
+        uBorder: { value: new Color() },
+        uPlate: { value: 0.85 },
+        uBorderA: { value: 0.4 },
+        uOpacity: { value: 1 },
+        uPxK: { value: 0.001 },
+      },
       transparent: true,
       depthWrite: false,
       depthTest: false,
@@ -150,19 +163,25 @@ export class GlobeLabels {
     ctx.font = this.font;
     (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = "0.9px";
     ctx.textBaseline = "middle";
-    const tw = Math.min(ATLAS_W - 2 * PAD, Math.ceil(ctx.measureText(text).width));
+    // Letter spacing trails the last glyph: drop it from the measured width.
+    const tw = Math.min(ATLAS_W - 2 * PAD - 2, Math.ceil(ctx.measureText(text).width - 0.9));
+    const w = tw + 2 * PAD;
     const y = i * ROW + ROW / 2;
-    // Halo (green), then the glyphs (red), added channel by channel.
+    // One plate for the whole string (green), its hairline (blue), then the glyphs (red),
+    // added channel by channel.
     ctx.globalCompositeOperation = "lighter";
-    ctx.filter = "blur(2px)";
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "#00ff00";
-    ctx.strokeText(text, PAD, y);
-    ctx.filter = "none";
+    ctx.beginPath();
+    if (typeof ctx.roundRect === "function") ctx.roundRect(0.5, i * ROW + 1.5, w - 1, ROW - 3, 4);
+    else ctx.rect(0.5, i * ROW + 1.5, w - 1, ROW - 3);
+    ctx.fillStyle = "#00ff00";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#0000ff";
+    ctx.stroke();
     ctx.fillStyle = "#ff0000";
-    ctx.fillText(text, PAD, y);
+    ctx.fillText(text, PAD, y + 0.5);
     ctx.restore();
-    this.w[i] = tw + 2 * PAD;
+    this.w[i] = w;
     this.h[i] = ROW;
     // UV rect (flipY texture: v = 1 at the canvas top): u0, vTop, u1, vBottom.
     const H = this.canvas.height / s;

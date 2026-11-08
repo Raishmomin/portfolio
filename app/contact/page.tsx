@@ -7,6 +7,7 @@ import { Accent } from "../../components/ui/primitives";
 import { RelatedPages } from "../../components/pages/about/subpage";
 import { FaqSection } from "../../components/pages/about/faq-list";
 import { ContactChannels } from "../../components/pages/contact/channels";
+import { StaticGlobe } from "../../components/pages/contact/static-globe";
 import { PageIntro, PageSection, SectionHead, card, column, reveal } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
 import { NeuralStage } from "../../components/neural";
@@ -76,7 +77,8 @@ export default async function ContactPage() {
           </p>
         </PageIntro>
 
-        {/* "right": details and form on the right, the contact globe framed on the left. */}
+        {/* "right": details and form on the right, the contact globe framed on the left (its
+            static poster, StaticGlobe, wherever the canvas is not live). */}
         {/* Phones: the section opens with a window onto the globe, like the home contact section. */}
         <PageSection
           id="contact"
@@ -84,9 +86,10 @@ export default async function ContactPage() {
           scene="contact"
           stage="right"
           label="Contact details and form"
-          className="pt-[38svh] md:pt-[38svh] lg:pt-28"
+          className="contact-sec pt-[38svh] md:pt-[38svh] lg:pt-28"
         >
-          <div data-card-group="" className={`grid grid-cols-1 gap-4 ${column.right}`}>
+          <StaticGlobe />
+          <div data-card-group="" data-contact-col="" className={`grid grid-cols-1 gap-4 ${column.right}`}>
             <ContactChannels personal={personal} />
             <div {...card("zoom")} className="panel min-w-0 p-6 md:p-8" role="group" aria-labelledby="message-heading">
               <SectionHead
