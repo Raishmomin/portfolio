@@ -23,7 +23,10 @@ const MOTION = "@media (prefers-reduced-motion:no-preference){html.js:not([data-
 const HERO_SECTION = "[data-section=hero]:not([data-scene]),[data-scene=hero]";
 /** Posters a section can pick by its scene (any other scene shows the ambient field). */
 const OWN = ["hero", "contact", "services", "faq"] as const;
-const shown = [...OWN, "ambient"].map((k) => `[data-poster=${k}] [data-neural-poster=${k}]`).join(",");
+const shownKeys = [...OWN, "ambient"];
+const shown = shownKeys.map((k) => `[data-poster=${k}] [data-neural-poster=${k}]`).join(",");
+/** The animated tracks (signal pulses, the breathing brain, the beacon ping). */
+const TRACKS = ":is(.nw-p,.nw-b,.nw-k)";
 const CSS = [
   ":root{--nw-ai:#3F5BD9}.dark{--nw-ai:#7C9CFF}",
   ".nw-e{fill:none;stroke:var(--nw-ai);stroke-opacity:.28}.dark .nw-e{stroke-opacity:.2}",
@@ -65,6 +68,11 @@ const CSS = [
   `main:has(${HERO_SECTION}) [data-neural-stage]:not([data-poster]) [data-neural-poster=hero],main:not(:has(${HERO_SECTION})) [data-neural-stage]:not([data-poster]) [data-neural-poster=ambient]{display:block}`,
   "[data-poster] [data-neural-poster]{display:block;opacity:0;visibility:hidden;transition:opacity .6s,visibility 0s .6s}",
   `${shown}{opacity:1;visibility:visible;transition:opacity .6s}`,
+  // Hidden posters keep their CSS animations ticking (visibility:hidden does not stop
+  // them): only the shown poster's tracks run. "html" lifts these above the motion rules
+  // (html.js:not(...) .nw-p, whose animation shorthand resets the play state).
+  `html [data-poster] [data-neural-poster] ${TRACKS}{animation-play-state:paused}`,
+  `${shownKeys.map((k) => `html [data-poster=${k}] [data-neural-poster=${k}] ${TRACKS}`).join(",")}{animation-play-state:running}`,
   // Under a live canvas (the island sets data-paused once the crossfade is done) the posters
   // leave the render tree: no CSS animation ticks, no SVG relayout, no hit testing.
   "[data-neural-posters] [data-neural-poster][data-paused]{display:none}",
