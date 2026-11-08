@@ -1163,4 +1163,12 @@ html:not(.dark) .cg-orbit path {
 html:not(.dark) .cg-orbit .cg-back {
   stroke-opacity: 0.18;
 }
+/* The contact globe frames itself beside the content (never under text), so its "full"
+   sections (a centred call to action, a row of cards under a heading) drop the centred
+   scrim that would grey it out, while the canvas is live. */
+@media (min-width: 1024px) {
+  html:has([data-neural-poster][data-paused]) [data-scene="contact"][data-stage="full"] > .scrim-c {
+    display: none;
+  }
+}
 /* end fm3-contact */

@@ -35,34 +35,33 @@ export function CtaSection({
   const globe = scene === "contact";
   return (
     <PageSection id={id} section="cta" scene={scene} stage={stage} labelledBy={`${id}-heading`}>
+      {/* The globe reads this untransformed wrapper (the card itself zooms in from depth). */}
       <div
-        {...card("zoom")}
         data-contact-col={globe ? "" : undefined}
-        className={cn(
-          "panel relative overflow-hidden p-6 md:p-10",
-          center ? "mx-auto max-w-[52rem] text-center" : stage === "band" ? "lg:max-w-[52rem]" : column[stage],
-        )}
+        className={center ? "mx-auto max-w-[52rem]" : stage === "band" ? "lg:max-w-[52rem]" : column[stage]}
       >
-        <div
-          aria-hidden="true"
-          data-parallax="-0.3"
-          className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgb(63_91_217/0.22),transparent)] dark:bg-[radial-gradient(closest-side,rgb(124_156_255/0.22),transparent)]"
-        />
-        <SectionHead id={`${id}-heading`} index={index} kicker="next step" title={title} lead={lead} center={center} className="relative" />
-        {children ? (
-          <div {...part} className="relative">
-            {children}
-          </div>
-        ) : null}
-        <div {...part} className={cn("relative mt-8 flex flex-wrap gap-3", center && "justify-center")}>
-          <ButtonLink href={primary.href} data-magnetic="" data-focus-id={globe ? "contact:go" : undefined}>
-            {primary.label} <span aria-hidden="true">→</span>
-          </ButtonLink>
-          {secondary ? (
-            <ButtonLink href={secondary.href} variant="ghost">
-              {secondary.label}
-            </ButtonLink>
+        <div {...card("zoom")} className={cn("panel relative overflow-hidden p-6 md:p-10", center && "text-center")}>
+          <div
+            aria-hidden="true"
+            data-parallax="-0.3"
+            className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgb(63_91_217/0.22),transparent)] dark:bg-[radial-gradient(closest-side,rgb(124_156_255/0.22),transparent)]"
+          />
+          <SectionHead id={`${id}-heading`} index={index} kicker="next step" title={title} lead={lead} center={center} className="relative" />
+          {children ? (
+            <div {...part} className="relative">
+              {children}
+            </div>
           ) : null}
+          <div {...part} className={cn("relative mt-8 flex flex-wrap gap-3", center && "justify-center")}>
+            <ButtonLink href={primary.href} data-magnetic="" data-focus-id={globe ? "contact:go" : undefined}>
+              {primary.label} <span aria-hidden="true">→</span>
+            </ButtonLink>
+            {secondary ? (
+              <ButtonLink href={secondary.href} variant="ghost">
+                {secondary.label}
+              </ButtonLink>
+            ) : null}
+          </div>
         </div>
       </div>
     </PageSection>

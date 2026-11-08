@@ -601,7 +601,7 @@ export class ContactRig {
     const tu = this.tags.material.uniforms;
     (tu.uHalo.value as Color).copy(light ? paletteColor(p.bg, "#ffffff", 0.75) : paletteColor(p.bg, p.fg, 0.04));
     (tu.uBorder.value as Color).copy(light ? paletteColor(p.fg, p.bg, 0.78) : paletteColor(p.fg, p.bg, 0.8));
-    tu.uPlate.value = light ? 0.94 : 0.86;
+    tu.uPlate.value = light ? 0.97 : 0.94;
     tu.uBorderA.value = light ? 0.9 : 0.55;
   }
 
@@ -708,7 +708,8 @@ export class ContactRig {
     this.setOver(compact);
     const w = clear.r - clear.l;
     const h = clear.b - clear.t;
-    const spanX = w < 2 * SPAN_X * 140 ? SPAN_X_NARROW : SPAN_X;
+    // Compact: room for the satellites' labels inside the free side.
+    const spanX = compact ? 1.75 : w < 2 * SPAN_X * 140 ? SPAN_X_NARROW : SPAN_X;
     let tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), phone ? 140 : compact ? COMPACT_R : MAX_R));
     const tx = (clear.l + clear.r) / 2;
     // Beside a panel: level with its middle, as far as the room allows.
@@ -886,6 +887,7 @@ export class ContactRig {
     }
     this.root.visible = true;
     const e = smooth01(weight) * smooth01(this.room);
+    this.lastE = e;
     this.handle(time, true);
 
     // Arrival: the globe fades in as it spins round and its land lights up in a wave from
@@ -1251,6 +1253,7 @@ export class ContactRig {
 
   /** QA hook: the globe's screen circle and the routes in flight (cheap, throttled). */
   private exposedAt = 0;
+  private lastE = 0;
   private expose(rPx: number) {
     const now = performance.now();
     if (now - this.exposedAt < 150) return;
@@ -1259,12 +1262,13 @@ export class ContactRig {
     if (!stage) return;
     let live = 0;
     for (let p = 1; p < ROUTES; p++) if (this.packets[p].live) live++;
-    const set = (k: "contactGlobe" | "contactRoutes" | "contactHot", v: string) => {
+    const set = (k: "contactGlobe" | "contactRoutes" | "contactHot" | "contactE", v: string) => {
       if (stage.dataset[k] !== v) stage.dataset[k] = v;
     };
     set("contactGlobe", this.room > 0.5 ? `${this.cx.toFixed(0)},${this.cy.toFixed(0)},${rPx.toFixed(0)}` : "");
     set("contactRoutes", String(live));
     set("contactHot", this.focusK >= 0 ? this.channels[this.focusK] : "");
+    set("contactE", `${this.lastE.toFixed(2)}${this.over ? " over" : ""}`);
   }
 
   dispose() {
