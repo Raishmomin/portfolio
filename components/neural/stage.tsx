@@ -35,33 +35,89 @@ import {
   ZeroFactor,
   type PerspectiveCamera,
 } from "three";
-import { SceneStore, type Frame } from "./director";
+import { measure, sceneOf, SceneStore, type Frame } from "./director";
 import { framing, zeroComposition, type Composition } from "./framing";
 import { DEFAULT_DISTANCE, FOV, heroCamera, type CameraTarget } from "./hero-layout";
 import { readPalette, samePalette } from "./palette";
-import { contextOwner, nextIdle } from "./runtime";
-import type { NeuralData, SceneKey, ScenePalette, SceneProps } from "./types";
-import Hero from "./scenes/hero";
-import Stack from "./scenes/stack";
-import Experience from "./scenes/experience";
-import Ai from "./scenes/ai";
-import Work from "./scenes/work";
-import Services from "./scenes/services";
-import Faq from "./scenes/faq";
-import Contact from "./scenes/contact";
-import Ambient from "./scenes/ambient";
+import { contextOwner, nextIdle, onIdle } from "./runtime";
+import { SCENE_KEYS, type NeuralData, type SceneKey, type ScenePalette, type SceneProps } from "./types";
 
-const SCENES: [SceneKey, ComponentType<SceneProps>][] = [
-  ["hero", Hero],
-  ["stack", Stack],
-  ["experience", Experience],
-  ["ai", Ai],
-  ["work", Work],
-  ["services", Services],
-  ["faq", Faq],
-  ["contact", Contact],
-  ["ambient", Ambient],
-];
+// Every scene is its own lazy chunk: the stage loads the scenes in view first (the hero
+// on the home page), then prefetches the page's other scenes in scroll order in idle time,
+// so the entry 3D payload stays small and a scene is ready before its section arrives.
+type SceneComponent = ComponentType<SceneProps>;
+const LOADERS: Record<SceneKey, () => Promise<{ default: SceneComponent }>> = {
+  hero: () => import("./scenes/hero"),
+  stack: () => import("./scenes/stack"),
+  experience: () => import("./scenes/experience"),
+  ai: () => import("./scenes/ai"),
+  work: () => import("./scenes/work"),
+  services: () => import("./scenes/services"),
+  faq: () => import("./scenes/faq"),
+  contact: () => import("./scenes/contact"),
+  ambient: () => import("./scenes/ambient"),
+};
+
+/** Loaded scene modules (kept across stage remounts and client navigations); `mods` is replaced on each load. */
+const scenes = {
+  mods: {} as Readonly<Partial<Record<SceneKey, SceneComponent>>>,
+  pending: {} as Partial<Record<SceneKey, Promise<void>>>,
+  listeners: new Set<() => void>(),
+  load(key: SceneKey): Promise<void> {
+    if (this.mods[key]) return Promise.resolve();
+    return (this.pending[key] ??= LOADERS[key]().then(
+      (m) => {
+        this.mods = { ...this.mods, [key]: m.default };
+        this.listeners.forEach((l) => l());
+      },
+      (err: unknown) => {
+        // A failed chunk (offline, a deploy in between) may be retried on the next need.
+        delete this.pending[key];
+        throw err;
+      },
+    ));
+  },
+  subscribe(l: () => void) {
+    scenes.listeners.add(l);
+    return () => void scenes.listeners.delete(l);
+  },
+};
+
+/** The scenes in view right now (non-zero weight), loaded before the first frame is shown. */
+function scenesInView(): SceneKey[] {
+  const f = measure();
+  return SCENE_KEYS.filter((k) => f.weight[k] > 0);
+}
+
+/**
+ * The page's other scenes in scroll order (sections below the viewport centre first, then
+ * those above it), each loaded in its own idle period. Scenes the page never uses are not
+ * fetched; they still load on demand if a section asks for one later.
+ */
+function prefetchScenes(): () => void {
+  const below: SceneKey[] = [];
+  const above: SceneKey[] = [];
+  const mid = window.innerHeight / 2;
+  document.querySelectorAll<HTMLElement>("[data-section]").forEach((el) => {
+    const key = sceneOf(el);
+    (el.getBoundingClientRect().bottom < mid ? above : below).push(key);
+  });
+  const queue = [...new Set([...below, ...above.reverse()])].filter((k) => !scenes.mods[k]);
+  let cancel = () => {};
+  let stopped = false;
+  const next = () => {
+    const key = queue.shift();
+    if (!key || stopped) return;
+    cancel = onIdle(() => {
+      scenes.load(key).then(next, next);
+    }, 1500);
+  };
+  next();
+  return () => {
+    stopped = true;
+    cancel();
+  };
+}
 
 const MIN_FPS = 30; // a 1 s window below this (back-to-back frames only) is a slow window
 const SUSTAINED = 4; // this many slow windows in a row (already at low quality) fall back to the poster
@@ -218,7 +274,7 @@ class Rig {
     const { frame } = store;
     sum.px = sum.py = sum.pz = sum.lx = sum.ly = sum.lz = 0;
     let total = 0;
-    for (const [key] of SCENES) {
+    for (const key of SCENE_KEYS) {
       const w = frame.weight[key];
       if (w <= 0) continue;
       const t = cameraFor(key, aspect, frame.progress[key], this.target);
@@ -298,7 +354,7 @@ const SceneSlot = memo(function SceneSlot({
   Scene,
   store,
   ...rest
-}: Omit<SceneProps, "progress" | "weight"> & { sceneKey: SceneKey; Scene: ComponentType<SceneProps>; store: SceneStore }) {
+}: Omit<SceneProps, "progress" | "weight"> & { sceneKey: SceneKey; Scene: SceneComponent | undefined; store: SceneStore }) {
   const snap = useSyncExternalStore(
     useCallback((l: () => void) => store.subscribe(sceneKey, l), [store, sceneKey]),
     () => store.get(sceneKey),
@@ -307,7 +363,11 @@ const SceneSlot = memo(function SceneSlot({
   // and compiled programs survive) and simply receives weight 0.
   const [seen, setSeen] = useState(snap.weight > 0);
   if (!seen && snap.weight > 0) setSeen(true);
-  if (!seen) return null;
+  // Needed before its chunk arrived (an anchor jump past the prefetch): load it now.
+  useEffect(() => {
+    if (seen && !Scene) scenes.load(sceneKey).catch(() => undefined);
+  }, [seen, Scene, sceneKey]);
+  if (!seen || !Scene) return null;
   return <Scene {...rest} weight={snap.weight} progress={snap.progress} />;
 });
 
@@ -331,6 +391,7 @@ function Director({
   const [palette, setPalette] = useState<ScenePalette>(readPalette);
   const [focus, setFocus] = useState<string | null>(null);
   const [rig] = useState(() => new Rig());
+  const mods = useSyncExternalStore(scenes.subscribe, () => scenes.mods);
   const dim = useMemo(() => new Dimmer(), []);
   useEffect(() => () => dim.dispose(), [dim]);
 
@@ -393,6 +454,11 @@ function Director({
     };
   }, []);
 
+  // Exposed for QA: the scene modules loaded so far.
+  useEffect(() => {
+    document.querySelector("[data-neural-stage]")?.setAttribute("data-scenes", Object.keys(mods).join(" "));
+  }, [mods]);
+
   // Exposed for QA: the focused DOM id and the render quality.
   useEffect(() => {
     const stage = document.querySelector("[data-neural-stage]");
@@ -416,12 +482,16 @@ function Director({
     };
   }, [rig]);
 
-  // Warm-up: compile the visible programs in an idle period, then report ready after
-  // two drawn frames, which starts the poster → canvas crossfade.
+  // Warm-up: wait for the scenes in view (their chunks were requested when the stage
+  // mounted), compile the visible programs in an idle period, then report ready after two
+  // drawn frames, which starts the poster → canvas crossfade. Then prefetch the rest.
   useEffect(() => {
     let cancelled = false;
     let raf = 0;
+    let stopPrefetch = () => {};
     (async () => {
+      const keys = SCENE_KEYS.filter((k) => store.frame.weight[k] > 0);
+      await Promise.all(keys.map((k) => scenes.load(k))).catch(() => undefined);
       await nextIdle(500);
       if (cancelled) return;
       const { gl, scene, camera } = get();
@@ -429,14 +499,18 @@ function Director({
       await gl.compileAsync(scene, camera).catch(() => undefined);
       if (cancelled) return;
       raf = requestAnimationFrame(() => {
-        raf = requestAnimationFrame(() => onReady(true));
+        raf = requestAnimationFrame(() => {
+          onReady(true);
+          stopPrefetch = prefetchScenes();
+        });
       });
     })();
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      stopPrefetch();
     };
-  }, [get, onReady]);
+  }, [get, onReady, store]);
 
   useFrame((state, delta) => {
     const aspect = state.size.width / Math.max(1, state.size.height);
@@ -447,11 +521,11 @@ function Director({
   return (
     <>
       <mesh geometry={dim.geometry} material={dim.material} frustumCulled={false} renderOrder={1e6} />
-      {SCENES.map(([key, Scene]) => (
+      {SCENE_KEYS.map((key) => (
         <SceneSlot
           key={key}
           sceneKey={key}
-          Scene={Scene}
+          Scene={mods[key]}
           store={store}
           data={data}
           pointer={rig.pointer}
@@ -471,6 +545,8 @@ export default function Stage({ data, active, onReady, onFallback }: StageProps)
   const [token] = useState(() => `neural-${++stages}`);
   const [idle, setIdle] = useState(false);
   const declines = useRef(0);
+  // Request the scenes in view at once: their chunks download while the renderer is created.
+  useState(() => scenesInView().forEach((k) => scenes.load(k).catch(() => undefined)));
 
   // A slow second drops to low quality (half the counts, dpr 1); only a device that stays
   // slow at low quality (SUSTAINED seconds in a row) falls back to the poster, so a few
