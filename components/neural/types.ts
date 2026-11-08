@@ -6,8 +6,8 @@
  * data-scene="<key>" on any [data-section]. Order = scroll order. "ambient" is the calm
  * full-bleed neural field every section without its own scene gets (never the previous one).
  */
-export type SceneKey = "hero" | "stack" | "experience" | "ai" | "work" | "services" | "faq" | "contact" | "ambient";
-export const SCENE_KEYS: readonly SceneKey[] = ["hero", "stack", "experience", "ai", "work", "services", "faq", "contact", "ambient"];
+export type SceneKey = "hero" | "stack" | "experience" | "ai" | "work" | "services" | "writing" | "faq" | "contact" | "ambient";
+export const SCENE_KEYS: readonly SceneKey[] = ["hero", "stack", "experience", "ai", "work", "services", "writing", "faq", "contact", "ambient"];
 
 /**
  * Composition of a section (data-stage="<layout>", default "left"): where its content sits,

@@ -41,7 +41,7 @@ const BASE = BASE_ARG.replace(/\/+$/, "");
 const OUT = path.resolve(OUT_ARG);
 const EXE = "/home/raish/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell";
 const ARGS = ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=gl"];
-const SCENE_KEYS = ["hero", "stack", "experience", "ai", "work", "services", "faq", "contact", "ambient"];
+const SCENE_KEYS = ["hero", "stack", "experience", "ai", "work", "services", "writing", "faq", "contact", "ambient"];
 const STAGE_VALUES = ["left", "right", "full", "band"];
 const NOT_FOUND = "/this-page-does-not-exist";
 const CARD_SEL = process.env.FM_CARD_SEL || "[data-card]";

@@ -47,6 +47,7 @@ import Experience from "./scenes/experience";
 import Ai from "./scenes/ai";
 import Work from "./scenes/work";
 import Services from "./scenes/services";
+import Writing from "./scenes/writing";
 import Faq from "./scenes/faq";
 import Contact from "./scenes/contact";
 import Ambient from "./scenes/ambient";
@@ -58,6 +59,7 @@ const SCENES: [SceneKey, ComponentType<SceneProps>][] = [
   ["ai", Ai],
   ["work", Work],
   ["services", Services],
+  ["writing", Writing],
   ["faq", Faq],
   ["contact", Contact],
   ["ambient", Ambient],
