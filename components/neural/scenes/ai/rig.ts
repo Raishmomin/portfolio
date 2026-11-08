@@ -26,11 +26,11 @@ const PULSE_T = 0.75;
 const PITCH = 0.2;
 const YAW = -0.1;
 
-/** Ring r of the model core: one per model provider, crossed like an atom's orbits. */
+/** Ring r of the model core: one per model provider, close round the core and open to the view. */
 export function ringBasis(r: number): [number[], number[]] {
-  const R = 1.32 + 0.12 * r;
-  const a = [0, 62, -62][r] * DEG;
-  const b = 73 * DEG;
+  const R = 1.1 + 0.08 * r;
+  const a = [180, 120, 240][r] * DEG;
+  const b = 62 * DEG;
   return [
     [R * Math.cos(a), R * Math.sin(a), 0],
     [-R * Math.sin(a) * Math.cos(b), R * Math.cos(a) * Math.cos(b), R * Math.sin(b)],
@@ -227,15 +227,20 @@ function buildAgent(b: Builder, g: number) {
  */
 function buildCore(b: Builder, g: number, tier: number, net: { pts: Pt[] }) {
   if (tier !== 0) return;
-  b.sprite(g, T.ai, [0, 0, -0.15], 2.7, SPRITE.halo, 0, 0.6);
-  b.sprite(g, T.ai, [0, 0, 0], 0.95, SPRITE.halo, 0, 0.7);
+  b.sprite(g, T.ai, [0, 0, -0.15], 2.5, SPRITE.halo, 0, 0.6);
+  // The inner glow: the core's hot centre, breathing while idle (halo k1 = 1).
+  b.sprite(g, T.ai, [0, 0, 0], 1.55, SPRITE.halo, 1, 0.85);
   for (let r = 0; r < MAX_RINGS; r++) {
     const [U, V] = ringBasis(r);
-    b.panel(g, T.ai, { pos: [0, 0, 0], u: U, v: V, shape: SHAPE.ring, role: ROLE.ring, p: [r, 0], alpha: 0.7 });
-    b.sprite(g, T.fg, [0, 0, 0], 0.22, SPRITE.ringNode, r);
+    b.panel(g, T.ai, { pos: [0, 0, 0], u: U, v: V, shape: SHAPE.ring, role: ROLE.ring, p: [r, 0], alpha: 0.38 });
+    b.sprite(g, T.fg, [0, 0, 0], 0.2, SPRITE.ringNode, r);
   }
   const rand = rng(41);
-  net.pts.forEach((p, i) => b.sprite(g, T.ai, p, 0.075 + rand() * 0.045, SPRITE.neuron, i, 1, rand() * 0.4));
+  // Smaller, brighter neurons toward the centre.
+  net.pts.forEach((p, i) => {
+    const r = Math.hypot(p[0], p[1], p[2]);
+    b.sprite(g, T.ai, p, (0.055 + rand() * 0.04) * (0.75 + 0.35 * r), SPRITE.neuron, i, 1, rand() * 0.35 * r);
+  });
   // Synapses: each neuron to its two nearest.
   const n = net.pts.length;
   const seen = new Set<number>();
@@ -259,20 +264,22 @@ function buildCore(b: Builder, g: number, tier: number, net: { pts: Pt[] }) {
   }
 }
 
+/** Neurons of the model core: a loose outer shell for its outline round a body that grows
+ *  denser toward the centre (a mass of neurons, not a wireframe globe). */
 function neuralNet(): { pts: Pt[] } {
   const rand = rng(17);
   const pts: Pt[] = [];
-  const shell = 120;
+  const shell = 44;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < shell; i++) {
     const y = 1 - (2 * (i + 0.5)) / shell;
     const r = Math.sqrt(1 - y * y);
     const a = i * golden;
-    const k = 0.96 + rand() * 0.1;
+    const k = 0.9 + rand() * 0.12;
     pts.push([Math.cos(a) * r * k, y * k, Math.sin(a) * r * k]);
   }
-  for (let i = 0; i < 44; i++) {
-    const r = 0.25 + 0.5 * Math.cbrt(rand());
+  for (let i = 0; i < 150; i++) {
+    const r = 0.06 + 0.84 * rand() ** 0.8;
     const u = rand() * 2 - 1;
     const a = rand() * Math.PI * 2;
     const s = Math.sqrt(1 - u * u);
@@ -464,8 +471,7 @@ export class AiRig {
     this.paint(gl.links.arr.aColor, gl.links.count, this.tl, MAX_COND * SEG);
     this.paint(gl.sprites.arr.aColor, gl.sprites.count, this.ts, MAX_TOK + 1);
     this.paint(gl.glows.arr.aColor, gl.glows.count, this.tg, 0);
-    // Whole buffers, as ranges: a per-frame touch() of the same attribute adds its own range
-    // instead of narrowing this repaint to the tokens (which left the old theme's colours).
+    // Whole buffers as one range each, so the per-frame token range cannot narrow the upload.
     for (const set of [gl.panels, gl.links, gl.sprites, gl.glows]) set.touch("aColor", 0, set.count);
     // Conduits: the request in AI blue up to the model, the answer orange after it.
     for (let c = 0; c < MAX_COND; c++) this.paintCond(c);
@@ -846,7 +852,7 @@ export class AiRig {
   /** Live label anchor of slot g (layout units), above (+1) or below (-1) its object. */
   labelAt(g: number, side: number, out: Float32Array) {
     const kind = this.model.slots[g].kind;
-    const ey = kind === "llm" ? 1.45 : EXT[kind][1];
+    const ey = kind === "llm" ? 1.32 : EXT[kind][1];
     const grow = smooth(0, 1, this.presence[g]);
     out[0] = this.lp[g * 3];
     out[1] = this.lp[g * 3 + 1] + side * (ey * (0.35 + 0.65 * grow) + 0.1);

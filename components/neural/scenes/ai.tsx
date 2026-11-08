@@ -6,14 +6,16 @@
 // calling its tools in turn, a dense neural core (one orbit ring per model provider) that
 // streams the answer token by token, and an answer card whose lines assemble. One request
 // runs through the system on a clock; the stage chips of the project's DOM card light in
-// sync (data-ai-lit / data-ai-done, and a bubbling "cp:ai-stage" event); hovering or
-// focusing a stage chip holds the request in that stage. The project comes from a hovered
-// card, else the top card of the AI deck ("cp:deck"), else the card nearest the viewport's
-// centre (phones: the first card while the section opens); switching projects rebuilds the
-// system (shared stages glide, others grow or dissolve). The system's free area is cut to
-// the part of its section in view, so it shrinks, slides and fades with the section and
-// never draws over the neighbouring sections' content.
-// Names are aria-hidden labels in the shared layer that duplicate the DOM cards.
+// sync (data-ai-lit / data-ai-done, and a bubbling "cp:ai-stage" event), and the shown
+// card is marked (data-ai-shown); hovering a stage chip (with a mouse) holds the request in
+// that stage. The project comes from a hovered or focused card, else the top card of the AI
+// deck ("cp:deck"), else the card nearest the viewport's centre (phones: the first card
+// while the section's opening is in view); switching projects rebuilds the system (shared
+// stages glide, others grow or dissolve). The system's free area is cut to the part of its
+// section in view (phones: the opening above the heading), so it shrinks, slides and fades
+// with the section and never draws over the neighbouring content.
+// Names are aria-hidden labels in the shared layer that duplicate the DOM cards (phones,
+// where the layer shows none: the section's aria-hidden caption under the opening).
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera } from "three";
@@ -52,8 +54,9 @@ function toWorld(camera: Camera, px: number, py: number, w: number, h: number, o
 
 type Labels = { layer: LabelLayer; name: number[]; chip: HTMLElement[]; tech: HTMLElement[]; title: number[]; plan: number; lit: number };
 type Chips = { project: number; lit: number; els: HTMLElement[]; sections: HTMLElement[] };
-/** The driving section's edges (canvas px) and the project of the card nearest the viewport's centre. */
-type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; near: number };
+/** The driving section's edges and its phone caption's top (canvas px, NaN none), its first
+ *  card's project and the project of the card nearest the viewport's centre. */
+type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; cap: number; first: number; near: number };
 
 export default function AiScene({ data, progress, weight, pointer, focus, palette, quality }: SceneProps) {
   const model = useMemo(() => buildModel(data.ai ?? [], data.work ?? []), [data.ai, data.work]);
@@ -84,7 +87,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
   // before this frame renders), so the cut follows the page without a frame of lag; only
   // while this scene shows (and once as it starts showing).
   const gl = useThree((s) => s.gl);
-  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, near: -1 });
+  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, cap: NaN, first: -1, near: -1 });
   const measure = useMemo(
     () => () => {
       const st = sec.current;
@@ -93,7 +96,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       st.el = el;
       if (!el || !el.isConnected) {
         st.ok = false;
-        st.near = -1;
+        st.near = st.first = -1;
         return;
       }
       const c = gl.domElement.getBoundingClientRect();
@@ -101,6 +104,8 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       st.ok = r.height > 0;
       st.top = r.top - c.top;
       st.bottom = r.bottom - c.top;
+      const cap = el.querySelector<HTMLElement>("[data-ai-caption]")?.getBoundingClientRect();
+      st.cap = cap && cap.height > 0 ? cap.top - c.top : NaN;
       // The card nearest the viewport's centre (the first one until any card is in view).
       const vh = c.height || window.innerHeight;
       let best = Infinity;
@@ -118,6 +123,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
           near = j;
         }
       });
+      st.first = first;
       st.near = near >= 0 ? near : first;
     },
     [gl, model],
@@ -142,7 +148,9 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     };
   }, [measure]);
 
-  // A hovered / focused stage chip (data-ai-stage inside a project's card) holds the request there.
+  // A stage chip (data-ai-stage inside a project's card) under the pointer holds the request
+  // there. Chips are not focusable (no nested interactives in the /projects card links); a
+  // focused card still picks its project through the stage's focus delegation.
   const hold = useRef<{ slug: string; stage: string } | null>(null);
   useEffect(() => {
     const chipOf = (t: EventTarget | null) => (t instanceof Element ? t.closest<HTMLElement>("[data-ai-stage]") : null);
@@ -155,21 +163,18 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     };
     const leave = (e: Event) => {
       const from = chipOf(e.target);
-      if (from && from !== chipOf((e as PointerEvent | FocusEvent).relatedTarget) && hold.current?.stage === from.dataset.aiStage) hold.current = null;
+      if (from && from !== chipOf((e as PointerEvent).relatedTarget) && hold.current?.stage === from.dataset.aiStage) hold.current = null;
     };
     document.addEventListener("pointerover", enter, { passive: true });
     document.addEventListener("pointerout", leave, { passive: true });
-    document.addEventListener("focusin", enter);
-    document.addEventListener("focusout", leave);
     return () => {
       document.removeEventListener("pointerover", enter);
       document.removeEventListener("pointerout", leave);
-      document.removeEventListener("focusin", enter);
-      document.removeEventListener("focusout", leave);
     };
   }, [model]);
 
-  // The DOM side of the clock: the shown project's stage chips (data-ai-stage="<name>").
+  // The DOM side of the clock: the shown project's card (data-ai-shown) and its stage chips
+  // (data-ai-stage="<name>"), in its card and in the phone caption (data-ai-caption="<slug>").
   const chips = useRef<Chips>({ project: -1, lit: -1, els: [], sections: [] });
   const syncChips = useMemo(
     () => (project: number, lit: number) => {
@@ -181,6 +186,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       for (const el of st.els) {
         el.removeAttribute("data-ai-lit");
         el.removeAttribute("data-ai-done");
+        el.removeAttribute("data-ai-shown");
       }
       st.els.length = 0;
       if (!plan) {
@@ -188,21 +194,27 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
         st.sections.length = 0;
         return;
       }
+      const slug = CSS.escape(plan.slug);
       document.querySelectorAll<HTMLElement>(AI_SECTION).forEach((sec) => {
         if (!sec.hasAttribute("data-ai-sync")) {
           sec.setAttribute("data-ai-sync", "");
           st.sections.push(sec);
         }
-        const card = sec.querySelector<HTMLElement>(`[data-focus-id="${CSS.escape(plan.slug)}"]`);
-        if (!card) return;
-        plan.stages.forEach((name, j) => {
-          if (j > lit) return;
-          const chip = card.querySelector<HTMLElement>(`[data-ai-stage="${CSS.escape(name)}"]`);
-          if (!chip) return;
-          chip.setAttribute(j === lit ? "data-ai-lit" : "data-ai-done", "");
-          st.els.push(chip);
-        });
-        if (lit >= 0) card.dispatchEvent(new CustomEvent("cp:ai-stage", { bubbles: true, detail: { slug: plan.slug, stage: plan.stages[lit], index: lit } }));
+        const card = sec.querySelector<HTMLElement>(`[data-focus-id="${slug}"]`);
+        if (card) {
+          card.setAttribute("data-ai-shown", "");
+          st.els.push(card);
+        }
+        sec.querySelectorAll<HTMLElement>(`[data-focus-id="${slug}"], [data-ai-caption="${slug}"]`).forEach((scope) =>
+          plan.stages.forEach((name, j) => {
+            if (j > lit) return;
+            const chip = scope.querySelector<HTMLElement>(`[data-ai-stage="${CSS.escape(name)}"]`);
+            if (!chip) return;
+            chip.setAttribute(j === lit ? "data-ai-lit" : "data-ai-done", "");
+            st.els.push(chip);
+          }),
+        );
+        if (card && lit >= 0) card.dispatchEvent(new CustomEvent("cp:ai-stage", { bubbles: true, detail: { slug: plan.slug, stage: plan.stages[lit], index: lit } }));
       });
     },
     [model],
@@ -260,30 +272,45 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     }
     const { camera, size } = state;
     const n = model.plans.length;
-    // Which project: hover/focus wins, then the live deck's top card, then the card nearest
-    // the viewport's centre, else equal scroll slices.
+    // Which project: hover/focus wins, then the live deck's top card, then (phones) the
+    // first card while the opening shows the system (its caption names it), then the card
+    // nearest the viewport's centre, else equal scroll slices.
     const d = deck.current;
     const deckId = d && d.el.hasAttribute("data-deck-live") ? d.id : null;
     const st = sec.current;
-    const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined) ?? (st.near >= 0 ? st.near : undefined);
+    const sf = sceneFrames.ai;
+    const opening = framing.phone && sf.rect.b - sf.rect.t > 0.01 && st.first >= 0;
+    const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined) ?? (opening ? st.first : st.near >= 0 ? st.near : undefined);
     live.current.project = picked ?? Math.min(n - 1, Math.floor(Math.max(0, Math.min(1, progress)) * n));
 
     // Where: the scene's own free rect (unblended, from the director), else the blended framing.
     const box = rig.box[2] > 0 ? rig.box : model.plans[live.current.project].box;
     const hw = box[2];
     const hh = box[3];
-    const sf = sceneFrames.ai;
     const rl = sf.rect.l * size.width;
     let rt = sf.rect.t * size.height;
     let rb = sf.rect.b * size.height;
     const rw = (sf.rect.r - sf.rect.l) * size.width;
     const fit = lastFit.current;
     let room = 1;
-    // Desktop: only the part of the free rect inside the section (less a clearance) is the
-    // system's; as the section scrolls in or out the system shrinks and slides with it, and
-    // fades before that part gets too small. It never reaches the next section's heading.
     let clip = false;
-    if (!framing.phone && st.ok) {
+    if (framing.phone) {
+      // Phones: the section's opening above its heading (less the caption at its foot). Cut
+      // by a viewport edge below MIN_RECT, a MIN_RECT frame keeps to the opening's other edge
+      // (the heading's side as it leaves at the top), so the system slides with the page and
+      // fades, never over the heading or the cards; it follows the page exactly.
+      if (st.ok && st.cap === st.cap) rb = Math.min(rb, st.cap - 6);
+      const open = rb - rt;
+      room = Math.max(0, Math.min(1, open / MIN_RECT));
+      clip = true;
+      if (open < MIN_RECT) {
+        if (rt <= 1) rt = rb - MIN_RECT;
+        else rb = rt + MIN_RECT;
+      }
+    } else if (st.ok) {
+      // Desktop: only the part of the free rect inside the section (less a clearance) is
+      // the system's; as the section scrolls in or out the system shrinks and slides with
+      // it, and fades before that part gets too small. It never reaches the next heading.
       const top = st.top + EDGE;
       const bottom = st.bottom - EDGE;
       const cutTop = top > rt;
@@ -314,9 +341,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       const dist = Math.max(4, camera.position.z);
       fit.scale = (s * dist) / (dist + NEAR_Z * s);
     } else if (framing.phone) {
-      // Phones: the system lives in the section's opening; as it scrolls away the system
-      // stays put and fades, so the cards below read on a clean background.
-      room = fit.scale > 0 ? Math.max(0, Math.min(1, rh / MIN_RECT)) : 0;
+      room = 0;
     } else {
       fit.x = fit.y = 0;
       const s = fitFree(camera, size, hw, hh, CAP, CAP) * 0.94;
@@ -370,7 +395,8 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       ids.lit = litSlot;
     }
     const { width: W, height: H } = size;
-    r.inner.updateMatrixWorld(true);
+    // rig.frame just moved the root: refresh it too, or labels trail their objects by a frame.
+    r.inner.updateWorldMatrix(true, false);
     const M = r.inner.matrixWorld;
     for (let g = 0; g < model.slots.length; g++) {
       const pr = rig.presence[g];

@@ -364,7 +364,7 @@ void main() {
   } else if (k < 1.5) {
     // Synapse: a signal fires along it while the model thinks.
     float p = fract(uTime * (0.45 + 0.4 * fract(vSeed * 7.13)) + vSeed);
-    float sig = exp(-pow((vT - p) * 7.0, 2.0)) * vAct;
+    float sig = exp(-pow((vT - p) * 7.0, 2.0)) * (0.22 + 0.78 * vAct);
     float ends = smoothstep(0.0, 0.12, vT) * smoothstep(1.0, 0.88, vT);
     a = a * (0.32 + 0.4 * vAct) * mix(1.0, 1.7, uLight) * ends + sig * core * 1.2;
     col = mix(col, uHot, sig);
@@ -425,9 +425,11 @@ void main() {
     float f = fract(uTime * 0.8);
     float f2 = fract(uTime * 0.8 + 0.5);
     float wave = exp(-pow((r - f * 1.2) * 6.0, 2.0)) * (1.0 - f) + exp(-pow((r - f2 * 1.2) * 6.0, 2.0)) * (1.0 - f2);
+    float fi = fract(uTime * 0.38);
+    float idle = exp(-pow((r - fi * 1.1) * 5.0, 2.0)) * (1.0 - fi);
     float slot = uTime * 2.4 + aK.y * 13.7;
     float spark = step(0.86, hash(floor(slot) + aK.y * 7.7)) * exp(-fract(slot) * 4.0);
-    float e = clamp(act * (wave * 1.3 + spark) + 0.18 * spark, 0.0, 1.0);
+    float e = clamp(act * (wave * 1.3 + spark) + (1.0 - act) * 0.5 * idle + 0.18 * spark, 0.0, 1.0);
     local *= 1.0 + 0.025 * sin(uTime * 1.3 + r * 2.0);
     col = mix(aColor, uHot, e);
     a *= (0.5 + 0.35 * act + e * 0.9) * (1.0 + 0.3 * uLow) * (1.0 + 0.6 * uLight);
@@ -456,8 +458,10 @@ void main() {
   } else if (kind < 2.5) {
     core = 0.95;
   } else if (kind < 3.5) {
-    a *= 0.22 + 0.78 * B.z;
+    // A halo (k1 = 1: the model's inner glow, which breathes while idle).
+    a *= aK.y > 0.5 ? 0.42 + 0.58 * B.z + 0.1 * sin(uTime * 1.7) : 0.22 + 0.78 * B.z;
     size *= 0.9 + 0.22 * B.z;
+    col = mix(aColor, uHot, 0.35 * aK.y);
     core = 0.0;
   } else if (kind < 4.5) {
     if (aK.y > 0.5) {
@@ -574,13 +578,17 @@ export class Instances<S extends Spec> {
   uploadAll() {
     for (const a of Object.values(this.attr)) a.needsUpdate = true;
   }
-  /** Mark instances [from, from + n) of one attribute for upload (adds to any range already
-   *  queued this frame, e.g. a palette repaint; three clears the ranges after each upload). */
+  /** Mark instances [from, from + n) of one attribute for upload. Adds to the ranges queued
+   *  since the last upload (a palette repaint is a whole-buffer range), skipping one already
+   *  covered: while the mesh is hidden nothing uploads, and three clears them only on upload. */
   touch(name: keyof S, from: number, n: number) {
     if (n <= 0) return;
     const a = this.attr[name];
-    a.addUpdateRange(from * a.itemSize, n * a.itemSize);
+    const s = from * a.itemSize;
+    const c = n * a.itemSize;
     a.needsUpdate = true;
+    for (const r of a.updateRanges) if (r.start <= s && r.start + r.count >= s + c) return;
+    a.addUpdateRange(s, c);
   }
 }
 
