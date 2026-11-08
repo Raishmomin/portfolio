@@ -84,18 +84,20 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     return () => document.removeEventListener("cp:deck", onDeck);
   }, [model]);
 
-  // The section in view: measured in the scroll / resize handlers themselves (they run
-  // before this frame renders), so the cut follows the page without a frame of lag; only
-  // while this scene shows (and once as it starts showing).
+  // The section in view: flagged by scroll / resize (they fire before the frame) and read
+  // at most once per frame, at its start, so the fit follows the page without a frame of
+  // lag; only while this scene shows. The card at the viewport's centre line comes from an
+  // IntersectionObserver (no per-card rects).
   const gl = useThree((s) => s.gl);
   const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, open: 0, first: -1, near: -1 });
+  const dirty = useRef(true);
   const measure = useMemo(
     () => () => {
       const st = sec.current;
       const own = sceneFrames.ai.el;
       const el = own?.isConnected ? own : document.querySelector<HTMLElement>(AI_SECTION);
       st.el = el;
-      if (!el || !el.isConnected) {
+      if (!el) {
         st.ok = false;
         st.near = st.first = -1;
         return;
@@ -105,50 +107,41 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       st.ok = r.height > 0;
       st.top = r.top - c.top;
       st.bottom = r.bottom - c.top;
+      st.first = model.index.get(el.querySelector<HTMLElement>("[data-focus-id]")?.dataset.focusId ?? "") ?? -1;
+      if (st.near < 0) st.near = st.first;
+      if (!framing.phone) return;
       const cap = el.querySelector<HTMLElement>("[data-ai-caption]")?.getBoundingClientRect();
       const head = el.querySelector<HTMLElement>("h2")?.getBoundingClientRect();
       st.open = (cap && cap.height > 0 ? cap.top - 6 : head ? head.top - 28 : r.bottom) - c.top;
-      // The card nearest the viewport's centre (the first one until any card is in view).
-      const vh = c.height || window.innerHeight;
-      let best = Infinity;
-      let near = -1;
-      let first = -1;
-      el.querySelectorAll<HTMLElement>("[data-focus-id]").forEach((card) => {
-        const j = model.index.get(card.dataset.focusId ?? "");
-        if (j === undefined) return;
-        if (first < 0) first = j;
-        const b = card.getBoundingClientRect();
-        if (b.bottom < c.top || b.top > c.top + vh) return;
-        const d = Math.abs((b.top + b.bottom) / 2 - c.top - vh / 2);
-        if (d < best) {
-          best = d;
-          near = j;
-        }
-      });
-      st.first = first;
-      st.near = near >= 0 ? near : first;
     },
     [gl, model],
   );
-  const on = useRef(false);
   useEffect(() => {
-    on.current = active;
-    if (active) measure();
-  }, [active, measure]);
-  useEffect(() => {
-    const read = () => {
-      if (on.current) measure();
+    const flag = () => {
+      dirty.current = true;
     };
-    const ro = new ResizeObserver(read);
+    const ro = new ResizeObserver(flag);
     ro.observe(document.body);
-    window.addEventListener("scroll", read, { passive: true });
-    window.addEventListener("resize", read, { passive: true });
+    window.addEventListener("scroll", flag, { passive: true });
+    window.addEventListener("resize", flag, { passive: true });
+    // The card crossing the viewport's centre line (kept while the line is between cards).
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const j = model.index.get((e.target as HTMLElement).dataset.focusId ?? "");
+          if (e.isIntersecting && j !== undefined) sec.current.near = j;
+        }
+      },
+      { rootMargin: "-50% 0px -50% 0px" },
+    );
+    document.querySelectorAll<HTMLElement>(`:is(${AI_SECTION}) [data-focus-id]`).forEach((card) => io.observe(card));
     return () => {
       ro.disconnect();
-      window.removeEventListener("scroll", read);
-      window.removeEventListener("resize", read);
+      io.disconnect();
+      window.removeEventListener("scroll", flag);
+      window.removeEventListener("resize", flag);
     };
-  }, [measure]);
+  }, [model]);
 
   // A stage chip (data-ai-stage inside a project's card) under the pointer holds the request
   // there. Chips are not focusable (no nested interactives in the /projects card links); a
@@ -274,6 +267,10 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     }
     const { camera, size } = state;
     const n = model.plans.length;
+    if (dirty.current || !sec.current.el?.isConnected) {
+      dirty.current = false;
+      measure();
+    }
     // Which project: hover/focus wins, then the live deck's top card, then (phones) the
     // first card while its opening is on screen (the caption names it), then the card
     // nearest the viewport's centre, else equal scroll slices.
