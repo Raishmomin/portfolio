@@ -549,13 +549,14 @@ export class ContactRig {
     const light = isLightBg(p.bg);
     this.light = light;
     const u = this.earthMat.uniforms;
+    // Light: a cool slate-blue sea (the AI blue cooled with a little green), ink dots by day.
+    const slate = paletteColor(p.ai, p.ok, 0.4).lerp(paletteColor(p.fg), 0.2);
     if (light) {
-      // A cool slate-blue sea (ink dots on the day side, blue dots on the night side), not lilac.
-      (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.14)).lerp(paletteColor(p.fg), 0.1);
-      (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.3)).lerp(paletteColor(p.fg), 0.32);
+      (u.uOceanDay.value as Color).copy(paletteColor(p.bg)).lerp(slate, 0.3);
+      (u.uOceanNight.value as Color).copy(paletteColor(p.bg)).lerp(slate, 0.6);
       (u.uDotDay.value as Color).copy(paletteColor(p.fg, p.ai, 0.12));
-      (u.uDotNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.22));
-      (u.uRim.value as Color).copy(paletteColor(p.ai, p.fg, 0.2));
+      (u.uDotNight.value as Color).copy(paletteColor(p.bg)).lerp(slate, 0.12);
+      (u.uRim.value as Color).copy(slate);
     } else {
       (u.uOceanDay.value as Color).copy(paletteColor(p.bg, p.ai, 0.1));
       (u.uOceanNight.value as Color).copy(paletteColor(p.bg, p.ai, 0.035));
@@ -568,7 +569,7 @@ export class ContactRig {
     u.uLight.value = light ? 1 : 0;
 
     const a = this.atmoMat.uniforms;
-    (a.uColor.value as Color).copy(paletteColor(p.ai, p.fg, light ? 0.3 : 0.15));
+    (a.uColor.value as Color).copy(light ? slate : paletteColor(p.ai, p.fg, 0.15));
     (a.uWarm.value as Color).copy(paletteColor(p.accent));
     a.uLight.value = light ? 1 : 0;
     setGlowBlending(this.atmoMat, light);
