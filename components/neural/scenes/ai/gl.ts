@@ -50,17 +50,34 @@ export const SPRITE = { neuron: 0, embed: 1, token: 2, halo: 3, orb: 4, ringNode
  */
 export const VAR = { all: 0, chat: 1, code: 2, voice: 3, notCode: 4 } as const;
 
+// Shader notes (kept out of the GLSL strings, which ship as written):
+// - uSlot / uSlotB / uVar: per slot live centre + scale; yaw, presence, activity, phase
+//   (0..1 through its stage); input weights (chat, code, voice) and model rings.
+//   uLow: low tier (denser-looking core); uScale: world units per layout unit;
+//   uClear: the finished request fading before the next one.
+// - panels by role: text bars type in left to right with their stage's phase; a tool box
+//   lights while the planner calls it (orange); model rings show one per provider;
+//   waveform bars follow the voice; bodies glow with their stage's activity. A tool-box
+//   face seen edge-on fades (no hairlines). Shapes are signed distances: card (header
+//   line), chat bubble (tail lower left), pill, ring, hex, box face.
+// - links: conduit dashes drift toward the next stage, the request leaves a lit wake,
+//   the answer streams as tokens; synapses fire (faintly at rest); a spoke carries the
+//   call out to its tool and back; query lines reach from the query to its matches.
+// - sprites: neurons wave from the centre and spark while the model thinks (a slow wave at
+//   rest); a match lights when the query reaches it; the query drops into the store and
+//   holds; halos follow their stage (k1 = 1: the model's breathing inner glow, 2: only
+//   while active); the answer's done mark; a provider rides its ring; the pulse is a ring.
 const COMMON = /* glsl */ `
 #define SLOTS ${MAX_SLOTS}
-uniform vec4 uSlot[SLOTS];   // live centre (layout units) + scale
-uniform vec4 uSlotB[SLOTS];  // yaw, presence, activity, phase (0..1 through its stage)
-uniform vec4 uVar[SLOTS];    // input weights (chat, code, voice), model rings
+uniform vec4 uSlot[SLOTS];
+uniform vec4 uSlotB[SLOTS];
+uniform vec4 uVar[SLOTS];
 uniform float uTime;
-uniform float uLow;          // 1 on the low quality tier (small screens): denser-looking core
+uniform float uLow;
 uniform float uOpacity;
 uniform float uLight;
-uniform float uScale;        // world units per layout unit (camera-facing widths)
-uniform float uClear;        // 0..1 the finished request fades before the next one
+uniform float uScale;
+uniform float uClear;
 vec3 rotY(float a, vec3 p) {
   float c = cos(a);
   float s = sin(a);
@@ -115,7 +132,6 @@ void main() {
   vec3 P = aPos;
   float glow = 0.0;
   if (role > 0.5 && role < 1.5) {
-    // Text bar, typed / assembled left to right with its stage's phase.
     float r = clamp((B.w - aP.x) / aP.y, 0.0, 1.0);
     float e = r * r * (3.0 - 2.0 * r);
     P -= U * (1.0 - e);
@@ -123,23 +139,19 @@ void main() {
     a *= step(0.001, r) * (1.0 - uClear);
     glow = (1.0 - e) * step(0.001, r);
   } else if (role > 1.5 && role < 2.5) {
-    // Tool module aP.x: lights while the planner calls it.
     float k = B.w * 5.0 - 0.6 - aP.x;
     glow = B.z * exp(-k * k * 6.0);
     color = mix(aColor, uAccent, glow);
   } else if (role > 2.5 && role < 3.5) {
-    // Model ring aP.x: one per model provider.
     a *= clamp(Va.w - aP.x, 0.0, 1.0);
     glow = B.z * 0.7;
   } else if (role > 3.5 && role < 4.5) {
-    // Waveform bar: its height follows the voice.
     float amp = abs(sin(uTime * 6.0 + aP.x * 1.9) * sin(uTime * 2.3 + aP.x * 0.7));
     W *= 0.2 + 0.8 * (0.3 + 0.7 * B.z) * amp;
   } else if (role > 4.5) {
     glow = B.z;
   }
   if (aK.x > 5.5) {
-    // A tool-cube face seen edge-on would draw as a hairline (its rim and glow): fade it.
     vec3 n = normalize(normalMatrix * rotY(B.x, normalize(cross(aU, aV))));
     vec4 c = modelViewMatrix * vec4(toRoot(aGroup, aPos), 1.0);
     a *= smoothstep(0.14, 0.34, abs(dot(n, normalize(-c.xyz))));
@@ -205,11 +217,9 @@ void main() {
   float inner = 0.0;
   if (s < 0.5) {
     d = sdBox(vP, h, min(0.16, m));
-    // A header line across the top of a card.
     inner = 1.0 - smoothstep(0.0, fwidth(vP.y) * 1.5, abs(vP.y - (h.y - 0.3)) - 0.003);
     inner *= step(abs(vP.x), h.x - 0.02);
   } else if (s < 1.5) {
-    // Chat bubble: rounded box with a tail at the lower left.
     d = sdBox(vP, h, 0.2);
     float tail = sdTri(vP, vec2(-0.62 * h.x, -h.y + 0.04), vec2(-0.3 * h.x, -h.y + 0.04), vec2(-0.74 * h.x, -h.y - 0.24));
     d = min(d, tail);
@@ -226,23 +236,18 @@ void main() {
   }
   float w = fwidth(d);
   float body = 1.0 - smoothstep(-w, w, d);
-  // A 1 px edge (1.5 px of ink on paper), whatever the system's size on screen.
   float lw = w * mix(0.5, 0.75, uLight);
   float rim = 1.0 - smoothstep(lw, lw + w, abs(d));
   float od = clamp(max(d, 0.0) / uPad, 0.0, 1.0);
   float halo = (1.0 - od) * (1.0 - od) * exp(-od * 2.5) * (1.0 - body);
   float g = vGlow;
-  // A neutral body (the idle answer card) is grey glass; its colour is light while active.
   vec3 tint = mix(vColor, mix(mix(uFg, uBg, 0.5), vColor, g), vNeutral);
   vec3 col;
   float a;
   if (glass < 0.5) {
-    // Lines of light: text and waveform bars, rings.
     col = mix(tint * (1.05 + 0.6 * g), mix(tint, uFg, 0.2), uLight);
     a = max(body, rim) * mix(0.8, 0.5 + 0.3 * g, uLight) + halo * mix(0.28 + 0.5 * g, 0.04, uLight);
   } else {
-    // Glass, as the Work slabs: a translucent tinted body, a glowing 1 px edge with a soft
-    // glow just inside it, an outer glow on dark (a soft shadow on paper).
     float inGlow = body * exp(max(d, -1.0) * 18.0);
     vec3 fillD = mix(uBg, tint, 0.1 + 0.08 * g);
     vec3 fillL = mix(vec3(1.0), tint, 0.04 + 0.08 * g);
@@ -277,7 +282,7 @@ attribute float aAlpha;
 attribute float aW;
 attribute vec3 aK;
 attribute vec2 aT;
-uniform vec4 uCond[${MAX_COND}]; // head (0..1, < 0 none), stream (0/1), tone (0 query .. 1 answer), length
+uniform vec4 uCond[${MAX_COND}];
 varying float vT;
 varying float vU;
 varying float vS;
@@ -340,9 +345,6 @@ void main() {
   vec3 col = vColor;
   float k = vKind;
   if (k < 0.5) {
-    // Conduit: dashes drift toward the next stage; the request leaves a lit wake behind
-    // it (the line swells and glows), and while the model answers, a stream of tokens
-    // runs to the answer card.
     float len = vC.w;
     float s = vS * len;
     float ph = fract(s * 2.6 - uTime * 0.9);
@@ -362,14 +364,12 @@ void main() {
     a = max(a, (line * 0.95 + soft * 0.45) * hot);
     col = mix(col, hotC, hot);
   } else if (k < 1.5) {
-    // Synapse: a signal fires along it while the model thinks.
     float p = fract(uTime * (0.45 + 0.4 * fract(vSeed * 7.13)) + vSeed);
     float sig = exp(-pow((vT - p) * 7.0, 2.0)) * (0.22 + 0.78 * vAct);
     float ends = smoothstep(0.0, 0.12, vT) * smoothstep(1.0, 0.88, vT);
     a = a * (0.32 + 0.4 * vAct) * mix(1.0, 1.7, uLight) * ends + sig * core * 1.2;
     col = mix(col, uHot, sig);
   } else if (k < 2.5) {
-    // Spoke to tool vSeed: the call runs out to the tool and back.
     float c = vPh * 5.0 - 0.6 - vSeed;
     float t = clamp(c + 0.5, 0.0, 1.0);
     float pos = t < 0.5 ? t * 2.0 : 2.0 - t * 2.0;
@@ -378,7 +378,6 @@ void main() {
     a = a * (0.45 + 0.9 * on) + sig * 1.1;
     col = mix(col, uAccent, max(sig, on * 0.35));
   } else if (k < 3.5) {
-    // Retrieval: the query reaches out to its nearest matches, drawn from the query.
     float reach = smoothstep(0.28 + 0.07 * vSeed, 0.44 + 0.07 * vSeed, vPh) * (1.0 - smoothstep(0.84, 0.97, vPh));
     float drawn = step(vT, reach * 1.02);
     a = (core * 0.9 + soft * 0.35) * drawn * reach * step(0.001, vAct);
@@ -419,7 +418,6 @@ void main() {
   vec3 col = aColor;
   float core = 0.55;
   if (kind < 0.5) {
-    // Neuron: while the model thinks, waves run out from its centre and neurons spark.
     float act = B.z;
     float r = length(local);
     float f = fract(uTime * 0.8);
@@ -439,14 +437,12 @@ void main() {
     float ph = B.w;
     float on = step(0.001, B.z);
     if (rank > -0.5) {
-      // One of the nearest matches: it lights when the query reaches it, then leaves as context.
       float lit = smoothstep(0.34 + 0.07 * rank, 0.46 + 0.07 * rank, ph) * (1.0 - smoothstep(0.86, 0.98, ph)) * on;
       col = mix(aColor, uAccent, lit);
       a *= 0.55 + lit * 1.2;
       size *= 1.0 + lit * 1.4;
       core = 0.55 + 0.4 * lit;
     } else if (rank < -1.5) {
-      // The query: drops into the store, holds while it is compared, then leaves.
       float show = smoothstep(0.04, 0.16, ph) * (1.0 - smoothstep(0.82, 0.95, ph)) * on;
       local.y += (1.0 - smoothstep(0.04, 0.3, ph)) * 0.55;
       a *= show;
@@ -458,7 +454,6 @@ void main() {
   } else if (kind < 2.5) {
     core = 0.95;
   } else if (kind < 3.5) {
-    // A halo; k1 = 1: the model's inner glow (breathes while idle), 2: only while active.
     float hot = step(0.5, aK.y) * step(aK.y, 1.5);
     a *= hot > 0.5 ? 0.42 + 0.58 * B.z + 0.1 * sin(uTime * 1.7) : (aK.y > 1.5 ? B.z : 0.22 + 0.78 * B.z);
     size *= 0.9 + 0.22 * B.z;
@@ -466,7 +461,6 @@ void main() {
     core = 0.0;
   } else if (kind < 4.5) {
     if (aK.y > 0.5) {
-      // The answer's "done" mark.
       a *= smoothstep(0.96, 1.0, B.w) * (1.0 - uClear);
       col = uOk;
       size *= 1.0 + 0.15 * sin(uTime * 5.0);
@@ -476,10 +470,8 @@ void main() {
     }
     core = 0.85;
   } else if (kind > 5.5) {
-    // The arrival pulse: a ring (written per frame).
     core = -1.0;
   } else {
-    // A model provider riding its ring.
     int r = int(aK.y + 0.5);
     float ang = uTime * (0.5 + 0.17 * aK.y) + aK.y * 2.1;
     local = uRingU[r] * cos(ang) + uRingV[r] * sin(ang);
