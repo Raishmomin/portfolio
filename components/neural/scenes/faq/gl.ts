@@ -452,7 +452,10 @@ export class FaqGL {
 
 // ---------------------------------------------------------------- writers (targets)
 
-/** Stroke weight for thin lines (paper needs more ink than light on dark); glass bands keep theirs. */
+/**
+ * Paper needs more ink than light on dark: thin strokes get heavier in the light theme and
+ * glass (wide, faint strokes) more opaque, since dark mode's sRGB output already lifts it.
+ */
 let ink = 1;
 
 /** Arc dash pattern: `perTurn` dashes per full turn, counted from the arc's start, each `duty` long. */
@@ -507,7 +510,7 @@ export function arc(
   t[o + 10] = c.r;
   t[o + 11] = c.g;
   t[o + 12] = c.b;
-  t[o + ARC.alpha] = alpha;
+  t[o + ARC.alpha] = thick >= 4 && ink > 1 ? Math.min(1, alpha * 3.2) : alpha;
   t[o + ARC.dash] = dash;
   t[o + ARC.tail] = tail;
   t[o + ARC.glow] = glow;
@@ -540,7 +543,7 @@ export function seg(
   t[o + 6] = c.r;
   t[o + 7] = c.g;
   t[o + 8] = c.b;
-  t[o + SEG.alpha] = alpha;
+  t[o + SEG.alpha] = width >= 4 && ink > 1 ? Math.min(1, alpha * 3.2) : alpha;
   t[o + SEG.width] = width < 4 ? width * ink : width;
   t[o + SEG.speed] = speed;
   t[o + SEG.flow] = flow;

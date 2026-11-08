@@ -127,7 +127,7 @@ const LABEL_CLASS: Record<LabelKind, string> = {
 };
 const IDX_CLASS = "font-mono text-[11.5px] leading-none tracking-[0.12em] tabular-nums";
 
-type Want = { text: string; kind: LabelKind; x: number; y: number; ax: number; ay: number; alpha: number; color: Color | null; maxW: number };
+type Want = { text: string; kind: LabelKind; x: number; y: number; z: number; ax: number; ay: number; alpha: number; color: Color | null; maxW: number };
 
 const IDX_RIGHT: Align = { x: 0, y: -0.5 };
 const IDX_LEFT: Align = { x: -1, y: -0.5 };
@@ -224,7 +224,7 @@ export class FaqRig {
       this.lKind.push("tag");
       this.lColor.push(null);
       this.lAlign.push({ x: 0, y: 0 });
-      this.want.push({ text: "", kind: "tag", x: 0, y: 0, ax: 0, ay: 0, alpha: 0, color: null, maxW: 0 });
+      this.want.push({ text: "", kind: "tag", x: 0, y: 0, z: 0, ax: 0, ay: 0, alpha: 0, color: null, maxW: 0 });
     }
   }
 
@@ -412,13 +412,14 @@ export class FaqRig {
     }
   }
 
-  private label = (text: string, kind: LabelKind, x: number, y: number, ax: number, ay: number, color: Color | null, maxW: number, alpha: number) => {
+  private label = (text: string, kind: LabelKind, x: number, y: number, ax: number, ay: number, color: Color | null, maxW: number, alpha: number, z: number) => {
     if (!text || this.wantN >= L_VIS) return;
     const w = this.want[this.wantN++];
     w.text = text;
     w.kind = kind;
     w.x = x;
     w.y = y;
+    w.z = z;
     w.ax = ax;
     w.ay = ay;
     w.alpha = alpha;
@@ -511,13 +512,13 @@ export class FaqRig {
         al.dy = dy;
         layer.setAlign(id, al);
       }
-      // Clamp the box into the window's inner rect (local units are canvas px at z = 0).
-      vp.set(w.x, w.y, 0).applyMatrix4(M).project(cam);
+      // Clamp the box into the window's inner rect (local units are about canvas px).
+      vp.set(w.x, w.y, w.z).applyMatrix4(M).project(cam);
       const bx = ((vp.x + 1) / 2) * this.W + al.x * this.lW[j] + dx;
       const by = ((1 - vp.y) / 2) * this.H + al.y * this.lH[j] + dy;
       const ox = bx < this.bl ? this.bl - bx : bx + this.lW[j] > this.br ? Math.max(this.bl - bx, this.br - bx - this.lW[j]) : 0;
       const oy = by < this.bt ? this.bt - by : by + this.lH[j] > this.bb ? Math.max(this.bt - by, this.bb - by - this.lH[j]) : 0;
-      layer.place(id, w.x + ox, w.y - oy, 0, M, cam, this.W, this.H, this.lAlpha[j]);
+      layer.place(id, w.x + ox, w.y - oy, w.z, M, cam, this.W, this.H, this.lAlpha[j]);
     }
   }
 
@@ -701,7 +702,7 @@ export class FaqRig {
         hideSeg(gl, QMAX + i);
       }
       this.idxX[i] = answer ? railX + side * 14 : railX + side * 4;
-      this.idxA[i] = rail ? inView * (answer ? (isSub || isHover ? 1 : 0) : 1) : 0;
+      this.idxA[i] = rail ? inView * (answer ? (isHover && !isSub ? 1 : 0) : 1) : 0;
     }
 
     // ---- the visual (after the old one has faded out)

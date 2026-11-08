@@ -86,7 +86,7 @@ export type Ctx = {
   /** Out: where the beam from the rail meets the visual. */
   inX: number;
   inY: number;
-  label: (text: string, kind: LabelKind, x: number, y: number, ax: number, ay: number, color: Color | null, maxW: number, alpha: number) => void;
+  label: (text: string, kind: LabelKind, x: number, y: number, ax: number, ay: number, color: Color | null, maxW: number, alpha: number, z: number) => void;
   pre: Pre;
 };
 
@@ -130,12 +130,13 @@ function ln(x0: number, y0: number, x1: number, y1: number, c: Color, alpha: num
   if (P.s < P.c.gl.segs.count) seg(P.c.gl, P.s++, x0, y0, 0, x1, y1, 0, c, alpha, width, flow, speed);
 }
 /** Translucent glass band (a wide, faint segment). */
-const glass = (x0: number, y0: number, x1: number, y1: number, c: Color, width: number, alpha = 0.09) => ln(x0, y0, x1, y1, c, alpha, width);
+// The output is sRGB-encoded, so a linear alpha of 0.02 already reads as ~15% glass.
+const glass = (x0: number, y0: number, x1: number, y1: number, c: Color, width: number, alpha = 0.022) => ln(x0, y0, x1, y1, c, alpha, width);
 function ring(x: number, y: number, r: number, c: Color, alpha: number, thick = 1.2, s0 = 0, s1 = 1, dash = 0, glow = 0.5, ex = 0, ez = 0) {
   if (P.a < P.c.gl.arcs.count) arc(P.c.gl, P.a++, x, y, 0, ex, 0, ez, r, thick, s0, s1, c, alpha, dash, 0, glow);
 }
-function lb(text: string, kind: LabelKind, x: number, y: number, ax: number, ay: number, color: Color | null = null, maxW = 0, alpha = 1) {
-  if (text) P.c.label(text, kind, x, y, ax, ay, color, maxW, alpha);
+function lb(text: string, kind: LabelKind, x: number, y: number, ax: number, ay: number, color: Color | null = null, maxW = 0, alpha = 1, z = 0) {
+  if (text) P.c.label(text, kind, x, y, ax, ay, color, maxW, alpha, z);
 }
 /** Rail-relative x: u px from the box edge that faces the rail. */
 const X = (u: number) => (P.c.side > 0 ? P.c.x0 + u : P.c.x1 - u);
@@ -162,7 +163,7 @@ function curve(x0: number, y0: number, x3: number, y3: number, c: Color, alpha: 
   let py = y0;
   for (let k = 1; k <= n; k++) {
     bez(x0, y0, mx, y0, mx, y3, x3, y3, k / n);
-    if (band > 0) glass(px, py, bz[0], bz[1], c, band, 0.07);
+    if (band > 0) glass(px, py, bz[0], bz[1], c, band, 0.01);
     ln(px, py, bz[0], bz[1], c, alpha, width, flow, 0.45);
     px = bz[0];
     py = bz[1];
@@ -190,7 +191,7 @@ function node(x: number, y: number, c: Color, r = 9, no = false) {
 /** Glass disc with a glowing rim and a dotted outer ring (hubs, orbs, the verdict). */
 function orb(x: number, y: number, r: number, c: Color, lit: boolean) {
   const col = P.c.col;
-  ring(x, y, r * 0.5, c, lit ? 0.1 : 0.07, r, 0, 1, 0, 0);
+  ring(x, y, r * 0.5, c, lit ? 0.008 : 0.005, r, 0, 1, 0, 0);
   ring(x, y, r, c, lit ? 0.95 : 0.7, lit ? 2 : 1.4, 0, 1, 0, lit ? 0.7 : 0.45);
   ring(x, y, r * 1.22, lit ? c : col.muted, 0.5, 1, 0, 1, dashes(Math.max(24, r * 0.6), 0.35), 0, 0, P.c.t * 0.08);
 }
@@ -222,7 +223,7 @@ export function field(c: Ctx, cx: number, cy: number, hot: number, n: number, ho
   const g = R * 0.36 * (1 + 0.06 * hot);
   const hc = hot > 0 ? col.accent : col.ai;
   ring(c.vx, c.vy, R * 1.02, col.line, 0.4, 1, 0, 1, dashes(72, 0.3), 0, 0, t * 0.02);
-  ring(cx, cy, g * 0.5, col.ai, 0.07, g, 0, 1, 0, 0);
+  ring(cx, cy, g * 0.5, col.ai, 0.006, g, 0, 1, 0, 0);
   for (let k = 0; k < 3; k++) {
     const ex = k === 0 ? 1.1 + 0.3 * Math.sin(t * 0.3) : k === 1 ? -0.9 : 0.4 + t * 0.21;
     const ez = t * (0.12 + 0.07 * k) + k;
@@ -262,7 +263,7 @@ export function career(c: Ctx): Used {
   const step = (R * 0.96 - r0) / rings;
   const ex = 0.25 * Math.sin(t * 0.2);
   const lx = c.x0 + (c.x1 - c.x0) * 0.2;
-  ring(vx, vy, r0 * 0.5, col.ai, 0.06, r0, 0, 1, 0, 0);
+  ring(vx, vy, r0 * 0.5, col.ai, 0.005, r0, 0, 1, 0, 0);
   for (let k = 0; k < rings; k++) ring(vx, vy, r0 + step * (k + 0.5), col.muted, 0.4, 1, 0, 1, dashes(48, 0.12), 0, ex);
   for (let i = 0; i < nr; i++) {
     const role = roles[i];
@@ -272,16 +273,16 @@ export function career(c: Ctx): Used {
     for (let k = Math.floor(m0 / 12); k < rings && k * 12 < m1; k++) {
       const s0 = Math.max(m0, k * 12) / 12 - k;
       const e0 = Math.min(m1, k * 12 + 12) / 12 - k;
-      if (e0 - s0 > 0.004) ring(vx, vy, r0 + step * (k + 0.5), color, 0.95, 2, s0, e0, 0, 0.7, ex);
+      if (e0 - s0 > 0.004) ring(vx, vy, r0 + step * (k + 0.5), color, 0.95, 1.5, s0, e0, 0, 0.3, ex);
     }
     const k0 = Math.floor(m0 / 12);
     onRing(vx, vy, r0 + step * (k0 + 0.5), m0 / 12 - k0, ex);
     pt(rot.x, rot.y, rot.z + 1, color, 13, 1);
     // Legend row: "Company · years" and the role, in the experience path's label style.
     const ly = c.y1 - 2 * R - 34 - i * 34;
-    pt(lx, ly - 7, 0, color, 11, 1);
-    lb(role.label, "name", lx + 12, ly, 0, -0.5, role.current ? col.ok : col.fg);
-    lb(role.role, "sub", lx + 12, ly - 15, 0, -0.5);
+    pt(lx, ly, 0, color, 11, 1);
+    lb(role.label, "name", lx + 2, ly, 0, -0.5, role.current ? col.ok : col.fg);
+    lb(role.role, "sub", lx + 2, ly - 15, 0, -0.5);
   }
   const kN = Math.min(rings - 1, Math.floor(total / 12));
   onRing(vx, vy, r0 + step * (kN + 0.5), total / 12 - kN, ex);
@@ -379,7 +380,7 @@ export function stack(c: Ctx): Used {
     const off = r + 9;
     const lx = k === 0 ? px[k] : px[k] + (dx / dl) * off;
     const ly = k === 0 ? py[k] - off - 4 : py[k] + (dy / dl) * off;
-    lb(s.name, "name", lx, ly, k === 0 ? -0.5 : dx >= 0 ? 0 : -1, k === 0 ? 0 : dy >= 0 ? -1 : 0, lit ? col.accent : color, 0, lit || !named.length ? 1 : 0.55 + 0.45 * depth);
+    lb(s.name, "name", lx, ly, k === 0 ? -0.5 : dx >= 0 ? 0 : -1, k === 0 ? 0 : dy >= 0 ? -1 : 0, lit ? col.accent : color, 0, lit || !named.length ? 1 : 0.55 + 0.45 * depth, pz[k]);
   }
   c.inX = vx - c.side * rOut;
   return done();
@@ -404,7 +405,7 @@ export function beacon(c: Ctx): Used {
   const by = c.vy - R * 0.2;
   const ex = 1.22;
   ring(bx, by, R * 0.72, col.ok, 0.55, 1.2, 0, 1, dashes(54, 0.45), 0.3, ex, t * 0.15);
-  ring(bx, by, R * 0.36, col.ok, 0.14, R * 0.72, (t * 0.22) % 1, ((t * 0.22) % 1) + 0.14, 0, 0, ex);
+  ring(bx, by, R * 0.36, col.ok, 0.01, R * 0.72, (t * 0.22) % 1, ((t * 0.22) % 1) + 0.14, 0, 0, ex);
   for (let j = 0; j < 3; j++) {
     const p = (t * 0.42 + j / 3) % 1;
     ring(bx, by, R * (0.08 + 0.64 * p), col.ok, 0.85 * (1 - p) * (1 - p), 1.4, 0, 1, 0, 0.6, ex);
@@ -428,7 +429,7 @@ export function beacon(c: Ctx): Used {
       pt(rot.x, rot.y, rot.z, filled ? col.ok : col.fg, filled ? 20 : 12, filled ? 1 : 0.55);
       if (P.a < c.gl.arcs.count) arc(c.gl, P.a++, rot.x, rot.y, rot.z, 0, 0, 0, filled ? 11 : 8, 1.2, 0, 1, filled ? col.ok : col.muted, filled ? 0.8 : 0.5, filled ? 0 : dashes(8, 0.5), 0, 0.3);
     }
-    lb(f.t, "plate", bx + R * 0.62, by - R * 0.1, 0, -0.5, col.ok);
+    lb(f.t, "plate", bx + c.side * R * 0.66, by - R * 0.12, away(), -0.5, col.ok);
   }
   if (pre.statement) lb(pre.statement, "cap", bx, by - R * 0.5, -0.5, 0, col.ok, Math.min(360, c.x1 - c.x0 - 40));
   c.inX = bx - c.side * R * 0.72;
@@ -452,12 +453,12 @@ export function clock(c: Ctx): Used {
   const H = c.y1 - c.y0;
   const said = item?.said;
   const rows = (said?.f.length ?? 0) + (said?.l === "enum" ? 1 : 0);
-  const Rd = Math.max(46, Math.min(R * 0.62, (H - 60 - rows * 74) / 2));
+  const Rd = Math.max(46, Math.min(R * 0.6, (H - 80 - rows * 76) / 2));
   const cy = c.y1 - 34 - Rd;
   const off = data.facts.utcOffsetMin;
   const local = ((((Date.now() / 60000 + off) % 1440) + 1440) % 1440) / 60;
   const [rise, set] = pre.sun;
-  ring(vx, cy, Rd * 0.5, col.ai, 0.06, Rd, 0, 1, 0, 0);
+  ring(vx, cy, Rd * 0.5, col.ai, 0.005, Rd, 0, 1, 0, 0);
   ring(vx, cy, Rd * 1.14, col.muted, 0.4, 1, 0, 1, dashes(96, 0.25), 0);
   for (let h = 0; h < 24; h++) {
     onRing(vx, cy, Rd, h / 24);
@@ -470,20 +471,20 @@ export function clock(c: Ctx): Used {
   pt(rot.x, rot.y, 0, col.accent, 18 + 3 * Math.sin(t * 3), 1);
   pt(vx, cy, 0, col.fg, 12, 0.9);
   lb(pre.clock.text, "plate", vx, cy + Rd * 1.14 + 10, -0.5, -1, col.accent);
-  let y = cy - Rd * 1.14 - 26;
+  let y = cy - Rd * 1.14 - 46;
   for (const f of said?.f ?? []) {
     if (y < c.y0 + 30) break;
     mini(f, y);
-    y -= 74;
+    y -= 76;
   }
   if (said?.l === "enum" && y > c.y0 + 20) {
     const items = said.s;
     const w = c.x1 - c.x0;
-    lb(said.h ?? "", "cap", X(30), y + 4, away(), -1, null, w - 60);
+    lb(said.h ?? "", "cap", c.x0 + 30, y + 12, 0, -1, null, w - 60);
     for (let k = 0; k < items.length; k++) {
-      const x = X(38 + (k * (w - 76)) / Math.max(1, items.length));
-      pt(x, y - 16, 0, col.ok, 11, 1);
-      lb(items[k].t, "name", x + c.side * 10, y - 16, away(), -0.5);
+      const x = c.x0 + 36 + (k * (w - 72)) / Math.max(1, items.length);
+      pt(x, y - 10, 0, col.ok, 11, 1);
+      lb(items[k].t, "name", x + 2, y - 10, 0, -0.5);
     }
   }
   c.inX = vx - c.side * Rd * 1.14;
@@ -497,11 +498,12 @@ const SUB: Record<string, number> = { week: 7, day: 24, "business day": 24, mont
 const STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500];
 
 /**
- * A figure on its own unit as a row of glowing points from xa to xb (time, count or rate;
- * percent in tenths): certain units bright on a glass bar, a range's uncertain part pulsing,
- * an upper bound capped, an open end ("4+") fading.
+ * A figure on its own unit as a row of glass cells from xa to xb, read left to right (time,
+ * count or rate; percent in tenths): certain units lit with a glowing edge and a point, a
+ * range's uncertain part pulsing, an upper bound capped, an open end ("4+") fading. `hh`:
+ * half the cells' height.
  */
-function row(f: Figure, xa: number, xb: number, y: number, color: Color, nAll = 0) {
+function row(f: Figure, xa: number, xb: number, y: number, color: Color, hh = 10, nAll = 0) {
   const { col, t } = P.c;
   let N: number;
   let solid: number;
@@ -522,21 +524,31 @@ function row(f: Figure, xa: number, xb: number, y: number, color: Color, nAll = 
   }
   const dx = (xb - xa) / N;
   const xs = xa + solid * dx;
-  const xe = xa + band * dx;
-  ln(xa, y, xb, y, col.muted, 0.3, 1);
-  glass(xa, y, xs, y, color, 16, 0.1);
-  ln(xa, y, xs, y, color, 0.9, 1.5, 2, 0.35);
-  if (band > solid) glass(xs, y, xe, y, color, 16, 0.05);
-  for (let k = 0; k < N; k++) {
-    const x = xa + (k + 0.5) * dx;
-    const m = k + 0.5;
-    if (m < solid) pt(x, y, 0, color, N > 14 ? 7 : 10, 1);
-    else if (m < band) pt(x, y, 0, color, 8, 0.4 + 0.35 * Math.sin(t * 2.2 + k));
-    else pt(x, y, 0, col.muted, 5, f.plus ? 0.5 * (1 - (k - solid) / 3) : 0.35);
+  const xe = xa + Math.max(solid, band) * dx;
+  const fine = N > 12;
+  const gap = fine ? 0 : Math.min(6, dx * 0.16);
+  if (fine) {
+    glass(xa, y, xs, y, color, hh * 2, 0.03);
+    ln(xa, y + hh, xs, y + hh, color, 0.9, 1.2);
   }
+  for (let k = 0; k < N; k++) {
+    const a = xa + k * dx + gap / 2;
+    const b = xa + (k + 1) * dx - gap / 2;
+    const m = k + 0.5;
+    const on = m < solid;
+    const maybe = !on && m < band;
+    const pulse = 0.45 + 0.3 * Math.sin(t * 2.2 + k);
+    if (!fine) {
+      if (on || maybe) glass(a, y, b, y, color, hh * 2, on ? 0.035 : 0.012);
+      ln(a, y + hh, b, y + hh, on || maybe ? color : col.muted, on ? 0.9 : maybe ? pulse : f.plus ? 0.5 * (1 - (k - solid) / 3) : 0.3, 1.2);
+    }
+    pt((a + b) / 2, y, 0, on || maybe ? color : col.muted, on ? (fine ? 6 : 9) : maybe ? 7 : 4, on ? 1 : maybe ? pulse : 0.3);
+  }
+  for (let k = 0; k <= N; k += fine ? 6 : 1) pt(xa + k * dx, y - hh - 7, 0, col.muted, 4, 0.6);
+  if (xs > xa) pt(xa + ((t * 0.25) % 1) * (xs - xa), y + hh, 0, color, 11, 0.9);
   if (f.lt) {
-    ln(xe, y - 11, xe, y + 11, color, 0.9, 1.4);
-    pt(xe, y + 11, 0, color, 7, 1);
+    ln(xe, y - hh - 9, xe, y + hh + 9, color, 0.9, 1.4);
+    pt(xe, y + hh + 9, 0, color, 7, 1);
   }
 }
 
@@ -551,7 +563,7 @@ function tag(x: number, y: number, w: number, h: number, c: Color) {
   const l = x - s * (w / 2);
   const r = x + s * (w / 2);
   const tip = l - s * h * 0.5;
-  for (let k = -1; k <= 1; k++) glass(l, y + k * h * 0.28, r, y + k * h * 0.28, c, h * 0.3, 0.06);
+  glass(l, y, r, y, c, h - 4, 0.012);
   ln(l, y + h / 2, r, y + h / 2, c, 0.85, 1.4);
   ln(r, y + h / 2, r, y - h / 2, c, 0.85, 1.4);
   ln(r, y - h / 2, l, y - h / 2, c, 0.85, 1.4);
@@ -560,22 +572,22 @@ function tag(x: number, y: number, w: number, h: number, c: Color) {
   ring(tip + s * h * 0.36, y, 4, c, 0.9, 1.2, 0, 1, 0, 0.5);
 }
 
-/** A secondary figure under the main one: its words, then its row (or tag) with its value. */
+/** A secondary figure under the main one: its words, then its row (left to right) or tag, and its value. */
 function mini(f: Figure, y: number) {
   const c = P.c;
   const color = tint(f);
   const w = c.x1 - c.x0;
-  lb(f.t, "cap", X(30), y + 12, away(), -1, null, w - 60);
+  const xa = c.x0 + 30;
+  lb(f.t, "cap", xa, y + 12, 0, -1, null, w - 60);
   if (f.k === "money") {
-    tag(X(90), y - 18, 120, 34, color);
-    lb(f.v, "fig", X(90), y - 18, -0.5, -0.5, color);
+    tag(xa + 70, y - 18, 110, 34, color);
+    lb(f.v, "fig", xa + 70, y - 18, -0.5, -0.5, color);
     return;
   }
   const units = f.k === "percent" ? 10 : f.n1 <= 1 ? (SUB[f.u] ?? 1) : 8;
-  const xa = X(30);
-  const xb = X(Math.min(w - 130, 30 + 26 * Math.max(4, units)));
-  row(f, Math.min(xa, xb), Math.max(xa, xb), y - 12, color);
-  lb(f.v, "plate", xb + c.side * 14, y - 12, away(), -0.5, color);
+  const xb = xa + Math.min(w - 170, 26 * Math.max(5, units));
+  row(f, xa, xb, y - 14, color, 7);
+  lb(f.v, "plate", xb + 14, y - 14, 0, -0.5, color);
 }
 
 /**
@@ -598,8 +610,8 @@ export function figures(c: Ctx): Used {
   const pct = figs.filter((f) => f.k === "percent");
   const money = figs.filter((f) => f.k === "money");
   const rest = (skip: Figure[]) => figs.filter((f) => !skip.includes(f));
-  const xa = Math.min(X(36), X(W - 36));
-  const xb = Math.max(X(36), X(W - 36));
+  const xa = c.x0 + 36;
+  const xb = c.x1 - 36;
   let more: Figure[] = [];
   if (pct.length === 2 && Math.abs(pct[0].n1 + pct[1].n1 - 100) < 0.5) {
     // Fork: one source splits into two shares of the whole.
@@ -640,10 +652,10 @@ export function figures(c: Ctx): Used {
       const ys = base + ((top - base) * f.n0) / max;
       const ye = base + ((top - base) * f.n1) / max;
       if (f.k === "percent") ln(x, base, x, top, col.muted, 0.25, 1);
-      glass(x, base, x, ys, color, 30, 0.1);
+      glass(x, base, x, ys, color, 30, 0.03);
       ln(x, base, x, ys, color, 0.9, 1.5, 2, 0.3);
       if (ye > ys) {
-        glass(x, ys, x, ye, color, 30, 0.05);
+        glass(x, ys, x, ye, color, 30, 0.014);
         for (let j = 1; j <= 3; j++) pt(x, ys + ((ye - ys) * j) / 3, 0, color, 7, 0.6);
       }
       pt(x, ye, 0, color, 15, 1);
@@ -665,15 +677,15 @@ export function figures(c: Ctx): Used {
     const f = pct[0];
     const y = cy + H * 0.12;
     if (c.item?.variant) {
-      lb(f.v, "big", cx, y + 20, -0.5, -1, col.ok);
-      row(f, xa, xb, y, col.ok);
-      lb(f.t, "cap", cx, y - 22, -0.5, 0, null, W - 80);
+      lb(f.v, "big", cx, y + 30, -0.5, -1, col.ok);
+      row(f, xa, xb, y, col.ok, 13);
+      lb(f.t, "cap", cx, y - 32, -0.5, 0, null, W - 80);
       c.inX = X(36);
       c.inY = y;
     } else {
       const r = Math.min(c.R * 0.6, H * 0.24);
       ring(cx, y, r * 1.2, col.muted, 0.35, 1, 0, 1, dashes(72, 0.3), 0, 0, c.t * 0.02);
-      ring(cx, y, r, col.ok, 0.1, 22, 0, f.n0 / 100, 0, 0);
+      ring(cx, y, r, col.ok, 0.014, 22, 0, f.n0 / 100, 0, 0);
       ring(cx, y, r, col.ok, 0.9, 1.6, 0, f.n0 / 100, 0, 0.7);
       for (let k = 0; k < 20; k++) {
         onRing(cx, y, r, (k + 0.5) / 20);
@@ -694,7 +706,7 @@ export function figures(c: Ctx): Used {
     const tw = Math.min(W * 0.5, 240);
     tag(cx, y, tw, 80, col.accent);
     lb(f.v, "big", cx, y, -0.5, -0.5, col.accent);
-    lb(f.t, "cap", cx, y - 54, -0.5, 0, null, W - 80);
+    if (f.t !== f.v) lb(f.t, "cap", cx, y - 54, -0.5, 0, null, W - 80);
     more = rest(money);
     c.inX = cx - c.side * (tw / 2 + 40);
     c.inY = y;
@@ -705,8 +717,8 @@ export function figures(c: Ctx): Used {
       const nAll = spans.reduce((m, f) => Math.max(m, f.n1), 0);
       let y = cy + H * 0.2;
       for (const f of spans) {
-        lb(f.t, "cap", X(36), y + 14, away(), -1, null, W - 72);
-        row(f, xa, xb, y, col.ai, nAll);
+        lb(f.t, "cap", xa, y + 18, 0, -1, null, W - 72);
+        row(f, xa, xb, y, col.ai, 9, nAll);
         y -= 92;
       }
       more = rest(spans);
@@ -752,9 +764,9 @@ export function figures(c: Ctx): Used {
       // One span, rate or count as a row of its own units.
       const f = spans[0] ?? figs.find((x) => x.k === "time") ?? figs[0];
       const y = cy + H * 0.14;
-      lb(f.v, "big", cx, y + 24, -0.5, -1, tint(f));
-      row(f, xa, xb, y, tint(f));
-      lb(f.t, "cap", cx, y - 26, -0.5, 0, null, W - 80);
+      lb(f.v, "big", cx, y + 30, -0.5, -1, tint(f));
+      row(f, xa, xb, y, tint(f), 13);
+      lb(f.t, "cap", cx, y - 32, -0.5, 0, null, W - 80);
       more = rest([f]);
       c.inX = X(36);
       c.inY = y;
@@ -803,7 +815,8 @@ export function versus(c: Ctx): Used {
       onRing(x, y, r * 1.22, j / 3 + t * (0.04 + 0.01 * i), 0.9);
       pt(rot.x, rot.y, rot.z, color, 8, 0.8);
     }
-    lb(o.t, "name", both ? mid + (i === 0 ? -1 : 1) * c.side * r0 * 1.0 : x, y, -0.5, -0.5, lead ? col.accent : col.fg);
+    if (both) lb(o.t, "name", x + (i === 0 ? -1 : 1) * c.side * r * 0.5, y + r * 1.22 + 8, -0.5, -1, color);
+    else lb(o.t, "name", x, y, -0.5, -0.5, lead ? col.accent : col.fg);
     const lx = both ? mid + (i === 0 ? -1 : 1) * c.side * (W / 4) : x;
     const capW = both ? W / 2 - 24 : slot - 18;
     let ly = y - r * 1.22 - 16;
@@ -817,7 +830,7 @@ export function versus(c: Ctx): Used {
     }
     if (i > 0 && !both) ln(X(10 + slot * (i - 0.5)) + c.side * r0 * 1.3, y, x - c.side * r * 1.3, y, col.muted, 0.45, 1, 2, 0.3);
   }
-  if (both) lb(said?.v ?? "", "plate", mid, y + r0 * 1.22 + 8, -0.5, -1, col.fg);
+  if (both) lb(said?.v ?? "", "plate", mid, y, -0.5, -0.5, col.fg);
   c.inX = both ? mid - c.side * r0 * 1.8 : X(10 + slot * 0.5) - c.side * r0 * 1.2;
   c.inY = y;
   return done();
@@ -913,7 +926,7 @@ export function list(c: Ctx): Used {
       const y = yTop - k * gap;
       const w = (W - 90) * (1 - 0.1 * k);
       const tone = items[k].x ? col.accent : col.ai;
-      glass(X(54), y, X(54 + w), y, tone, gap * 0.62, 0.07);
+      glass(X(54), y, X(54 + w), y, tone, gap * 0.62, 0.02);
       ln(X(54), y + gap * 0.31, X(54 + w), y + gap * 0.31, tone, 0.5, 1);
       node(X(40), y, col.ai, 7, !!items[k].x);
       lb(items[k].t, "cap", X(68), y, away(), -0.5, null, w - 30);
@@ -926,7 +939,7 @@ export function list(c: Ctx): Used {
   const rr = Math.min(W * 0.36, H * 0.36);
   orb(hx, cy, 30, col.ai, true);
   pt(hx, cy, 0, col.ai, 20, 1);
-  if (said?.h) lb(said.h, "cap", hx, cy - 50, -0.5, 0, null, 170);
+  if (said?.h) lb(said.h, "cap", hx, cy + 50, -0.5, -1, null, 180);
   for (let k = 0; k < n; k++) {
     const a = n === 1 ? 0 : (-0.5 + k / (n - 1)) * Math.PI * 0.62;
     const x = hx + c.side * rr * Math.cos(a);
