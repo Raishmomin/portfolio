@@ -414,11 +414,22 @@ const ROOM_IDLE_MS = 500;
  */
 type RoomCache = { at: number; ok: boolean; key: number; doc: boolean; y: number; st: number; sb: number };
 /**
- * The machine belongs to its section: when the section's bottom edge (or top edge, coming
- * in) crosses the room, the machine moves with that edge, rigidly, and fades over EXIT_PX
- * of it, so it never lingers over the next section (or arrives over the previous one).
+ * The machine belongs to its section: when the end of the section's content (or the
+ * section's top edge, coming in) crosses the machine, the machine moves with that edge,
+ * rigidly, and fades over EXIT_PX of it, so it never lingers over the next section (or
+ * arrives over the previous one).
  */
 const EXIT_PX = 160;
+/** A section's bottom padding (px): its content, not its box, is where the machine leaves. */
+const padB = new WeakMap<Element, number>();
+function contentBottom(sec: HTMLElement, bottom: number) {
+  let p = padB.get(sec);
+  if (p === undefined) {
+    p = parseFloat(getComputedStyle(sec).paddingBottom) || 0;
+    padB.set(sec, p);
+  }
+  return bottom - p;
+}
 const room0: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const room1: Rect = { l: 0, t: 0, r: 0, b: 0 };
 
@@ -588,7 +599,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       if (sec) {
         const sr = sec.getBoundingClientRect();
         c.st = sr.top;
-        c.sb = sr.bottom;
+        c.sb = contentBottom(sec, sr.bottom);
         // A reserved phone room in view wins; then a page intro's own room; else the frame.
         let el = slot.current.el;
         if (phone && (!el || !el.isConnected) && now - slot.current.at > 1000) {
