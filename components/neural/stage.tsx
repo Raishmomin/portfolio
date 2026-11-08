@@ -616,6 +616,7 @@ function Director({
   const [meter] = useState(() => new Meter());
   useEffect(() => meter.attach(), [meter]);
   const mods = useSyncExternalStore(scenes.subscribe, () => scenes.mods);
+  const lastT = useRef(0);
   const dim = useMemo(() => new Dimmer(), []);
   useEffect(() => () => dim.dispose(), [dim]);
 
@@ -741,6 +742,13 @@ function Director({
   // (a positive priority turns R3F's own render off) so it can be timed.
   useFrame((state) => meter.begin(state.gl.getContext() as GL2, `${store.active}|${quality}|${dpr}`), -1000);
   useFrame((state, delta) => {
+    // R3F zeroes clock.elapsedTime whenever the frameloop changes (the idle pause, a hidden
+    // tab), and scenes that keep clock stamps would see time run backwards (the Writing
+    // scene vanished). Keep it monotonic for every scene: after a reset, continue from
+    // where it paused, with no jump for the paused span.
+    const clock = state.clock;
+    if (clock.elapsedTime + 1e-3 < lastT.current) clock.elapsedTime += lastT.current;
+    lastT.current = clock.elapsedTime;
     // One scroll read per frame, before any scene writes DOM (perf P5): the scenes read
     // the snapshot, so no later read forces a layout pass.
     scroll.x = window.scrollX;
@@ -748,15 +756,19 @@ function Director({
     const aspect = state.size.width / Math.max(1, state.size.height);
     rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim);
   }, -1);
-  useFrame(({ gl, scene, camera }) => {
+  useFrame(({ gl, scene, camera, clock }) => {
     meter.renderTimed(gl.getContext() as GL2, () => gl.render(scene, camera));
     const w = meter.end();
     if (w) {
       onWindow(w);
-      // Exposed for QA: the last window (fps, 3D ms/frame on the CPU and GPU).
+      // Exposed for QA: the last window (fps, 3D ms/frame on the CPU and GPU) and the
+      // scenes' clock (s), which must only ever grow.
       document
         .querySelector("[data-neural-stage]")
-        ?.setAttribute("data-fps", `${Math.round(w.fps)} cpu ${w.cpu.toFixed(1)} gpu ${w.gpu < 0 ? "-" : w.gpu.toFixed(1)}`);
+        ?.setAttribute(
+          "data-fps",
+          `${Math.round(w.fps)} cpu ${w.cpu.toFixed(1)} gpu ${w.gpu < 0 ? "-" : w.gpu.toFixed(1)} t ${clock.elapsedTime.toFixed(1)}`,
+        );
     }
   }, 1);
 
