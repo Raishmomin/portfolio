@@ -11,9 +11,10 @@
 // that stage. The project comes from a hovered or focused card, else the top card of the AI
 // deck ("cp:deck"), else the card nearest the viewport's centre (phones: the first card
 // while the section's opening is in view); switching projects rebuilds the system (shared
-// stages glide, others grow or dissolve). The system's free area is cut to the part of its
-// section in view (phones: the opening above the heading), so it shrinks, slides and fades
-// with the section and never draws over the neighbouring content.
+// stages glide, others grow or dissolve). The system is fitted at full size into its free
+// area (phones: the section's opening above the heading) and is attached to its section
+// like content: it scrolls in and away with the section and fades as it leaves the
+// viewport, so it never shrinks into a corner or draws over the neighbouring content.
 // Names are aria-hidden labels in the shared layer that duplicate the DOM cards (phones,
 // where the layer shows none: the section's aria-hidden caption under the opening).
 import { useFrame, useThree } from "@react-three/fiber";
@@ -109,7 +110,6 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       st.bottom = r.bottom - c.top;
       st.first = model.index.get(el.querySelector<HTMLElement>("[data-focus-id]")?.dataset.focusId ?? "") ?? -1;
       if (st.near < 0) st.near = st.first;
-      if (!framing.phone) return;
       const cap = el.querySelector<HTMLElement>("[data-ai-caption]")?.getBoundingClientRect();
       const head = el.querySelector<HTMLElement>("h2")?.getBoundingClientRect();
       st.open = (cap && cap.height > 0 ? cap.top - 6 : head ? head.top - 28 : r.bottom) - c.top;
