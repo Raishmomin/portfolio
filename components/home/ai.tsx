@@ -35,11 +35,11 @@ export function AiCaption({ slug, title, stages }: { slug: string; title: string
       className="ai-caption pointer-events-none absolute inset-x-0 bottom-full mb-3 flex flex-col items-center gap-1.5 text-center lg:hidden"
     >
       <span className="font-mono text-[11px] uppercase leading-4 tracking-[0.16em] text-foreground">● {title}</span>
-      <span className="flex flex-wrap items-center justify-center gap-1 font-mono text-[10px] leading-4 text-muted-foreground">
+      <span className="flex flex-wrap items-center justify-center gap-[3px] font-mono text-[10px] leading-4 text-muted-foreground">
         {stages.map((stage, j) => (
-          <span key={stage} className="inline-flex items-center gap-1">
+          <span key={stage} className="inline-flex items-center gap-[3px]">
             {j > 0 ? "→" : null}
-            <span data-ai-stage={stage} data-ai-tone={llm >= 0 && j > llm ? "out" : undefined} className="rounded border border-border bg-background/70 px-1.5">
+            <span data-ai-stage={stage} data-ai-tone={llm >= 0 && j > llm ? "out" : undefined} className="rounded border border-border bg-background/70 px-1">
               {stage}
             </span>
           </span>

@@ -229,7 +229,7 @@ function buildCore(b: Builder, g: number, tier: number, net: { pts: Pt[] }) {
   if (tier !== 0) return;
   b.sprite(g, T.ai, [0, 0, -0.15], 2.5, SPRITE.halo, 0, 0.6);
   // The inner glow: the core's hot centre, breathing while idle (halo k1 = 1).
-  b.sprite(g, T.ai, [0, 0, 0], 1.55, SPRITE.halo, 1, 0.85);
+  b.sprite(g, T.ai, [0, 0, 0], 1.6, SPRITE.halo, 1, 1);
   for (let r = 0; r < MAX_RINGS; r++) {
     const [U, V] = ringBasis(r);
     b.panel(g, T.ai, { pos: [0, 0, 0], u: U, v: V, shape: SHAPE.ring, role: ROLE.ring, p: [r, 0], alpha: 0.38 });
@@ -269,7 +269,7 @@ function buildCore(b: Builder, g: number, tier: number, net: { pts: Pt[] }) {
 function neuralNet(): { pts: Pt[] } {
   const rand = rng(17);
   const pts: Pt[] = [];
-  const shell = 44;
+  const shell = 40;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < shell; i++) {
     const y = 1 - (2 * (i + 0.5)) / shell;
@@ -278,7 +278,7 @@ function neuralNet(): { pts: Pt[] } {
     const k = 0.9 + rand() * 0.12;
     pts.push([Math.cos(a) * r * k, y * k, Math.sin(a) * r * k]);
   }
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < 200; i++) {
     const r = 0.06 + 0.84 * rand() ** 0.8;
     const u = rand() * 2 - 1;
     const a = rand() * Math.PI * 2;
