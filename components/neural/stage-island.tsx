@@ -4,12 +4,11 @@
 // capability gate after `load` + idle, lazy-loads three → R3F → the stage in separate
 // idle periods, crossfades the server poster out once the canvas has drawn, and falls
 // back to the poster on a GPU loss, a struggling device or a stage error. Without the
-// canvas it dims the poster once the first section has scrolled away, so section text
-// stays easy to read.
+// canvas it shows the poster of the section in view, on that section's free side.
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { capable, contextOwner, nextIdle, onIdle, REDUCED } from "./runtime";
-import type { NeuralData } from "./types";
+import { SCENE_KEYS, type NeuralData } from "./types";
 
 const Stage = dynamic(
   async () => {
@@ -21,6 +20,10 @@ const Stage = dynamic(
   },
   { ssr: false, loading: () => null },
 );
+
+/** Scenes with a poster of their own (poster.tsx); any other scene shows the ambient field. */
+const POSTERS = ["hero", "contact", "services", "faq"] as const;
+const isScene = (v: string | undefined) => !!v && (SCENE_KEYS as readonly string[]).includes(v);
 
 /** Matches the poster/canvas `duration-700` crossfade. */
 const FADE_MS = 700;
@@ -101,35 +104,47 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
 
   const live = mounted && ready && want;
 
-  // 4. Poster: hidden (and its CSS pulses paused) under a live canvas; otherwise dimmed
-  //    while the hero is out of view.
+  // 4. Posters: faded out (and their CSS pulses paused) under a live canvas.
   useEffect(() => {
-    const posters = [...(boxRef.current?.parentElement?.querySelectorAll<HTMLElement>("[data-neural-poster]") ?? [])];
-    if (!posters.length) return;
-    const set = (o: string) => posters.forEach((p) => (p.style.opacity = o));
+    const stage = boxRef.current?.parentElement;
+    const group = stage?.querySelector<HTMLElement>("[data-neural-posters]");
+    const posters = [...(stage?.querySelectorAll<HTMLElement>("[data-neural-poster]") ?? [])];
+    if (!group) return;
     if (live) {
-      set("0");
+      group.style.opacity = "0";
       const timer = window.setTimeout(() => posters.forEach((p) => p.setAttribute("data-paused", "")), FADE_MS);
       return () => window.clearTimeout(timer);
     }
+    group.style.opacity = "";
     posters.forEach((p) => p.removeAttribute("data-paused"));
-    // A services page's phone room ([data-svc-room]) is the intro's opening, not its first section.
-    const first =
-      document.querySelector('[data-section="hero"]') ?? document.querySelector("[data-section]:not([data-svc-room])");
-    if (!first) {
-      set("");
-      return;
-    }
-    // "In view" = overlapping the middle third of the viewport.
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        set(entry.isIntersecting ? "" : "0.35");
-      },
-      { rootMargin: "-33% 0px -33% 0px" },
-    );
-    io.observe(first);
-    return () => io.disconnect();
   }, [live]);
+
+  // 5. Which poster (poster.tsx CSS): the section on the viewport's centre line picks it by
+  //    its scene and the side it sits on by its data-stage. A services page's phone room
+  //    ([data-svc-room]) is the intro's opening, not a section; a section that draws its
+  //    own static poster (.cg-poster, the contact globe) gets none.
+  useEffect(() => {
+    const stage = boxRef.current?.parentElement;
+    if (!stage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const el = e.target as HTMLElement;
+          const scene = isScene(el.dataset.scene) ? el.dataset.scene : el.dataset.section;
+          stage.dataset.poster = el.querySelector(".cg-poster")
+            ? "none"
+            : (POSTERS as readonly (string | undefined)[]).includes(scene)
+              ? scene
+              : "ambient";
+          stage.dataset.posterStage = el.dataset.stage || "left";
+        }
+      },
+      { rootMargin: "-50% 0px -49% 0px" },
+    );
+    document.querySelectorAll("[data-section]:not([data-svc-room])").forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
 
   const onReady = useCallback((value: boolean) => setReady(value), []);
   const onFallback = useCallback(() => setFailed(true), []);
