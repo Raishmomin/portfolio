@@ -6,7 +6,7 @@
 import Link from "next/link";
 import type { ServiceConfig } from "@/lib/services";
 import { Accent } from "../../ui/primitives";
-import { PageSection, PopPills, SectionHead, card, column, lit, nn, part, type PageScene } from "../ui";
+import { PageSection, PopPills, SectionHead, card, column, nn, part, type PageScene } from "../ui";
 
 const lastWord = (text: string) => text.slice(text.lastIndexOf(" ") + 1);
 /**
@@ -47,7 +47,8 @@ export function ServiceIndex({ services }: { services: ServiceConfig[] }) {
         <ol data-arch="" data-card-group="" className="svc-list svc-list-r mt-4 grid grid-cols-1 gap-4">
           {services.map((s, i) => (
             <li key={s.slug} {...card()} data-arch-item="" data-focus-id={`service:${s.slug}`} className="svc-item relative flex">
-              <article {...lit} className="panel group relative flex w-full flex-col p-6 transition-colors duration-150 hover:border-foreground/30 md:p-8">
+              {/* One hover effect per card (the pointer spotlight), not tilt as well. */}
+              <article data-spotlight="" className="panel group relative flex w-full flex-col p-6 transition-colors duration-150 hover:border-foreground/30 md:p-8">
                 <span aria-hidden="true" className="svc-bar" />
                 <p {...part} className="flex items-baseline justify-between gap-4 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
                   <span className="svc-num shrink-0 whitespace-nowrap">

@@ -5,7 +5,7 @@
 // (left to right, staggered), parts the new machine lacks sink and dissolve, new ones rise
 // in from below while their links draw on. No allocation per frame: every buffer, scratch
 // array and override table is preallocated.
-import { Color, type Group } from "three";
+import { Color, type Group, type InstancedBufferAttribute } from "three";
 import { isLight } from "../../fx";
 import type { NeuralData, ScenePalette } from "../../types";
 import { buildDesigns, type Design, type Live, type Tint } from "./designs";
@@ -42,6 +42,10 @@ class Track {
   readonly nextKey: Int16Array;
   readonly pend: Uint8Array;
   readonly delay: Float32Array;
+  /** Did the last step change anything (else the GPU copy of the pool is current)? */
+  moving = true;
+  /** Changed outside step (assign, spawn, reset, a theme change): upload next frame. */
+  dirty = true;
   constructor(
     readonly n: number,
     readonly ch: number,
@@ -69,6 +73,7 @@ class Track {
   /** New target for slot i (vals = null: the slot empties). */
   assign(i: number, vals: number[] | null, key: number, extras: number[], delay: number) {
     const { ch, ex } = this;
+    this.dirty = true;
     if (!vals) {
       this.talpha[i] = 0;
       this.pend[i] = 0;
@@ -101,6 +106,7 @@ class Track {
 
   private spawn(i: number) {
     const { ch, ex } = this;
+    this.dirty = true;
     for (let c = 0; c < ch; c++) {
       const v = this.next[i * ch + c];
       this.tgt[i * ch + c] = v;
@@ -118,6 +124,7 @@ class Track {
 
   /** Everything gone at once (a fresh assembly follows). */
   reset() {
+    this.dirty = true;
     this.alpha.fill(0);
     this.talpha.fill(0);
     this.pend.fill(0);
@@ -128,21 +135,38 @@ class Track {
     const k = 1 - Math.exp(-5.2 * dt);
     const kIn = 1 - Math.exp(-5.5 * dt);
     const kOut = 1 - Math.exp(-7 * dt);
+    const { cur, tgt, alpha, talpha, draw } = this;
+    let moving = this.dirty;
+    this.dirty = false;
     for (let i = 0; i < n; i++) {
       if (this.wait[i] > 0) {
         this.wait[i] -= dt;
         continue;
       }
-      if (this.talpha[i] === 0 && this.alpha[i] === 0) continue;
+      if (talpha[i] === 0 && alpha[i] === 0) continue;
       const o = i * ch;
-      for (let c = 0; c < ch; c++) this.cur[o + c] += (this.tgt[o + c] - this.cur[o + c]) * k;
-      this.alpha[i] += (this.talpha[i] - this.alpha[i]) * (this.talpha[i] > 0 ? kIn : kOut);
-      if (this.talpha[i] > 0) this.draw[i] = Math.min(1, this.draw[i] + dt * 1.8);
-      if (this.talpha[i] === 0 && this.alpha[i] < 0.01) {
-        this.alpha[i] = 0;
+      for (let c = 0; c < ch; c++) {
+        const d = tgt[o + c] - cur[o + c];
+        if (d === 0) continue;
+        // Settled values snap, so a still machine uploads nothing but what its program changes.
+        cur[o + c] = Math.abs(d) < 1e-4 ? tgt[o + c] : cur[o + c] + d * k;
+        moving = true;
+      }
+      const da = talpha[i] - alpha[i];
+      if (da !== 0) {
+        alpha[i] = Math.abs(da) < 1e-3 ? talpha[i] : alpha[i] + da * (talpha[i] > 0 ? kIn : kOut);
+        moving = true;
+      }
+      if (talpha[i] > 0 && draw[i] < 1) {
+        draw[i] = Math.min(1, draw[i] + dt * 1.8);
+        moving = true;
+      }
+      if (talpha[i] === 0 && alpha[i] < 0.01) {
+        alpha[i] = 0;
         if (this.pend[i]) this.spawn(i);
       }
     }
+    this.moving = moving;
   }
 }
 
@@ -277,15 +301,14 @@ export class ServicesRig {
   private pitch = PITCH;
   private low: boolean;
   private readonly tracks: Track[];
-  private readonly attrs: { needsUpdate: boolean }[][];
+  /** Instances uploaded last frame per pool (slabs, boxes, cylinders, links, sprites). */
+  private readonly upTo = new Int32Array(5);
 
   constructor(services: NeuralData["services"], quality: "high" | "low") {
     this.low = quality === "low";
     this.designs = buildDesigns(services, this.low);
     this.gl = createGl();
     this.tracks = [this.slabs, this.boxes, this.cyls, this.sprites, this.links];
-    const g = this.gl;
-    this.attrs = [g.sAttr, g.bAttr, g.cAttr, g.lAttr, g.pAttr].map((a) => Object.values(a));
     this.labelAlpha = new Float32Array(this.designs.length);
     this.near = this.designs.map((D) => D.labels.map((l) => nearParts(D, l.x, l.y, l.z)));
     this.gl.slabMat.uniforms.uDetail.value = this.low ? 0 : 1;
@@ -309,6 +332,7 @@ export class ServicesRig {
     spriteMat.uniforms.uAccent.value.set(p.accent);
     // Snap every live colour to the new theme.
     if (this.current >= 0) this.apply(this.current, true);
+    for (const tr of this.tracks) tr.dirty = true;
   }
 
   /** Tint channels of a part. */
@@ -545,10 +569,9 @@ export class ServicesRig {
     this.gl.spriteMat.uniforms.uScale.value = s;
   }
 
-  /** Pools + program overrides → instance attributes. */
+  /** Pools + program overrides → instance attributes, uploading only what changed. */
   private write(ns: number, nb: number) {
     const g = this.gl;
-    for (const list of this.attrs) for (let k = 0; k < list.length; k++) list[k].needsUpdate = true;
     // Slabs.
     {
       const t = this.slabs;
@@ -560,6 +583,7 @@ export class ServicesRig {
       const F = A.aFill.array as Float32Array;
       const ST = A.aStyle.array as Float32Array;
       const FL = A.aFlat.array as Float32Array;
+      let live = 0;
       for (let i = 0; i < t.n; i++) {
         const o = i * 8;
         const c = t.cur;
@@ -576,10 +600,15 @@ export class ServicesRig {
         F[i] = ov === ov ? ov : t.ext[i * 3];
         ST[i] = t.ext[i * 3 + 1];
         FL[i] = t.ext[i * 3 + 2];
+        if (AL[i] > 0) live = i + 1;
       }
+      g.slabs.instanceCount = live;
+      const n = this.span(0, live);
+      if (t.moving) this.upload(Object.values(A), 0, n);
+      else this.upload([A.aFill], 0, n);
     }
-    this.writeSolids(this.boxes, g.bAttr, this.glowB, MAX.boxes, nb);
-    this.writeSolids(this.cyls, g.cAttr, this.glowC, MAX.cyls, 0);
+    this.writeSolids(1, this.boxes, g.boxes, g.bAttr, this.glowB, nb);
+    this.writeSolids(2, this.cyls, g.cyls, g.cAttr, this.glowC, 0);
     // Links.
     {
       const t = this.links;
@@ -594,12 +623,14 @@ export class ServicesRig {
       const DR = A.aDraw.array as Float32Array;
       const C = A.aColor.array as Float32Array;
       let live = 0;
+      let lines = false;
       for (let i = 0; i < t.n; i++) {
         const o = i * 12;
         const c = t.cur;
         if (this.lineSet[i] && t.talpha[i] > 0) {
           // A live graph line: follows the program exactly.
           for (let k = 0; k < 6; k++) c[o + k] = t.tgt[o + k] = this.lineOv[i * 6 + k];
+          lines = true;
         }
         PA[i * 3] = c[o];
         PA[i * 3 + 1] = c[o + 1];
@@ -620,6 +651,9 @@ export class ServicesRig {
       }
       // Draw only up to the last live link.
       g.links.instanceCount = live;
+      const n = this.span(3, live);
+      if (t.moving) this.upload(Object.values(A), 0, n);
+      else if (lines) this.upload([A.aA, A.aB], 0, n);
     }
     // Sprites (static part; the dynamic part was written by the programs).
     {
@@ -652,13 +686,36 @@ export class ServicesRig {
         H[i] = touched && kind <= 1 ? gv : 0;
         if (AL[i] > 0) live = i + 1;
       }
-      for (let i = t.n + ns; i < MAX.sprites; i++) AL[i] = 0;
       // Static sprites up to the last live one, then the program's packets after them.
       g.sprites.instanceCount = ns > 0 ? t.n + ns : live;
+      const n = this.span(4, live);
+      // Static sprites bob and glow every frame; colours and kinds change only while moving.
+      this.upload(t.moving ? Object.values(A) : [A.aPos, A.aSize, A.aAlpha, A.aHi], 0, n);
+      if (ns > 0) this.upload(Object.values(A), t.n, ns, true);
     }
   }
 
-  private writeSolids(t: Track, A: Gl["bAttr"], glow: Float32Array, max: number, dynamic: number) {
+  /**
+   * Instances to upload for pool k: up to its last live one, or to last frame's when that
+   * was further (so a part that just faded out reaches the GPU as gone).
+   */
+  private span(k: number, live: number) {
+    const n = Math.max(live, this.upTo[k]);
+    this.upTo[k] = live;
+    return n;
+  }
+
+  /** Mark instances [start, start + count) of these attributes for upload (`add`: keep earlier ranges). */
+  private upload(list: InstancedBufferAttribute[], start: number, count: number, add = false) {
+    if (count <= 0) return;
+    for (const a of list) {
+      if (!add) a.clearUpdateRanges();
+      a.addUpdateRange(start * a.itemSize, count * a.itemSize);
+      a.needsUpdate = true;
+    }
+  }
+
+  private writeSolids(k: number, t: Track, geo: Gl["boxes"], A: Gl["bAttr"], glow: Float32Array, dynamic: number) {
     const P = A.aPos.array as Float32Array;
     const S = A.aScale.array as Float32Array;
     const C = A.aTint.array as Float32Array;
@@ -667,6 +724,7 @@ export class ServicesRig {
     const G = A.aGlow.array as Float32Array;
     const SD = A.aSides.array as Float32Array;
     const c = t.cur;
+    let live = 0;
     for (let i = 0; i < t.n; i++) {
       const o = i * 11;
       const gv = glow[i];
@@ -686,8 +744,13 @@ export class ServicesRig {
       AL[i] = t.alpha[i];
       G[i] = lit;
       SD[i] = t.ext[i];
+      if (AL[i] > 0) live = i + 1;
     }
-    for (let i = t.n + dynamic; i < max; i++) AL[i] = 0;
+    // Static solids up to the last live one, then the program's emitted ones after them.
+    geo.instanceCount = dynamic > 0 ? t.n + dynamic : live;
+    const n = this.span(k, live);
+    this.upload(t.moving ? Object.values(A) : [A.aPos, A.aGlow], 0, n);
+    if (dynamic > 0) this.upload(Object.values(A), t.n, dynamic, true);
   }
 
   dispose() {

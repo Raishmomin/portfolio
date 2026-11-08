@@ -38,7 +38,8 @@ export function ServicesSection({ services }: { services: ServiceConfig[] }) {
             <li key={s.slug} data-card="flip" data-arch-item="" data-focus-id={`service:${s.slug}`} className="svc-item relative flex">
               <Link
                 href={`/services/${s.slug}`}
-                data-tilt="3"
+                // One hover effect per card (the pointer spotlight); a tilt as well restyled the
+                // whole card every frame.
                 data-spotlight=""
                 className={cn(panel, "group flex w-full flex-col p-5 transition-colors duration-150 hover:border-foreground/30 md:p-6")}
               >
