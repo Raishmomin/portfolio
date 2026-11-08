@@ -949,8 +949,9 @@ html.motion-live [data-arch-active] > .panel {
 /* AI: while the 3D system runs (components/neural/scenes/ai.tsx sets [data-ai-sync] on the
    section), the shown project's stage chips follow its request: data-ai-done for stages
    it has passed, data-ai-lit for the stage it is in (orange after the model: the answer).
-   Without the 3D the CSS signal above runs instead. */
-html.motion-live [data-ai-sync] .stage-chip::after {
+   Without the 3D the CSS signal above runs instead (hovering a card included). */
+html.motion-live [data-ai-sync] .stage-chip::after,
+html.motion-live [data-ai-sync] [data-ai-card]:hover .stage-chip::after {
   animation: none;
 }
 [data-ai-stage] {

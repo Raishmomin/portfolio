@@ -574,10 +574,11 @@ export class Instances<S extends Spec> {
   uploadAll() {
     for (const a of Object.values(this.attr)) a.needsUpdate = true;
   }
-  /** Mark instances [from, from + n) of one attribute for upload. */
+  /** Mark instances [from, from + n) of one attribute for upload (adds to any range already
+   *  queued this frame, e.g. a palette repaint; three clears the ranges after each upload). */
   touch(name: keyof S, from: number, n: number) {
+    if (n <= 0) return;
     const a = this.attr[name];
-    a.clearUpdateRanges();
     a.addUpdateRange(from * a.itemSize, n * a.itemSize);
     a.needsUpdate = true;
   }

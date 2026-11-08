@@ -464,10 +464,9 @@ export class AiRig {
     this.paint(gl.links.arr.aColor, gl.links.count, this.tl, MAX_COND * SEG);
     this.paint(gl.sprites.arr.aColor, gl.sprites.count, this.ts, MAX_TOK + 1);
     this.paint(gl.glows.arr.aColor, gl.glows.count, this.tg, 0);
-    for (const a of [gl.panels.attr.aColor, gl.links.attr.aColor, gl.sprites.attr.aColor, gl.glows.attr.aColor]) {
-      a.clearUpdateRanges();
-      a.needsUpdate = true;
-    }
+    // Whole buffers, as ranges: a per-frame touch() of the same attribute adds its own range
+    // instead of narrowing this repaint to the tokens (which left the old theme's colours).
+    for (const set of [gl.panels, gl.links, gl.sprites, gl.glows]) set.touch("aColor", 0, set.count);
     // Conduits: the request in AI blue up to the model, the answer orange after it.
     for (let c = 0; c < MAX_COND; c++) this.paintCond(c);
   }
@@ -493,9 +492,7 @@ export class AiRig {
       col[i + 1] = base.g * 0.7 + muted.g * 0.3;
       col[i + 2] = base.b * 0.7 + muted.b * 0.3;
     }
-    const a = this.gl.links.attr.aColor;
-    a.clearUpdateRanges();
-    a.needsUpdate = true;
+    this.gl.links.touch("aColor", c * SEG, SEG);
   }
 
   /** Switch to project j: new targets, conduits, and a fresh request after the morph. */
