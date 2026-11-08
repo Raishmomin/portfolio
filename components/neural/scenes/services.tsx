@@ -13,9 +13,10 @@
 // (the /services intro) and on phones (where the cards cover the scene; the card highlight
 // is desktop-only there, so nothing disagrees) the four take turns.
 // Where: the scene's own free rect (framing.sceneFrames.services), shrunk by the
-// visibility guard so it never sits under content. The machine belongs to its section: the
-// end of the section's content carries it out (rigidly, fading), so it never lingers over
-// the next section. A page intro frames it beside the
+// visibility guard so it never sits under content. The machine belongs to its section: it
+// stays whole while any of its cards is on screen, rides up with the last card and fades as
+// that card leaves (sections without cards: the end of their content carries it out), so it
+// never lingers over the next section. A page intro frames it beside the
 // headline and sits it on its 3D caption; on phones a page may reserve an empty room for it
 // ([data-svc-room]). Names are aria-hidden labels in the shared layer: each one is the chip
 // this page itself prints for that service ([data-svc-tech]), so a name the page does not
@@ -414,7 +415,7 @@ const ROOM_IDLE_MS = 500;
  * doc: the room scrolls with the page (phone room, intro): shifted by the scroll since.
  * st / sb: the driving section's top and bottom (px) at that scroll.
  */
-type RoomCache = { at: number; ok: boolean; key: number; doc: boolean; y: number; st: number; sb: number };
+type RoomCache = { at: number; ok: boolean; key: number; doc: boolean; y: number; st: number; sb: number; lt: number; lb: number };
 /**
  * The machine belongs to its section: when the end of the section's content (or the
  * section's top edge, coming in) crosses the machine, the machine moves with that edge,
@@ -422,7 +423,23 @@ type RoomCache = { at: number; ok: boolean; key: number; doc: boolean; y: number
  * arrives over the previous one).
  */
 const EXIT_PX = 160;
-/** A section's bottom padding (px): its content, not its box, is where the machine leaves. */
+/**
+ * A section with cards: the machine stays whole while any card is on screen. Going out, its
+ * centre rides up with the last card's centre, and it fades (over EXIT_PX) once that card's
+ * top passes TAIL of the viewport height.
+ */
+const TAIL = 0.15;
+const lastCards = new WeakMap<Element, Element | null>();
+function lastCard(sec: HTMLElement) {
+  let el = lastCards.get(sec);
+  if (el === undefined || (el && !el.isConnected)) {
+    const all = sec.querySelectorAll("[data-card]");
+    el = all.length ? all[all.length - 1] : null;
+    lastCards.set(sec, el);
+  }
+  return el;
+}
+/** A section's bottom padding (px): its content, not its box, is where the machine leaves (no cards). */
 const padB = new WeakMap<Element, number>();
 function contentBottom(sec: HTMLElement, bottom: number) {
   let p = padB.get(sec);
@@ -518,7 +535,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
   const reg = useRef<ServicesRegistry>(emptyRegistry());
   const f = useRef<ServicesFrame>({ active: 0, weight: 0, pointer: { x: 0, y: 0 }, x: 0, y: 0, scale: 1, turn: 0, room: 0 });
   const seen = useRef({ last: -1e9, room: 0 });
-  const cache = useRef<RoomCache>({ at: -1e9, ok: false, key: NaN, doc: false, y: 0, st: -1e9, sb: 1e9 });
+  const cache = useRef<RoomCache>({ at: -1e9, ok: false, key: NaN, doc: false, y: 0, st: -1e9, sb: 1e9, lt: NaN, lb: NaN });
   // Scrolls mark the room stale (a passive flag: no layout read here).
   const scrolledAt = useRef(-1e9);
   useEffect(() => {
@@ -598,10 +615,16 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       c.ok = false;
       c.st = -1e9;
       c.sb = 1e9;
+      c.lt = c.lb = NaN;
       if (sec) {
         const sr = sec.getBoundingClientRect();
         c.st = sr.top;
         c.sb = contentBottom(sec, sr.bottom);
+        const lc = lastCard(sec)?.getBoundingClientRect();
+        if (lc && lc.height > 0) {
+          c.lt = lc.top;
+          c.lb = lc.bottom;
+        }
         // A reserved phone room in view wins; then a page intro's own room; else the frame.
         let el = slot.current.el;
         if (phone && (!el || !el.isConnected) && now - slot.current.at > 1000) {
@@ -640,6 +663,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     const scrolled = c.y - window.scrollY;
     const docShift = c.doc ? scrolled : 0;
     let edge = 0;
+    let fade = 1;
     if (room) {
       const cw = room.r - room.l;
       const ch = room.b - room.t;
@@ -652,7 +676,20 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       const halfH = Math.abs(pt[1] - o.y);
       let scale = Math.min(CAP, (halfW * 0.92) / d.hw, (halfH * 0.9) / d.hh);
       const mh = ((scale * d.hh) / halfH) * (ch / 2);
-      edge = Math.min(0, c.sb + scrolled - 8 - (cy + mh)) + Math.max(0, c.st + scrolled + 8 - (cy - mh));
+      // Coming in: the section's top edge carries the machine down, fading.
+      const enter = Math.max(0, c.st + scrolled + 8 - (cy - mh));
+      let exit: number;
+      if (c.lt === c.lt) {
+        // Going out with cards: whole while a card is on screen, riding up with the last one.
+        const lt = c.lt + scrolled;
+        exit = Math.min(0, (c.lt + c.lb) / 2 + scrolled - cy);
+        fade = smooth01(1 - Math.max(0, H * TAIL - lt) / EXIT_PX);
+      } else {
+        exit = Math.min(0, c.sb + scrolled - 8 - (cy + mh));
+        fade = smooth01(1 + exit / EXIT_PX);
+      }
+      edge = enter + exit;
+      fade *= smooth01(1 - enter / EXIT_PX);
       if (edge !== 0) {
         toWorld(camera, room.l + cw / 2, cy + edge, W, H, pt);
         o.y = pt[1];
@@ -663,7 +700,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       const cx = (room.l + cw / 2) / W;
       o.turn = phone ? 0 : cx < 0.45 ? 1 : cx > 0.55 ? -1 : 0;
     }
-    const edgeFade = smooth01(1 - Math.abs(edge) / EXIT_PX);
+    const edgeFade = fade;
     seen.current.room += ((room ? 1 : 0) - seen.current.room) * Math.min(1, dt * 6);
     if ((!room && seen.current.room < 0.01) || (room && edgeFade === 0)) {
       // No room (faded out), or carried out with its section: nothing is simulated,
@@ -682,7 +719,9 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     if (time - seen.current.last > 0.8) rig.reassemble(idx);
     seen.current.last = time;
     o.active = idx;
-    o.weight = weight;
+    // Fully present until its section is nearly out (the section edges above do the leaving,
+    // not the long crossfade into the next section).
+    o.weight = Math.min(1, weight * 2.5);
     o.pointer.x = pointer.x;
     o.pointer.y = pointer.y;
     o.room = seen.current.room * edgeFade;
@@ -705,7 +744,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     }
     hideTitle(L.title);
     const { layer } = L;
-    if (!layer.begin(weight * (o.room > 0.6 ? 1 : 0))) return;
+    if (!layer.begin(o.weight * (o.room > 0.6 ? 1 : 0))) return;
     if (!L.sized) sizeLabels(L);
     for (let k = 0; k < rig.designs.length; k++) {
       const a = rig.labelAlpha[k] * o.room;
