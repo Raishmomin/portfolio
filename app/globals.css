@@ -1512,3 +1512,11 @@ html:has([data-neural-poster][data-paused]) [data-scene="contact"][data-stage="f
   display: none;
 }
 /* end fm3-contact */
+/* fm3-writing */
+/* The post whose glass page the writing scene has stepped forward (hover, focus or scroll).
+   Set by the scene only while it shows, so the static layout never depends on it. */
+[data-section="writing"] [data-lit] {
+  border-color: hsl(var(--primary) / 0.45);
+  box-shadow: 0 14px 40px -24px hsl(var(--primary) / 0.55);
+}
+/* end fm3-writing */
