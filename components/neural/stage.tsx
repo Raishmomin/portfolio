@@ -53,6 +53,7 @@ const LOADERS: Record<SceneKey, () => Promise<{ default: SceneComponent }>> = {
   ai: () => import("./scenes/ai"),
   work: () => import("./scenes/work"),
   services: () => import("./scenes/services"),
+  writing: () => import("./scenes/writing"),
   faq: () => import("./scenes/faq"),
   contact: () => import("./scenes/contact"),
   ambient: () => import("./scenes/ambient"),
