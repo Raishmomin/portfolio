@@ -26,9 +26,11 @@ import { Canvas, useFrame, useThree, type GLProps } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import {
   AddEquation,
+  BufferGeometry,
   CustomBlending,
+  Float32BufferAttribute,
+  Mesh,
   OneMinusSrcAlphaFactor,
-  PlaneGeometry,
   ShaderMaterial,
   Vector3,
   WebGLRenderer,
@@ -182,15 +184,23 @@ function cameraFor(key: SceneKey, aspect: number, progress: number, out: CameraT
   return out;
 }
 
-// The dimmer: a full-screen pass drawn after every scene that scales down what the scenes
+// The dimmer: a screen-space pass drawn after every scene that scales down what the scenes
 // drew (colour and alpha alike) wherever the composition puts content, so text always sits
 // over a quiet scene: left / right halves, a uniform veil for "full", everything below the
-// band, and on phones everything outside the section opening in view.
+// band, and on phones everything outside the section opening in view. It is drawn only
+// where it dims (perf D1: a full-screen blend cost about 1 ms of GPU per frame on an
+// HD 520): two unit quads, each mapped onto a screen rect by the vertex shader (the main
+// region, and the strip above a band or an opening), and no draw at all when every weight
+// is 0. Outside those rects the fragment would be exactly 0, so the picture is the same.
 const DIM_VERT = /* glsl */ `
+uniform vec4 uRectA; // screen uv (y up): x0, y0, x1, y1 of quad 0
+uniform vec4 uRectB; // ... of quad 1
+attribute float aQuad;
 varying vec2 vUv;
 void main() {
-  vUv = uv;
-  gl_Position = vec4(position.xy, 0.0, 1.0);
+  vec4 r = aQuad > 0.5 ? uRectB : uRectA;
+  vUv = mix(r.xy, r.zw, position.xy);
+  gl_Position = vec4(vUv * 2.0 - 1.0, 0.0, 1.0);
 }`;
 const DIM_FRAG = /* glsl */ `
 uniform vec4 uMask; // left, right, full, band weights
@@ -212,8 +222,40 @@ void main() {
   gl_FragColor = vec4(0.0, 0.0, 0.0, clamp(a, 0.0, 0.92));
 }`;
 
+/** Below this weight a mask contributes nothing visible: the pass is skipped. */
+const DIM_EPS = 0.01;
+/** Where the fragment shader's side masks reach (its smoothstep edges), as viewport fractions. */
+const DIM_LEFT_TO = 0.62;
+const DIM_RIGHT_FROM = 0.38;
+/** The fragment shader's band/opening edges: dimmed down to top + 0.02 and from bottom - 0.03. */
+const DIM_ABOVE = 0.02;
+const DIM_BELOW = 0.03;
+
+/** Two unit quads (xy in 0..1, aQuad 0/1), each mapped onto its own screen rect in the vertex shader. */
+function dimGeometry(): BufferGeometry {
+  const g = new BufferGeometry();
+  const pos: number[] = [];
+  const quad: number[] = [];
+  for (let q = 0; q < 2; q++) {
+    pos.push(0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0);
+    quad.push(q, q, q, q);
+  }
+  g.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  g.setAttribute("aQuad", new Float32BufferAttribute(quad, 1));
+  g.setIndex([0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7]);
+  return g;
+}
+
+/** Writes a rect given in top-down viewport fractions as the shader's y-up uv rect. */
+function setRect(v: number[], x0: number, top: number, x1: number, bottom: number) {
+  v[0] = x0;
+  v[1] = 1 - bottom;
+  v[2] = x1;
+  v[3] = 1 - top;
+}
+
 class Dimmer {
-  readonly geometry = new PlaneGeometry(2, 2);
+  readonly geometry = dimGeometry();
   readonly material = new ShaderMaterial({
     vertexShader: DIM_VERT,
     fragmentShader: DIM_FRAG,
@@ -222,6 +264,8 @@ class Dimmer {
       uPhone: { value: 0 },
       uBand: { value: [0, 0] },
       uOpen: { value: [0, 0] },
+      uRectA: { value: [0, 0, 1, 1] },
+      uRectB: { value: [0, 0, 0, 0] },
     },
     transparent: true,
     depthTest: false,
@@ -234,6 +278,12 @@ class Dimmer {
     blendSrcAlpha: ZeroFactor,
     blendDstAlpha: OneMinusSrcAlphaFactor,
   });
+  readonly mesh = new Mesh(this.geometry, this.material);
+
+  constructor() {
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 1e6;
+  }
 
   update(c: Composition, f: Frame) {
     const u = this.material.uniforms;
@@ -249,6 +299,52 @@ class Dimmer {
     const o = u.uOpen.value as number[];
     o[0] = f.open.top;
     o[1] = f.open.bottom;
+
+    // The region the pass changes (top-down fractions): quad 0 is x0..x1 from `top` to the
+    // bottom; quad 1 (band / opening) the strip from the top down to `strip`. A blend of a
+    // side and a band, or of both sides, covers the whole screen (the union is no rect).
+    let x0 = 1;
+    let x1 = 0;
+    let top = 0;
+    let strip = 0;
+    if (f.phone) {
+      x0 = 0;
+      x1 = 1;
+      top = f.open.bottom - DIM_BELOW;
+      strip = f.open.top + DIM_ABOVE;
+    } else {
+      const left = c.mL >= DIM_EPS;
+      const right = c.mR >= DIM_EPS;
+      const band = c.mB >= DIM_EPS;
+      if (c.mF >= DIM_EPS || (left && right) || (band && (left || right))) {
+        x0 = 0;
+        x1 = 1;
+      } else if (left) {
+        x0 = 0;
+        x1 = DIM_LEFT_TO;
+      } else if (right) {
+        x0 = DIM_RIGHT_FROM;
+        x1 = 1;
+      } else if (band) {
+        x0 = 0;
+        x1 = 1;
+        top = f.band.bottom - DIM_BELOW;
+        strip = f.band.top + DIM_ABOVE;
+      }
+    }
+    const visible = x1 > x0;
+    this.mesh.visible = visible;
+    if (!visible) return;
+    top = Math.min(1, Math.max(0, top));
+    strip = Math.min(1, Math.max(0, strip));
+    if (strip >= top) {
+      // The clear part is too thin to leave out (or there is none): one quad, top to bottom.
+      top = 0;
+      strip = 0;
+    }
+    setRect(u.uRectA.value as number[], x0, top, x1, 1);
+    if (strip > 0) setRect(u.uRectB.value as number[], x0, 0, x1, strip);
+    this.geometry.setDrawRange(0, strip > 0 ? 12 : 6);
   }
 
   dispose() {
@@ -666,7 +762,7 @@ function Director({
 
   return (
     <>
-      <mesh geometry={dim.geometry} material={dim.material} frustumCulled={false} renderOrder={1e6} />
+      <primitive object={dim.mesh} />
       {SCENE_KEYS.map((key) => (
         <SceneSlot
           key={key}
