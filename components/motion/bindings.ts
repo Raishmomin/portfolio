@@ -213,7 +213,9 @@ function pin(el: HTMLElement): Binding {
 }
 
 // [data-tilt] (pointer:fine) — 3D hover tilt toward the pointer with a glare highlight.
-// data-tilt="<deg>" sets the maximum angle (default 6).
+// data-tilt="<deg>" sets the maximum angle (default 6). Reads happen in the pointer event,
+// before anything of the frame is written; every write waits for one rAF, so a layout read
+// never lands after a style write (that forced a restyle of the card per read).
 function tilt(el: HTMLElement): Binding {
   const mm = gsap.matchMedia();
   mm.add(FINE, () => {
@@ -229,41 +231,54 @@ function tilt(el: HTMLElement): Binding {
     const ry = gsap.quickTo(el, "rotationY", { duration: 0.6, ease: "power3" });
     const lift = gsap.quickTo(el, "z", { duration: 0.6, ease: "power3" });
     // The untilted rect, cached on enter (reading it per move would measure the tilt
-    // itself); re-read only after the page scrolled.
+    // itself); shifted by the scroll since, and re-read after a resize.
     let r: DOMRect | null = null;
     let at = 0;
-    const move = (e: PointerEvent) => {
-      if (e.pointerType === "touch") return;
-      if (!r || at !== window.scrollY) {
-        if (!r) r = el.getBoundingClientRect();
-        else r = new DOMRect(r.x, r.y + at - window.scrollY, r.width, r.height);
-        at = window.scrollY;
-      }
-      const px = clamp((e.clientX - r.left) / r.width, 0, 1);
-      const py = clamp((e.clientY - r.top) / r.height, 0, 1);
+    let px = 0.5;
+    let py = 0.5;
+    let raf = 0;
+    const paint = () => {
+      raf = 0;
       ry((px - 0.5) * 2 * max);
       rx((0.5 - py) * 2 * max);
       lift(14);
-      el.style.setProperty("--gx", `${(px * 100).toFixed(1)}%`);
-      el.style.setProperty("--gy", `${(py * 100).toFixed(1)}%`);
-      el.setAttribute("data-tilting", "");
+      // The glare is the only consumer: set on it, a move restyles one leaf, not the card.
+      glare.style.setProperty("--gx", `${(px * 100).toFixed(1)}%`);
+      glare.style.setProperty("--gy", `${(py * 100).toFixed(1)}%`);
+      if (!el.hasAttribute("data-tilting")) el.setAttribute("data-tilting", "");
+    };
+    const move = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      const y = window.scrollY;
+      if (!r) r = el.getBoundingClientRect();
+      else if (at !== y) r = new DOMRect(r.x, r.y + at - y, r.width, r.height);
+      at = y;
+      px = clamp((e.clientX - r.left) / r.width, 0, 1);
+      py = clamp((e.clientY - r.top) / r.height, 0, 1);
+      if (!raf) raf = requestAnimationFrame(paint);
     };
     const leave = () => {
       r = null;
+      cancelAnimationFrame(raf);
+      raf = 0;
       rx(0);
       ry(0);
       lift(0);
       el.removeAttribute("data-tilting");
     };
+    const resized = () => {
+      r = null;
+    };
     el.addEventListener("pointermove", move, { passive: true });
     el.addEventListener("pointerleave", leave);
+    window.addEventListener("resize", resized);
     return () => {
+      cancelAnimationFrame(raf);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerleave", leave);
+      window.removeEventListener("resize", resized);
       glare.remove();
       if (!positioned) el.style.removeProperty("position");
-      el.style.removeProperty("--gx");
-      el.style.removeProperty("--gy");
       el.removeAttribute("data-tilting");
     };
   });
@@ -299,6 +314,30 @@ function magnetic(el: HTMLElement): Binding {
   return { revert: () => mm.revert() };
 }
 
+// [data-section] — decorative CSS loops (status dot, AI pulse, the current role's ring, the
+// pipeline chips' signal) run only near the viewport: one shared IntersectionObserver flags
+// the other sections data-offscreen and app/globals.css pauses their loops. An off-screen
+// infinite animation still repaints and re-layerizes the whole page every frame.
+const sections = new Set<Element>();
+let sectionIO: IntersectionObserver | null = null;
+function offscreen(el: HTMLElement): Binding {
+  sectionIO ??= new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) if (sections.has(e.target)) e.target.toggleAttribute("data-offscreen", !e.isIntersecting);
+    },
+    { rootMargin: "10% 0px" },
+  );
+  sections.add(el);
+  sectionIO.observe(el);
+  return {
+    revert() {
+      sections.delete(el);
+      sectionIO?.unobserve(el);
+      el.removeAttribute("data-offscreen");
+    },
+  };
+}
+
 /** Attribute → binder. The runtime binds each element once per attribute. */
 export const BINDERS: Record<string, (el: HTMLElement) => Binding> = {
   ...CARD_BINDERS,
@@ -309,4 +348,5 @@ export const BINDERS: Record<string, (el: HTMLElement) => Binding> = {
   "data-tilt": tilt,
   "data-magnetic": magnetic,
   "data-arch": arch,
+  "data-section": offscreen,
 };
