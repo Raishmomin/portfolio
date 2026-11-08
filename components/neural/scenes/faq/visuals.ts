@@ -220,10 +220,10 @@ function badge(v: string, x: number, y: number) {
 export function field(c: Ctx, cx: number, cy: number, hot: number, n: number, hover: number): Used {
   begin(c);
   const { col, t, R } = c;
-  const g = R * 0.36 * (1 + 0.06 * hot);
+  const g = R * 0.42 * (1 + 0.06 * hot);
   const hc = hot > 0 ? col.accent : col.ai;
   ring(c.vx, c.vy, R * 1.02, col.line, 0.4, 1, 0, 1, dashes(72, 0.3), 0, 0, t * 0.02);
-  ring(cx, cy, g * 0.5, col.ai, 0.006, g, 0, 1, 0, 0);
+  ring(cx, cy, g * 0.5, col.ai, 0.004, g, 0, 1, 0, 0);
   for (let k = 0; k < 3; k++) {
     const ex = k === 0 ? 1.1 + 0.3 * Math.sin(t * 0.3) : k === 1 ? -0.9 : 0.4 + t * 0.21;
     const ez = t * (0.12 + 0.07 * k) + k;
