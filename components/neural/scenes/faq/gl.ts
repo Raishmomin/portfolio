@@ -53,11 +53,12 @@ class Pool {
 
   /**
    * Ease toward the targets. `birth(i)` prepares a slot that is appearing (current alpha 0,
-   * target > 0); slots wait their stagger after a switch (`since` = s since it).
+   * target > 0); slots wait their stagger after a switch (`since` = s since it). `out`: the
+   * outgoing visual is fading, fast, before the next one assembles.
    */
-  ease(dt: number, since: number, fast: number, birth: (i: number) => void) {
+  ease(dt: number, since: number, fast: number, birth: (i: number) => void, out: boolean) {
     const { cur, tgt, stride, alpha, snap } = this;
-    const settled = since > SETTLE_S;
+    const settled = out || since > SETTLE_S;
     const kSlow = 1 - Math.exp(-dt * (settled ? RATE_SETTLED : RATE_MORPH));
     const kFast = 1 - Math.exp(-dt * RATE_SETTLED);
     for (let i = 0; i < this.count; i++) {
@@ -69,7 +70,7 @@ class Pool {
       }
       if (i >= fast && !settled && since < Math.min(i - fast, STAGGER_MAX) * STAGGER_S) continue;
       if (cur[o + alpha] <= 0.004 && ta > 0.004) birth(i);
-      const k = i < fast ? kFast : kSlow;
+      const k = i < fast || out ? kFast : kSlow;
       for (let c = 0; c < stride; c++) cur[o + c] += (tgt[o + c] - cur[o + c]) * k;
       for (const c of snap) cur[o + c] = tgt[o + c];
     }
@@ -100,8 +101,6 @@ const ARC_VERT = /* glsl */ `
     return rx * ry * rz;
   }
   void main() {
-    // A strip around the band only (position.x = along the arc 0..1, .y = inner/outer
-    // edge), widened by the glow and by round caps: no fill outside what can light up.
     float ext = aR.y * (0.5 + 2.5 * aA.w) + 3.0;
     float span = aR.w - aR.z;
     float a0 = 0.0;
@@ -140,7 +139,6 @@ const ARC_FRAG = /* glsl */ `
     float u = t;
     float outPx = 0.0;
     if (span < 0.999) {
-      // Distance (px) outside the arc along the circle: round caps on the band, soft glow ends.
       float rel = fract(t - vR.z + 1.0);
       float outA = rel <= span ? 0.0 : min(rel - span, 1.0 - rel);
       outPx = outA * 6.2831853 * vR.x;
@@ -152,7 +150,6 @@ const ARC_FRAG = /* glsl */ `
     float glow = vA.w * exp(-pow(gd / max(vR.y * 1.4, 1.5), 2.0) * 2.2) * (uLight > 0.5 ? 0.25 : 0.55);
     float dash = 1.0;
     if (vA.y >= 1.0) {
-      // Dashes per turn (0.1 steps) counted from the arc's start; the fraction is the duty.
       float n = floor(vA.y) * 0.1;
       float duty = fract(vA.y);
       float pos = span < 0.999 ? fract(t - vR.z + 1.0) : t;
@@ -161,7 +158,6 @@ const ARC_FRAG = /* glsl */ `
       dash = smoothstep(0.0, de, f) * (1.0 - smoothstep(duty - de, duty + de, f));
     }
     float tail = mix(1.0, u * u, vA.z);
-    // Paper needs more ink than light needs on dark.
     float a = min(1.0, (core + glow) * dash * tail * vA.x * (uLight > 0.5 ? 1.45 : 1.0)) * uOpacity;
     if (a < 0.002) discard;
     vec3 c = uLight > 0.5 ? vCol : vCol * (1.0 + 0.35 * core);
@@ -323,6 +319,7 @@ export class FaqGL {
 
   setLight(light: boolean) {
     this.light = light;
+    ink = light ? 1.5 : 1;
     for (const m of [this.arcMat, this.segMat, this.sprites.material]) {
       setGlowBlending(m, light);
       m.uniforms.uLight.value = light ? 1 : 0;
@@ -336,7 +333,7 @@ export class FaqGL {
   }
 
   /** Ease every pool; `fast` = slots per pool that track the page (the question nodes). */
-  ease(dt: number, since: number, fast: number, ox: number, oy: number, oz: number) {
+  ease(dt: number, since: number, fast: number, ox: number, oy: number, oz: number, out: boolean) {
     const D = this.dots;
     D.ease(dt, since, fast, (i) => {
       const o = i * 8;
@@ -348,7 +345,7 @@ export class FaqGL {
       }
       D.cur[o + 6] = 0;
       D.cur[o + 7] = 0;
-    });
+    }, out);
     const A = this.arcs;
     A.ease(dt, since, fast, (i) => {
       const o = i * ARC.stride;
@@ -356,7 +353,7 @@ export class FaqGL {
       A.cur[o + ARC.end] = A.cur[o + ARC.start];
       A.cur[o + ARC.rad] *= 0.55;
       A.cur[o + ARC.alpha] = 0;
-    });
+    }, out);
     const S = this.segs;
     S.ease(dt, since, fast, (i) => {
       const o = i * SEG.stride;
@@ -365,7 +362,7 @@ export class FaqGL {
       S.cur[o + 4] = S.cur[o + 1];
       S.cur[o + 5] = S.cur[o + 2];
       S.cur[o + SEG.alpha] = 0;
-    });
+    }, out);
   }
 
   /** Copy the current values into the GPU attributes. */
@@ -455,6 +452,9 @@ export class FaqGL {
 
 // ---------------------------------------------------------------- writers (targets)
 
+/** Stroke weight for thin lines (paper needs more ink than light on dark); glass bands keep theirs. */
+let ink = 1;
+
 /** Arc dash pattern: `perTurn` dashes per full turn, counted from the arc's start, each `duty` long. */
 export const dashes = (perTurn: number, duty: number) => Math.round(perTurn * 10) + Math.min(0.99, duty);
 
@@ -501,7 +501,7 @@ export function arc(
   t[o + 4] = ey;
   t[o + 5] = ez;
   t[o + ARC.rad] = radius;
-  t[o + ARC.thick] = thick;
+  t[o + ARC.thick] = thick < 4 ? thick * ink : thick;
   t[o + ARC.start] = start;
   t[o + ARC.end] = end;
   t[o + 10] = c.r;
@@ -541,7 +541,7 @@ export function seg(
   t[o + 7] = c.g;
   t[o + 8] = c.b;
   t[o + SEG.alpha] = alpha;
-  t[o + SEG.width] = width;
+  t[o + SEG.width] = width < 4 ? width * ink : width;
   t[o + SEG.speed] = speed;
   t[o + SEG.flow] = flow;
 }

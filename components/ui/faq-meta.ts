@@ -104,7 +104,7 @@ const FIGURE = new RegExp(
 
 const STOP = new Set(["with", "for", "of", "to", "and", "or", "the", "a", "an", "at", "in", "on", "from", "per", "is", "are", "than", "when", "if", "but", "so", "by", "depending", "during", "into", "before", "after", "about", "each", "every", "first", "shipping", "unless", "while", "that", "which"]);
 /** Prepositions that carry a figure's meaning ("90% of production workloads", "$3,000/week for DevOps"). */
-const LINK = new Set(["of", "for", "on", "per"]);
+const LINK = new Set(["of", "for", "on", "per", "with"]);
 const NEGATION = /\b(?:don't|do not|never|not|no)\b/i;
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
@@ -137,7 +137,18 @@ function label(a: string, at: number, end: number): string {
   }
   const clause = a.slice(cs, ce).trim();
   if (words(clause) <= 9) return clause;
-  const start = words(a.slice(cs, at)) <= 4 ? cs : at;
+  // The words leading to it: up to 4, from the last joint ("… and overlap 4+ hours").
+  let start = cs;
+  const lead = [...a.slice(cs, at).matchAll(/\S+/g)];
+  if (lead.length > 4) {
+    let k = lead.length - 4;
+    for (let j = lead.length - 1; j >= k; j--)
+      if (/^(?:and|or|but|if|when|so|that)$/i.test(lead[j][0]) || lead[j][0] === "I") {
+        k = lead[j][0] === "I" ? j : j + 1;
+        break;
+      }
+    start = k < lead.length ? cs + (lead[k].index ?? 0) : at;
+  }
   let stop = end;
   let budget = 2;
   let linked = false;
@@ -159,7 +170,7 @@ function label(a: string, at: number, end: number): string {
   return a
     .slice(start, stop)
     .trim()
-    .replace(/\s+(?:of|for|on|per)$/i, "");
+    .replace(/\s+(?:of|for|on|per|with)$/i, "");
 }
 
 const num = (s: string): number => {
@@ -315,7 +326,18 @@ function findEnum(a: string): Enum | null {
       if (items.length >= 3) return { items, title: short(c[1], 12) || null, at: at + c[1].length, end: at + s.length };
     }
     const items = splitItems(s);
-    if (items.length >= 3) return { items, title: null, at, end: at + s.length };
+    if (items.length >= 3) {
+      // "… full working days with EU, MENA, and APAC": the first item is the lead-in plus
+      // the first item; split it at its last "with/for/to/in" (the lead-in titles the list).
+      const longest = Math.max(...items.slice(1).map(words));
+      const lead = items[0].match(/^(.*\s(?:with|for|to|in))\s+(\S.*)$/i);
+      if (lead && words(items[0]) > 6 && longest <= 3 && words(lead[2]) <= 3) {
+        const pre = lead[1].replace(/^.*\s(?:and|but)\s/i, "").replace(/\s+(?:with|for|to|in)$/i, "");
+        const from = s.indexOf(lead[2]);
+        return { items: [lead[2], ...items.slice(1)], title: short(pre, 8) || null, at: at + from, end: at + s.length };
+      }
+      return { items, title: null, at, end: at + s.length };
+    }
   }
   return null;
 }
