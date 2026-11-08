@@ -156,7 +156,11 @@ export class FaqRig {
   private readonly ys = new Float32Array(QMAX);
   private readonly docY = new Float32Array(QMAX);
   private layoutDirty = true;
-  private followUntil = 0;
+  private canvasDirty = true;
+  private ro: ResizeObserver | null = null;
+  /** Scroll position, cached in the scroll listener (never read in the frame after DOM writes). */
+  private sy = 0;
+  private cLeft = 0;
   private listX = 0;
   private cTop = 0;
   private wl = 0;
@@ -263,7 +267,9 @@ export class FaqRig {
   attach(): () => void {
     const schedule = () => {
       this.dirty = true;
+      this.sy = window.scrollY;
     };
+    this.sy = window.scrollY;
     const relayout = () => {
       this.dirty = true;
       this.layoutDirty = true;
@@ -279,22 +285,24 @@ export class FaqRig {
         if (el.open) this.openOrder.push(i);
         this.openIdx = this.openOrder.length ? this.openOrder[this.openOrder.length - 1] : -1;
       }
-      // The cards slide while answers open and close: follow them until the accordion settles.
-      this.followUntil = performance.now() + 900;
       relayout();
     };
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", relayout, { passive: true });
     document.addEventListener("toggle", onToggle, true);
-    // Answers opening and closing (and anything else that resizes the page) move the cards.
+    // Answers opening and closing (and anything else that resizes the page) move the cards;
+    // build() adds each card to it.
     const ro = new ResizeObserver(relayout);
+    this.ro = ro;
     ro.observe(document.body);
+    for (const it of this.items) ro.observe(it.el);
     document.fonts?.ready.then(relayout);
     return () => {
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", relayout);
       document.removeEventListener("toggle", onToggle, true);
       ro.disconnect();
+      this.ro = null;
       this.section?.removeAttribute("data-faq-live");
     };
   }
@@ -330,8 +338,17 @@ export class FaqRig {
         variant: 0,
       };
     });
-    // Two questions in a row never get the same picture: the second takes the other layout.
-    for (let i = 1; i < this.items.length; i++) if (this.items[i].kind === this.items[i - 1].kind) this.items[i].variant = this.items[i - 1].variant ^ 1;
+    // Two questions in a row never get the same picture: the second takes the other layout
+    // (a tiered list starts as stacked layers).
+    this.items.forEach((it, i) => {
+      const prev = this.items[i - 1];
+      it.variant = prev && prev.kind === it.kind ? prev.variant ^ 1 : it.kind === "list" && /tier|layer/i.test(it.said.h ?? "") ? 1 : 0;
+    });
+    // The browser reports each card's size change (the accordion animating): re-read then.
+    this.ro?.disconnect();
+    this.ro?.observe(document.body);
+    for (const it of this.items) this.ro?.observe(it.el);
+    this.canvasDirty = true;
     this.byId = new Map(this.items.map((it, i) => [it.id, i]));
     this.openOrder = this.items.flatMap((it, i) => (it.el.open ? [i] : []));
     this.openIdx = this.openOrder.length ? this.openOrder[this.openOrder.length - 1] : -1;
@@ -349,8 +366,14 @@ export class FaqRig {
       this.winOk = false;
       return;
     }
-    const c = canvas.getBoundingClientRect();
-    this.cTop = c.top;
+    // The canvas is fixed: its rect changes only with the layout.
+    if (this.canvasDirty || this.layoutDirty) {
+      const cr = canvas.getBoundingClientRect();
+      this.cTop = cr.top;
+      this.cLeft = cr.left;
+      this.canvasDirty = false;
+    }
+    const c = { top: this.cTop, left: this.cLeft };
     if (this.win && !this.win.isConnected) this.win = this.section.querySelector<HTMLElement>("[data-faq-window]");
     const r = this.win?.getBoundingClientRect();
     this.winOk = !!r && r.width > MIN_WIN && r.height > MIN_WIN;
@@ -389,7 +412,7 @@ export class FaqRig {
           x += e.offsetLeft;
         }
         this.docY[i] = y + Math.min(28, sum.offsetHeight / 2);
-        if (i === 0) listX = x + sum.offsetWidth / 2 - window.scrollX;
+        if (i === 0) listX = x + sum.offsetWidth / 2;
       }
       this.listX = listX;
     }
@@ -542,13 +565,9 @@ export class FaqRig {
     this.cam = camera;
     this.W = size.width;
     this.H = size.height;
-    if (this.followUntil > 0) {
-      if (performance.now() < this.followUntil) this.layoutDirty = true;
-      else this.followUntil = 0;
-    }
     if (this.dirty || this.layoutDirty) this.measure(canvas);
     const n = this.items.length;
-    const sy = window.scrollY + this.cTop;
+    const sy = this.sy + this.cTop;
     for (let i = 0; i < n; i++) this.ys[i] = this.docY[i] - sy;
 
     // Where: the window (desktop); below lg the open card's slot, else the section's opening.

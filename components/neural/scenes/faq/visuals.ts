@@ -539,7 +539,7 @@ function row(f: Figure, xa: number, xb: number, y: number, color: Color, hh = 10
     const maybe = !on && m < band;
     const pulse = 0.45 + 0.3 * Math.sin(t * 2.2 + k);
     if (!fine) {
-      if (on || maybe) glass(a, y, b, y, color, hh * 2, on ? 0.035 : 0.012);
+      if (on || maybe) glass(a, y, b, y, color, hh * 2, on ? 0.02 : 0.008);
       ln(a, y + hh, b, y + hh, on || maybe ? color : col.muted, on ? 0.9 : maybe ? pulse : f.plus ? 0.5 * (1 - (k - solid) / 3) : 0.3, 1.2);
     }
     pt((a + b) / 2, y, 0, on || maybe ? color : col.muted, on ? (fine ? 6 : 9) : maybe ? 7 : 4, on ? 1 : maybe ? pulse : 0.3);
@@ -613,6 +613,7 @@ export function figures(c: Ctx): Used {
   const xa = c.x0 + 36;
   const xb = c.x1 - 36;
   let more: Figure[] = [];
+  let yMore = cy - H * 0.26;
   if (pct.length === 2 && Math.abs(pct[0].n1 + pct[1].n1 - 100) < 0.5) {
     // Fork: one source splits into two shares of the whole.
     const src = figs.find((f) => f.k !== "percent") ?? null;
@@ -652,7 +653,7 @@ export function figures(c: Ctx): Used {
       const ys = base + ((top - base) * f.n0) / max;
       const ye = base + ((top - base) * f.n1) / max;
       if (f.k === "percent") ln(x, base, x, top, col.muted, 0.25, 1);
-      glass(x, base, x, ys, color, 30, 0.03);
+      glass(x, base, x, ys, color, 30, 0.018);
       ln(x, base, x, ys, color, 0.9, 1.5, 2, 0.3);
       if (ye > ys) {
         glass(x, ys, x, ye, color, 30, 0.014);
@@ -670,6 +671,7 @@ export function figures(c: Ctx): Used {
       lb(f.t, "cap", x, base - 12, -0.5, 0, null, slot - 14);
     }
     more = money.length >= 2 ? rest(money) : rest(pct);
+    yMore = base - 84;
     c.inX = X(20);
     c.inY = (base + top) / 2;
   } else if (pct.length === 1) {
@@ -772,7 +774,7 @@ export function figures(c: Ctx): Used {
       c.inY = y;
     }
   }
-  let y = cy - H * 0.26;
+  let y = yMore;
   for (const f of more) {
     if (y < c.y0 + 40) break;
     mini(f, y);
@@ -917,7 +919,7 @@ export function list(c: Ctx): Used {
   const H = c.y1 - c.y0;
   const n = items.length;
   const cy = (c.y0 + c.y1) / 2;
-  if (c.item?.variant || /tier|layer/i.test(said?.h ?? "")) {
+  if (c.item?.variant) {
     const gap = Math.min(70, (H - 90) / Math.max(1, n));
     const yTop = cy + ((n - 1) * gap) / 2;
     lb(said?.h ?? "", "big", X(40), yTop + gap * 0.5 + 18, away(), -1, col.ai);
@@ -926,7 +928,7 @@ export function list(c: Ctx): Used {
       const y = yTop - k * gap;
       const w = (W - 90) * (1 - 0.1 * k);
       const tone = items[k].x ? col.accent : col.ai;
-      glass(X(54), y, X(54 + w), y, tone, gap * 0.62, 0.02);
+      glass(X(54), y, X(54 + w), y, tone, gap * 0.62, 0.007);
       ln(X(54), y + gap * 0.31, X(54 + w), y + gap * 0.31, tone, 0.5, 1);
       node(X(40), y, col.ai, 7, !!items[k].x);
       lb(items[k].t, "cap", X(68), y, away(), -0.5, null, w - 30);

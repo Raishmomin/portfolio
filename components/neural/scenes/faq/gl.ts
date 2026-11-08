@@ -45,6 +45,13 @@ class Pool {
     this.snap = snap;
   }
 
+  /** One past the last slot that is drawn now (the GPU gets only these). */
+  live(): number {
+    const { cur, stride, alpha } = this;
+    for (let i = this.count - 1; i >= 0; i--) if (cur[i * stride + alpha] > 0.001) return i + 1;
+    return 0;
+  }
+
   /** Hide every slot from `from` on (targets keep their last pose: they fade in place). */
   hideFrom(from: number) {
     const { tgt, stride, alpha } = this;
@@ -231,6 +238,14 @@ function copy(from: Float32Array, to: Float32Array, o: number, n: number) {
   for (let c = 0; c < n; c++) to[o + c] = from[o + c];
 }
 
+/** Upload only the first `n` instances of an attribute. */
+function range(attr: InstancedBufferAttribute, n: number) {
+  if (!n) return;
+  attr.clearUpdateRanges();
+  attr.addUpdateRange(0, n * attr.itemSize);
+  attr.needsUpdate = true;
+}
+
 function instanced(geo: InstancedBufferGeometry, name: string, arr: Float32Array, n: number) {
   const a = new InstancedBufferAttribute(arr, n);
   a.setUsage(DynamicDrawUsage);
@@ -390,7 +405,9 @@ export class FaqGL {
     const ar = A.r.array as Float32Array;
     const acol = A.col.array as Float32Array;
     const aa = A.a.array as Float32Array;
-    for (let i = 0; i < this.arcs.count; i++) {
+    const na = this.arcs.live();
+    this.arcGeo.instanceCount = na;
+    for (let i = 0; i < na; i++) {
       const o = i * ARC.stride;
       ac[i * 3] = a[o];
       ac[i * 3 + 1] = a[o + 1];
@@ -410,7 +427,7 @@ export class FaqGL {
       aa[i * 4 + 2] = a[o + ARC.tail];
       aa[i * 4 + 3] = a[o + ARC.glow];
     }
-    for (const attr of [A.c, A.e, A.r, A.col, A.a]) attr.needsUpdate = true;
+    for (const attr of [A.c, A.e, A.r, A.col, A.a]) range(attr, na);
 
     const s = this.segs.cur;
     const S = this.segAttr;
@@ -418,7 +435,9 @@ export class FaqGL {
     const sb = S.b.array as Float32Array;
     const scol = S.col.array as Float32Array;
     const sprm = S.p.array as Float32Array;
-    for (let i = 0; i < this.segs.count; i++) {
+    const ns = this.segs.live();
+    this.segGeo.instanceCount = ns;
+    for (let i = 0; i < ns; i++) {
       const o = i * SEG.stride;
       sa[i * 3] = s[o];
       sa[i * 3 + 1] = s[o + 1];
@@ -434,7 +453,7 @@ export class FaqGL {
       sprm[i * 4 + 2] = s[o + SEG.speed];
       sprm[i * 4 + 3] = s[o + SEG.flow];
     }
-    for (const attr of [S.a, S.b, S.col, S.p]) attr.needsUpdate = true;
+    for (const attr of [S.a, S.b, S.col, S.p]) range(attr, ns);
     const res = this.segMat.uniforms.uRes.value as number[];
     res[0] = resW;
     res[1] = resH;
