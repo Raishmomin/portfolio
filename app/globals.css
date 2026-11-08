@@ -272,6 +272,17 @@ html.js[data-motion="on"] .ai-pulse {
   50% { box-shadow: 0 0 0 6px hsl(var(--ai) / 0); }
 }
 
+/* Decorative loops pause while their section is off screen (the motion runtime flags such
+   sections data-offscreen): an unseen infinite loop still repaints and re-layerizes the whole
+   page every frame. !important because the rules that arm them (e.g. the current role's
+   ring) are more specific; this only ever pauses. */
+[data-offscreen] .status-dot,
+[data-offscreen] .ai-pulse,
+[data-offscreen] .exp-node,
+[data-offscreen] .stage-chip::after {
+  animation-play-state: paused !important;
+}
+
 /*
  * Motion runtime (components/motion). Every rule below only matters while the lazy
  * GSAP runtime is active (html.motion-live, motion allowed) or targets nodes it creates.
@@ -294,6 +305,22 @@ html.js[data-motion="on"] .ai-pulse {
   transform-origin: 0 50%;
   background: linear-gradient(90deg, hsl(var(--ai)), hsl(var(--primary)));
   pointer-events: none;
+}
+/* Where supported, the hairline follows the scroll on the compositor (no JS per frame;
+   components/motion/chrome.ts keeps a JS fallback for the rest). */
+@supports (animation-timeline: scroll()) {
+  .motion-progress {
+    animation: motion-progress auto linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes motion-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 .motion-glow {
   position: fixed;
@@ -495,6 +522,21 @@ html.motion-live [data-card-wait][data-card-in] [data-card-part="pop"] > * {
   }
 }
 
+/* The per-tick journey values live on the section for scripts (the experience scene reads
+   them from its inline style) and no CSS reads them: non-inherited, a scrub tick restyles the
+   section alone instead of its whole subtree. */
+@property --hscroll-progress {
+  syntax: "*";
+  inherits: false;
+}
+@property --hscroll-fill {
+  syntax: "*";
+  inherits: false;
+}
+@property --hscroll-line {
+  syntax: "*";
+  inherits: false;
+}
 /* [data-hscroll] (desktop): the section is one viewport plus the track's overflow tall; its
    frame (the track's parent) sticks while the track runs sideways in one row. */
 @media (min-width: 1024px) {
