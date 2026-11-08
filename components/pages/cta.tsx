@@ -1,5 +1,8 @@
 // Closing call to action shared by the subpages, in the home "cta" language: one card that
 // zooms in from depth, a large headline with a serif-italic tail, magnetic primary button.
+// With the contact scene (the default) a smaller globe sits beside the card, on its wider
+// side (scenes/contact/rig.ts reads the card as [data-contact-col]); pointing at or
+// focusing the main button ("contact:go") sends a message packet from the card to the city.
 import type { ReactNode } from "react";
 import { ButtonLink } from "../ui/primitives";
 import { PageSection, SectionHead, card, column, part, type PageScene, type StageLayout } from "./ui";
@@ -29,10 +32,12 @@ export function CtaSection({
   id?: string;
 }) {
   const center = stage === "full";
+  const globe = scene === "contact";
   return (
     <PageSection id={id} section="cta" scene={scene} stage={stage} labelledBy={`${id}-heading`}>
       <div
         {...card("zoom")}
+        data-contact-col={globe ? "" : undefined}
         className={cn(
           "panel relative overflow-hidden p-6 md:p-10",
           center ? "mx-auto max-w-[52rem] text-center" : stage === "band" ? "lg:max-w-[52rem]" : column[stage],
@@ -50,7 +55,7 @@ export function CtaSection({
           </div>
         ) : null}
         <div {...part} className={cn("relative mt-8 flex flex-wrap gap-3", center && "justify-center")}>
-          <ButtonLink href={primary.href} data-magnetic="">
+          <ButtonLink href={primary.href} data-magnetic="" data-focus-id={globe ? "contact:go" : undefined}>
             {primary.label} <span aria-hidden="true">→</span>
           </ButtonLink>
           {secondary ? (

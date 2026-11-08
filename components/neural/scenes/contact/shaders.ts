@@ -43,13 +43,10 @@ uniform vec3 uAccent;
 varying vec3 vObj;
 varying vec3 vN;
 varying vec3 vV;
-
 void main() {
   vec3 n = normalize(vObj);
   float lat = asin(clamp(n.y, -1.0, 1.0));
   float lon = atan(n.x, n.z);
-
-  // Dot grid: rows of equal spacing, each row holding as many dots as fit its circumference.
   float stp = PI / uRows;
   float i = floor((lat + PI * 0.5) / stp);
   float latC = -PI * 0.5 + (i + 0.5) * stp;
@@ -59,49 +56,40 @@ void main() {
   float lonC = -PI + (j + 0.5) * lstp;
   float d = length(vec2(lat - latC, (lon - lonC) * cos(lat)));
   float land = texture2D(uLand, vec2((lonC + PI) / TAU, (PI * 0.5 - latC) / PI)).r;
-
   vec3 V = normalize(vV);
   vec3 N = normalize(vN);
   float facing = clamp(dot(N, V), 0.0, 1.0);
   float aa = uPxAng / max(facing, 0.25);
-
-  // Sun: real terminator, a warm twilight band along it.
   float sunD = dot(n, uSun);
   float day = smoothstep(-0.1, 0.16, sunD);
   float dusk = exp(-sunD * sunD * 180.0);
-
-  // The city: angular distance to the pin.
   float ang = acos(clamp(dot(n, uPin), -1.0, 1.0));
   float home = 1.0 - smoothstep(0.035, 0.15, ang);
-
-  // Reveal: the dots light up in a wave that starts at the city.
   float shown = 1.0 - smoothstep(uReveal - 0.18, uReveal, ang);
-  float front = exp(-pow((ang - uReveal) * 9.0, 2.0)) * step(0.0, uReveal) * (1.0 - step(3.3, uReveal));
-
+  float q = (ang - uReveal) * 9.0;
+  float front = exp(-q * q) * step(0.0, uReveal) * (1.0 - step(3.3, uReveal));
   float r = stp * uDotR * (1.0 + 0.35 * home + 0.6 * front);
   float dotA = (1.0 - smoothstep(r - aa, r + aa, d)) * land * shown;
-
-  // Availability beacon: rings spreading from the city; the landing shockwave.
   float rings = 0.0;
   if (ang < 0.26) {
     for (int k = 0; k < 3; k++) {
       float f = fract(uTime * 0.42 + float(k) / 3.0);
       float rr = 0.012 + f * 0.2;
-      rings += exp(-pow((ang - rr) * 75.0, 2.0)) * (1.0 - f) * (1.0 - f);
+      float e = (ang - rr) * 75.0;
+      rings += exp(-e * e) * (1.0 - f) * (1.0 - f);
     }
   }
   float shock = 0.0;
   if (uShock >= 0.0 && uShock <= 1.0 && ang < 0.85) {
     float rr = 0.02 + uShock * 0.75;
-    shock = exp(-pow((ang - rr) * 40.0, 2.0)) * (1.0 - uShock) * (1.0 - uShock);
+    float e = (ang - rr) * 40.0;
+    shock = exp(-e * e) * (1.0 - uShock) * (1.0 - uShock);
   }
-
   float rim = pow(1.0 - facing, 2.6);
   vec3 ocean = mix(uOceanNight, uOceanDay, day);
   vec3 dotC = mix(uDotNight, uDotDay, day);
   dotC = mix(dotC, uOk, home * 0.85);
   dotC = mix(dotC, uAccent, front * 0.8 + uHot * home * 0.4);
-
   vec3 col;
   float a;
   if (uLight > 0.5) {
@@ -146,10 +134,8 @@ void main() {
   float out1 = max(r - 1.0, 0.0);
   float limb = smoothstep(0.88, 1.0, r) * exp(-out1 * 10.0);
   float haze = exp(-out1 * 3.2) * smoothstep(0.8, 1.0, r) * 0.1;
-  // The lit side glows a little warmer and brighter.
   float lit = 0.6 + 0.4 * clamp(dot(normalize(vP + 1e-4), uSunXY), -1.0, 1.0);
   vec3 c = mix(uColor, uWarm, 0.18 * max(dot(normalize(vP + 1e-4), uSunXY), 0.0));
-  // Fades out well inside the quad (half-size 1.6 radii), so its edge never shows.
   float a = (limb * 0.52 + haze) * lit * (1.0 - smoothstep(1.25, 1.55, r)) * uOpacity;
   if (uLight > 0.5) {
     gl_FragColor = vec4(c, a * 0.55);
@@ -251,7 +237,6 @@ void main() {
   float a;
   vec3 c;
   if (vR.w > 2.5) {
-    // guide: dashes flowing toward the city
     float dash = smoothstep(0.35, 0.55, fract(vT * 22.0 - uTime * 1.6));
     a = (core * 0.8 + across * 0.2) * dash * 0.55;
     c = uSpark;

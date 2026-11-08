@@ -43,14 +43,16 @@ import { LAND_H, LAND_W, decodeLand } from "./land";
 import { ATMO_FRAG, ATMO_VERT, GLOBE_FRAG, GLOBE_VERT, LINES_FRAG, LINES_VERT, ROUTE_FRAG, ROUTE_VERT } from "./shaders";
 
 /** A DOM signal (components/pages/contact/signal.ts): what happened and where (client px). */
-export type ContactSignal = { kind: "focus" | "blur" | "type" | "copy" | "send" | "sent" | "error"; x?: number; y?: number; el?: Element };
+export type ContactSignal = { kind: "focus" | "blur" | "type" | "copy" | "send" | "sent" | "error" | "go"; x?: number; y?: number; el?: Element };
 
 const HEADER_PX = 64;
 const SPAN_X = 1.62; // half-width of globe + orbits + labels, in globe radii
 const SPAN_X_NARROW = 1.3; // a narrow column (small laptops): the outer orbits may run past it
 const SPAN_Y = 1.38;
 const MAX_R = 300; // px
+const COMPACT_R = 160; // px: the smaller globe beside a call-to-action panel
 const COL_GAP = 24; // px kept free between the globe's column and the content column
+const SIDE_GAP = 40; // px kept free between a compact globe's room and the content
 const DUST_HI = 70;
 const DUST_LO = 32;
 const ROUTES = 12; // route slots (0 = the guide)
@@ -233,26 +235,35 @@ export class ContactRig {
   /** The focused form field: the guide route leaves the page beside it (re-measured live). */
   private gEl: Element | null = null;
   private gDirty = false;
-  // The driving section's viewport rect, re-read only after a scroll or a resize (no
-  // per-frame layout reads while the visitor types).
+  // The driving section and its content, re-read only after a scroll, a resize or a
+  // layout change (no per-frame layout reads while the visitor types).
   private secEl: Element | null = null;
   private secTop = 0;
   private secBottom = 0;
   private secDirty = true;
-  /** Left edge of the section's content column (px; 0 = none), re-read on resize only. */
-  private colLeft = 0;
-  private colDirty = true;
+  /** The content column ([data-contact-col]): left / right edges, vertical middle (px; colR 0 = none). */
+  private colL = 0;
+  private colR = 0;
+  private colY = 0;
+  /** No column (a row of cards under a heading): the heading text's right edge, the cards' top. */
+  private headR = 0;
+  private headB = 0;
+  private readonly range = document.createRange();
+  /** 1: the globe sits right of the content (the city turns left, toward it); -1: left of it. */
+  private side = -1;
+  /** Beside a call-to-action / card row: clear of content by construction, drawn over the stage's dimmer. */
+  private over = false;
+  /** Horizontal room for labels (px). */
+  private labL = 0;
+  private labR = 0;
+  private goAt = -1e9;
   /** While a sent message is in flight and landing, the globe keeps its size. */
   private holdUntil = -1;
-  private readonly ro: ResizeObserver | null;
+  private ro: ResizeObserver | null = null;
+  private attached = false;
   private readonly onScroll = () => {
     this.secDirty = true;
     this.gDirty = true;
-  };
-  private readonly onResize = () => {
-    this.secDirty = true;
-    this.gDirty = true;
-    this.colDirty = true;
   };
   private lastSpark = -1;
   private shockAt = -1e9;
@@ -474,17 +485,48 @@ export class ContactRig {
       }
     }
 
-    this.ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(this.onResize);
-    this.ro?.observe(document.body); // content above the section growing moves it without a scroll
-    window.addEventListener("scroll", this.onScroll, { passive: true });
-    window.addEventListener("resize", this.onResize, { passive: true });
     this.tags = new GlobeLabels([this.city, "Delivered", ...this.channels]);
     this.satSide.fill(1);
-    occluders.retain(); // the visibility guard (framing.clearRect) reads the occluder registry
 
     this.globe.add(this.atmo, this.earth, this.lines);
     this.root.add(this.globe, this.routes, this.sprites.mesh, this.tags.mesh);
     this.root.visible = false;
+  }
+
+  /** DOM hooks (an effect, so StrictMode's mount → cleanup → mount leaves them attached). */
+  attach() {
+    if (this.attached) return;
+    this.attached = true;
+    this.ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(this.onScroll);
+    this.ro?.observe(document.body); // content above the section growing moves it without a scroll
+    if (this.secEl) this.ro?.observe(this.secEl);
+    window.addEventListener("scroll", this.onScroll, { passive: true });
+    window.addEventListener("resize", this.onScroll, { passive: true });
+    occluders.retain(); // the visibility guard (framing.clearRect) reads the occluder registry
+    this.secDirty = this.gDirty = true;
+  }
+
+  detach() {
+    if (!this.attached) return;
+    this.attached = false;
+    occluders.release();
+    this.ro?.disconnect();
+    this.ro = null;
+    window.removeEventListener("scroll", this.onScroll);
+    window.removeEventListener("resize", this.onScroll);
+  }
+
+  /** Over (true) or under the stage's dimmer, which quiets scenes where a composition puts content. */
+  private setOver(on: boolean) {
+    if (on === this.over) return;
+    this.over = on;
+    const k = on ? 1e6 : 0;
+    this.atmo.renderOrder = 1 + k;
+    this.earth.renderOrder = 2 + k;
+    this.lines.renderOrder = 3 + k;
+    this.routes.renderOrder = 4 + k;
+    this.sprites.mesh.renderOrder = 5 + k;
+    this.tags.mesh.renderOrder = 6 + k;
   }
 
   /**
@@ -572,51 +614,105 @@ export class ContactRig {
   setFocus(focus: string | null) {
     const id = focus?.startsWith("contact:") ? focus.slice(8) : "";
     this.focusK = id ? this.channels.findIndex((c) => c.toLowerCase() === id) : -1;
+    // A call-to-action's main button ("contact:go") sends a packet to the city.
+    if (id === "go") this.signal({ kind: "go" });
   }
 
-  /** Lay out the globe in the scene's free rect (px). False when there is no room. */
+  /** The section's rect and the room its content leaves (after a scroll / resize only). */
+  private measure(sec: Element) {
+    const sr = sec.getBoundingClientRect();
+    this.secTop = sr.top;
+    this.secBottom = sr.bottom;
+    this.colR = this.headR = 0;
+    const col = sec.querySelector("[data-contact-col]");
+    if (col) {
+      const r = col.getBoundingClientRect();
+      this.colL = r.left;
+      this.colR = r.right;
+      this.colY = (r.top + r.bottom) / 2;
+      return;
+    }
+    const h = sec.querySelector("h2");
+    const cards = sec.querySelector("[data-card-group]");
+    if (h && cards) {
+      this.range.selectNodeContents(h); // the heading's text, not its full-width block
+      this.headR = this.range.getBoundingClientRect().right;
+      this.headB = cards.getBoundingClientRect().top;
+    }
+  }
+
+  /** Lay out the globe in the room its section leaves (px). False when there is no room. */
   private layout(W: number, H: number, time: number): boolean {
     const frame = sceneFrames.contact;
     const fr = frame.rect;
-    pxRect.l = fr.l * W;
-    pxRect.r = fr.r * W;
-    pxRect.t = Math.max(fr.t * H, framing.phone ? 56 : HEADER_PX + 8);
-    pxRect.b = Math.min(fr.b * H, H - 8);
-    // The globe stays inside its own section (the footer's band below it is opaque).
+    const phone = framing.phone;
     if (frame.el !== this.secEl) {
       if (this.secEl) this.ro?.unobserve(this.secEl);
       this.secEl = frame.el;
       if (this.secEl) this.ro?.observe(this.secEl);
       this.secDirty = true;
-      this.colDirty = true;
     }
-    // Never under the content column: on a narrow desktop (1024 px) it starts left of the
-    // composition's free rect, so the globe takes the column beside it instead of giving up.
-    if (this.colDirty) {
-      this.colDirty = false;
-      const col = this.secEl?.querySelector("[data-contact-col]");
-      this.colLeft = col ? col.getBoundingClientRect().left : 0;
+    const sec = this.secEl;
+    if (sec && this.secDirty) {
+      this.secDirty = false;
+      this.measure(sec);
     }
-    if (!framing.phone && this.colLeft > 0) pxRect.r = Math.min(pxRect.r, this.colLeft - COL_GAP);
-    if (this.secEl && !framing.phone) {
-      if (this.secDirty) {
-        this.secDirty = false;
-        const sr = this.secEl.getBoundingClientRect();
-        this.secTop = sr.top;
-        this.secBottom = sr.bottom;
+    let compact = false;
+    let side = -1;
+    this.labL = EDGE;
+    this.labR = W - EDGE;
+    if (phone || !sec || frame.layout === "right") {
+      // The composition's free rect (phones: the section's opening), never under the
+      // content column: on a narrow desktop (1024 px) the column starts left of the free
+      // rect, so the globe takes the room beside it instead of giving up.
+      pxRect.l = fr.l * W;
+      pxRect.r = fr.r * W;
+      pxRect.t = Math.max(fr.t * H, phone ? 56 : HEADER_PX + 8);
+      pxRect.b = Math.min(fr.b * H, H - 8);
+      if (!phone && this.colR > 0) {
+        pxRect.r = Math.min(pxRect.r, this.colL - COL_GAP);
+        this.labR = this.colL - EDGE;
       }
+    } else {
+      // Compact: beside a call-to-action panel (band / full sections), on its wider side;
+      // with no panel, beside the heading above a row of cards.
+      compact = true;
+      pxRect.t = HEADER_PX + 8;
+      pxRect.b = H - 8;
+      if (this.colR > 0) {
+        const lw = this.colL - SIDE_GAP - EDGE;
+        const rw = W - EDGE - this.colR - SIDE_GAP;
+        side = rw >= lw ? 1 : -1;
+        pxRect.l = side > 0 ? this.colR + SIDE_GAP : EDGE;
+        pxRect.r = side > 0 ? W - EDGE : this.colL - SIDE_GAP;
+      } else if (this.headR > 0) {
+        side = 1;
+        pxRect.l = this.headR + SIDE_GAP;
+        pxRect.r = W - EDGE;
+        pxRect.b = Math.min(pxRect.b, this.headB - 12);
+      } else return false;
+      this.labL = pxRect.l;
+      this.labR = pxRect.r;
+    }
+    // The globe stays inside its own section (the footer's band below it is opaque).
+    if (sec && !phone) {
       pxRect.t = Math.max(pxRect.t, this.secTop + 8);
       pxRect.b = Math.min(pxRect.b, this.secBottom - 8);
     }
     if (pxRect.r - pxRect.l < 160) return false;
-    const ok = clearRect(pxRect, framing.phone ? 150 : 220, clear);
+    const minH = phone || compact ? 150 : 220;
+    // Beside a heading the room is clear by construction (its block box spans the row).
+    const ok = compact && !this.colR ? (pxRect.b - pxRect.t >= minH ? Object.assign(clear, pxRect) : null) : clearRect(pxRect, minH, clear);
     if (!ok) return false;
+    this.side = side;
+    this.setOver(compact);
     const w = clear.r - clear.l;
     const h = clear.b - clear.t;
-    const tx = (clear.l + clear.r) / 2;
-    const ty = (clear.t + clear.b) / 2;
     const spanX = w < 2 * SPAN_X * 140 ? SPAN_X_NARROW : SPAN_X;
-    let tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), framing.phone ? 140 : MAX_R));
+    let tr = Math.max(40, Math.min(w / (2 * spanX), h / (2 * SPAN_Y), phone ? 140 : compact ? COMPACT_R : MAX_R));
+    const tx = (clear.l + clear.r) / 2;
+    // Beside a panel: level with its middle, as far as the room allows.
+    const ty = compact && this.colR ? Math.min(Math.max(this.colY, clear.t + tr * SPAN_Y), clear.b - tr * SPAN_Y) : (clear.t + clear.b) / 2;
     // A delivery in flight never sees the globe re-fit under it.
     if (this.placed && time < this.holdUntil) tr = this.r;
     if (!this.placed) {
@@ -675,7 +771,8 @@ export class ContactRig {
     this.lift(sx, sy, R * 0.5, this.b0);
     this.b3.copy(this.pinW);
     const span = this.b0.distanceTo(this.b3);
-    this.b1.copy(this.b0).add(v1.set(-span * 0.18, R * 0.55 + span * 0.12, R * 0.45));
+    const dir = this.C.x >= this.b0.x ? 1 : -1; // leaves the page heading for the globe
+    this.b1.copy(this.b0).add(v1.set(dir * span * 0.18, R * 0.55 + span * 0.12, R * 0.45));
     this.b2.copy(this.b3).addScaledVector(this.pinN, R * 0.75 + span * 0.18);
   }
 
@@ -703,7 +800,12 @@ export class ContactRig {
     pk.live = true;
   }
 
-  private handle(time: number) {
+  /**
+   * Apply the queued DOM signals. Inactive (`live` false: another section in view, or no
+   * room), only their state is kept (a field's focus / blur, a send's outcome); packets
+   * are not launched.
+   */
+  private handle(time: number, live: boolean) {
     for (const s of this.queue) {
       const has = typeof s.x === "number" && typeof s.y === "number";
       if (has) {
@@ -721,19 +823,28 @@ export class ContactRig {
       } else if (s.kind === "type") {
         this.chargeOn = 1;
         this.gEl = s.el ?? this.gEl;
-        if (has && time - this.lastSpark > 0.11) {
+        if (live && has && time - this.lastSpark > 0.11) {
           this.lastSpark = time;
           this.spawn(SPARK, s.x!, s.y!, time);
         }
       } else if (s.kind === "copy") {
+        if (!live) continue;
         if (has) this.spawn(COPY, s.x!, s.y!, time);
         const k = this.channels.findIndex((c) => c.toLowerCase() === "email");
         if (k >= 0) this.flash[k] = 1;
+      } else if (s.kind === "go") {
+        // From the call-to-action panel's edge facing the globe, level with its button.
+        const el = this.secEl?.querySelector('[data-focus-id="contact:go"]');
+        if (!live || !el || time - this.goAt < 1.2) continue;
+        this.goAt = time;
+        const r = el.getBoundingClientRect();
+        const pr = (el.closest(".panel") ?? el).getBoundingClientRect();
+        this.spawn(COPY, this.cx > (pr.left + pr.right) / 2 ? pr.right : pr.left, r.top + r.height / 2, time);
       } else if (s.kind === "send") {
-        this.boost = 1;
+        this.boost = live ? 1 : 0;
         this.holdUntil = time + 10; // until the reply (sent → the landing; error → now)
       } else if (s.kind === "sent") {
-        if (has) this.spawn(SEND, s.x!, s.y!, time);
+        if (live && has) this.spawn(SEND, s.x!, s.y!, time);
         this.boost = 0;
         this.chargeOn = 0;
         this.holdUntil = time + DUR[SEND] + 1.8;
@@ -756,7 +867,7 @@ export class ContactRig {
   ): boolean {
     if (weight <= 0.001) {
       this.root.visible = false;
-      this.queue.length = 0;
+      this.handle(time, false);
       return false;
     }
     const d = Math.min(dt, 0.1);
@@ -770,12 +881,12 @@ export class ContactRig {
     this.room = damp(this.room, ok ? 1 : 0, 6, d);
     if (!this.placed || (!ok && this.room < 0.01)) {
       this.root.visible = false;
-      this.queue.length = 0;
+      this.handle(time, false);
       return true;
     }
     this.root.visible = true;
     const e = smooth01(weight) * smooth01(this.room);
-    this.handle(time);
+    this.handle(time, true);
 
     // Arrival: the globe fades in as it spins round and its land lights up in a wave from
     // the city (nothing shows before, so a half-blended section never sees an empty ball).
@@ -797,7 +908,7 @@ export class ContactRig {
     const par = framing.phone ? 0 : 1;
     this.globe.rotation.set(0.1 - pointer.y * 0.08 * par, pointer.x * 0.14 * par, 0);
     const lon = this.hasPin ? Math.atan2(this.pinLocal.x, this.pinLocal.z) : 0;
-    const yawT = -lon + YAW_FRONT + 0.09 * Math.sin(time * 0.21) + pointer.x * 0.22 * par;
+    const yawT = -lon - YAW_FRONT * this.side + 0.09 * Math.sin(time * 0.21) + pointer.x * 0.22 * par;
     this.yaw = since < 0 ? yawT - SPIN_IN : damp(this.yaw, yawT, 1.5, d);
     this.pitch = damp(this.pitch, PITCH - pointer.y * 0.1 * par, 2, d);
     this.earth.rotation.set(this.pitch, this.yaw, 0);
@@ -1064,35 +1175,43 @@ export class ContactRig {
     const tags = this.tags;
     const g = framing.phone ? 0 : smooth01((weight - 0.6) / 0.18);
     const lo = g * e * show;
+    // A small globe (a call-to-action's, one leaving the viewport) keeps only the city's label.
+    const loCity = lo * smooth01((rPx - 60) / 30);
+    const loSat = lo * smooth01((rPx - 105) / 35);
     const minute = Math.floor(now / 60_000);
     if (minute !== this.clockMin) {
       this.clockMin = minute; // the clock label is rebuilt once a minute, not every frame
       tags.setText(0, `${this.city} · ${clockAt(now, this.offsetMin)} ${zoneName(this.offsetMin)}`);
     }
-    if (this.hasPin && lo > 0) tags.set(0, pinW.x, pinW.y, pinW.z, -12 - tags.w[0], 8, this.colFg, lo * pinVis);
+    // The city's label sits left of the pin, or right of it where the room ends.
+    this.toScreen(pinW);
+    const px0 = v3.x;
+    const py0 = v3.y;
+    const cityW = Math.max(tags.w[0], tags.w[1]);
+    const cityL = px0 - 12 - cityW >= this.labL || px0 + 12 + cityW > this.labR;
+    const cOff = (i: number) => (cityL ? -12 - tags.w[i] : 12);
+    if (this.hasPin && loCity > 0) tags.set(0, pinW.x, pinW.y, pinW.z, cOff(0), 8, this.colFg, loCity * pinVis);
     else tags.hide(0);
     const sinceDone = time - this.deliveredAt;
     const done = sinceDone >= 0 && sinceDone < 3.2 ? smooth01(sinceDone / 0.3) * (1 - smooth01((sinceDone - 2.6) / 0.6)) : 0;
-    if (done > 0 && lo > 0) tags.set(1, pinW.x, pinW.y, pinW.z, -12 - tags.w[1], -4 - tags.h[1], this.colOk, lo * done * pinVis);
+    if (done > 0 && loCity > 0) tags.set(1, pinW.x, pinW.y, pinW.z, cOff(1), -4 - tags.h[1], this.colOk, loCity * done * pinVis);
     else tags.hide(1);
-    // Beside each satellite, on the side away from the planet, flipped where an edge (the
-    // viewport, the content column) is near.
-    const rightEdge = !framing.phone && this.colLeft > 0 ? Math.min(this.W, this.colLeft) - EDGE : this.W - EDGE;
+    // Beside each satellite, on the side away from the planet, flipped where the room
+    // (the viewport, the content column) ends.
     for (let k = 0; k < this.nSat; k++) {
       const x = this.satX[k];
       const w = tags.w[2 + k];
       let side = x > this.cx + this.r * 0.15 ? 1 : x < this.cx - this.r * 0.15 ? -1 : this.satSide[k];
-      if (side < 0 && x - 16 - w < EDGE) side = 1;
-      else if (side > 0 && x + 16 + w > rightEdge) side = -1;
+      if (side < 0 && x - 16 - w < this.labL) side = 1;
+      else if (side > 0 && x + 16 + w > this.labR) side = -1;
       this.satSide[k] = side;
     }
     // Collisions (screen space, four boxes + the city's): a label that would overlap a
     // nearer one, or the city's, fades out until they part. A lit channel always shows.
-    const cityOn = this.hasPin && lo > 0 && pinVis > 0.3;
-    this.toScreen(pinW);
-    const cl = v3.x - 12 - tags.w[0];
-    const cr = v3.x - 12;
-    const cb = v3.y - 8;
+    const cityOn = this.hasPin && loCity > 0 && pinVis > 0.3;
+    const cl = cityL ? px0 - 12 - tags.w[0] : px0 + 12;
+    const cr = cl + tags.w[0];
+    const cb = py0 - 8;
     const ct = cb - tags.h[0];
     for (let k = 0; k < this.nSat; k++) {
       const i = 2 + k;
@@ -1112,7 +1231,8 @@ export class ContactRig {
         }
       }
       this.tagVis[k] = damp(this.tagVis[k], hide ? 0 : 1, hide ? 14 : 6, d);
-      if (lo <= 0 || this.tagVis[k] < 0.01) {
+      const a = Math.max(loSat, lo * this.hot[k]) * this.satVis[k] * this.tagVis[k];
+      if (a <= 0.002) {
         tags.hide(i);
         continue;
       }
@@ -1120,7 +1240,7 @@ export class ContactRig {
       orbitPoint(k, this.phase[k], v0);
       this.globe.localToWorld(v0);
       const side = this.satSide[k];
-      tags.set(i, v0.x, v0.y, v0.z, side > 0 ? 16 : -16 - tags.w[i], -tags.h[i] / 2, this.colTag, lo * this.satVis[k] * this.tagVis[k] * (0.75 + 0.25 * this.hot[k]));
+      tags.set(i, v0.x, v0.y, v0.z, side > 0 ? 16 : -16 - tags.w[i], -tags.h[i] / 2, this.colTag, a * (0.75 + 0.25 * this.hot[k]));
     }
     tags.material.uniforms.uOpacity.value = 1;
     const cam = camera as PerspectiveCamera;
@@ -1159,9 +1279,6 @@ export class ContactRig {
     this.routeMat.dispose();
     this.sprites.dispose();
     this.tags.dispose();
-    occluders.release();
-    this.ro?.disconnect();
-    window.removeEventListener("scroll", this.onScroll);
-    window.removeEventListener("resize", this.onResize);
+    this.detach();
   }
 }

@@ -17,6 +17,10 @@ export default function ContactScene({ data, weight, pointer, focus, palette, qu
   // One rig per page: quality is applied in place (rig.setQuality), so a drop to "low"
   // mid-visit never rebuilds it (no replayed arrival, no lost hover or packet in flight).
   const rig = useMemo(() => new ContactRig(data), [data]);
+  useEffect(() => {
+    rig.attach();
+    return () => rig.detach();
+  }, [rig]);
   useEffect(() => () => rig.dispose(), [rig]);
   useEffect(() => rig.setQuality(quality), [rig, quality]);
   useEffect(() => rig.setPalette(palette), [rig, palette]);
