@@ -3,11 +3,14 @@
 // platform gives them; one open at a time per list via `name`). Render the SAME FAQ array
 // that feeds the page's FAQPage JSON-LD, so visible questions/answers and schema never drift.
 // Each item carries what the FAQ scene draws (components/neural/scenes/faq.tsx), all derived
-// from its own strings (faq-meta.ts): data-focus-id="faq:<topic>:<slug>", the figures quoted
-// in its answer and its verdict word. CSS lives in app/globals.css (fm3-faq block).
+// from its own strings (faq-meta.ts): data-focus-id="faq:<topic>:<slug>" and data-faq (the
+// figures quoted in its answer, its verdict word, its steps or list, the alternatives it
+// weighs). Below lg an empty slot after the open card is where the scene draws its answer.
+// CSS lives in app/globals.css (fm3-faq block).
 import type { ReactNode } from "react";
 import type { FAQ } from "@/lib/seo";
 import { cn } from "@/lib/utils";
+import { SceneNote } from "../home/ui";
 import { faqMeta } from "./faq-meta";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -18,14 +21,15 @@ export function FaqItems({ faqs, name }: { faqs: FAQ[]; name: string }) {
     <ul data-card-group="" data-faq-list="" className="grid grid-cols-1 gap-3">
       {faqs.map((f, i) => {
         const m = faqMeta(f);
+        // Only what the scene draws (short keys: it is inlined once per question).
+        const scene = { f: m.figures, v: m.verdict, s: m.steps, l: m.list, h: m.title, o: m.options };
         return (
-          <li key={f.q} data-card="">
+          <li key={f.q} data-card="" className="faq-li">
             <details
               name={name}
               data-faq-item=""
               data-focus-id={m.id}
-              data-faq-figures={m.figures.length ? JSON.stringify(m.figures) : undefined}
-              data-faq-verdict={m.verdict ?? undefined}
+              data-faq={JSON.stringify(scene)}
               data-spotlight=""
               className="panel faq faq-card group"
             >
@@ -42,6 +46,7 @@ export function FaqItems({ faqs, name }: { faqs: FAQ[]; name: string }) {
                 <p className="max-w-[62ch] pb-5 pl-[3.25rem] pr-5 text-[15px] leading-6 text-muted-foreground">{f.a}</p>
               </div>
             </details>
+            <div aria-hidden="true" data-faq-pic="" className="faq-pic" />
           </li>
         );
       })}
@@ -72,5 +77,11 @@ export function FaqLayout({ side, head, faqs, name }: { side: "left" | "right"; 
   );
 }
 
-/** The plain-language caption of the FAQ scene (the head's 3D note). */
-export const FAQ_SCENE_NOTE = "Each question is a node beside its card. Open one and its answer becomes a picture made from real data: the career rings, the stack, live local time or the figures it quotes.";
+/** The plain-language caption of the FAQ scene (the head's 3D note; hidden when 3D is off). */
+export const FAQ_SCENE_NOTE =
+  "Every question is a numbered node in the scene. Open one and its answer becomes a picture made from real data right beside it: the career rings, the stack, live local time, or the figures, steps and choices it states.";
+
+/** The FAQ head's 3D note (its own class, so CSS can drop it when the 3D is off). */
+export function FaqNote() {
+  return <SceneNote className="faq-note">{FAQ_SCENE_NOTE}</SceneNote>;
+}

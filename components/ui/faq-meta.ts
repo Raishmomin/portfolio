@@ -39,6 +39,12 @@ export type FaqFigure = {
 /** An item or step the answer lists (verbatim, at most ~9 words); x: it is a "no"/"never". */
 export type FaqStep = { t: string; x?: 1 };
 
+/**
+ * One alternative a "X vs Y" / "X or Y" question weighs: t its name as the question words it,
+ * s the answer's clause that says when it fits, i the items listed for it, lead: the default.
+ */
+export type FaqOption = { t: string; s: string; i?: string[]; lead?: 1 };
+
 export type FaqMeta = {
   topic: FaqTopic;
   slug: string;
@@ -51,6 +57,8 @@ export type FaqMeta = {
   list: "enum" | "say";
   /** The words that introduce an enumeration ("Three things", "Tiered"), when there are any. */
   title: string | null;
+  /** The alternatives the question weighs ("MongoDB vs Postgres"), when the answer speaks to 2+. */
+  options: FaqOption[];
 };
 
 /** Topic from the question (first match wins; time zone before availability). */
@@ -234,8 +242,15 @@ const unparen = (s: string) =>
 function short(s: string, max = 9): string {
   let t = unparen(s);
   if (words(t) <= max) return t;
-  const joint = t.search(/\s(?:and|so|when|unless|because|where|while|which|that|but)\s/);
-  if (joint > 0 && words(t.slice(0, joint)) >= 2) t = t.slice(0, joint);
+  // The latest joint that keeps it within `max` words, else the first one.
+  let cut = -1;
+  for (const m of t.matchAll(/\s(?:and|so|when|unless|because|where|while|which|that|but)\s/g)) {
+    const at = m.index ?? 0;
+    if (words(t.slice(0, at)) < 2) continue;
+    if (words(t.slice(0, at)) <= max || cut < 0) cut = at;
+    if (words(t.slice(0, at)) > max) break;
+  }
+  if (cut > 0) t = t.slice(0, cut);
   if (words(t) <= max) return t;
   return `${t.split(/\s+/).slice(0, max).join(" ")}…`;
 }
@@ -328,6 +343,67 @@ function sayings(text: string): string[] {
 
 const step = (t: string): FaqStep => (NEGATION.test(t) ? { t, x: 1 } : { t });
 
+// ------------------------------------------------------------------ alternatives ("X vs Y")
+
+const reEsc = (s: string) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+
+/** A loose matcher for an option name ("agencies" finds "Agency"); what it finds is verbatim. */
+function optionRe(name: string): RegExp {
+  const ws = name.split(/\s+/).map((w) => reEsc(w.replace(/(?:ies|es|s)$/i, "")) + String.raw`[\w.]*`);
+  return new RegExp(String.raw`(?<![\w.])${ws.join(String.raw`\s+`)}`, /[A-Z]/.test(name) ? "g" : "gi");
+}
+
+/**
+ * The alternatives a "X vs Y" / "X or Y" question weighs, each as the answer names it, with
+ * the clause that says when it fits (preferring one that starts with it) and the items listed
+ * right after it ("MongoDB wins for: a, b, c", "Terraform for most teams (a, b, c)").
+ */
+function findOptions(q: string, a: string): FaqOption[] {
+  const body = q.replace(/\?\s*$/, "").replace(/^.*\s[—:]\s/, "");
+  let parts = body.split(/\s+vs\.?\s+/i);
+  if (parts.length < 2) parts = body.split(/\s+or\s+/i);
+  if (parts.length < 2 || parts.length > 3) return [];
+  const out: FaqOption[] = [];
+  const atStart = (i: number) => i === 0 || /[.;:—(,]\s*$/.test(a.slice(Math.max(0, i - 3), i));
+  parts.forEach((p, k) => {
+    const w = p.replace(/^(?:the|only|a|an)\s+/i, "").split(/\s+/);
+    for (let n = Math.min(4, w.length); n >= 1; n--) {
+      const name = (k === 0 ? w.slice(-n) : w.slice(0, n)).join(" ").replace(/^(?:the|only|a|an)\s+/i, "");
+      if (!name || STOP.has(name.toLowerCase())) continue;
+      const ms = [...a.matchAll(optionRe(name))];
+      if (!ms.length) continue;
+      const m = ms.find((x) => atStart(x.index ?? 0)) ?? ms[0];
+      const at = m.index ?? 0;
+      let cs = at;
+      if (!atStart(at)) while (cs > 0 && !isBound(a, cs - 1)) cs--;
+      let ce = at + m[0].length;
+      while (ce < a.length && !isBound(a, ce)) ce++;
+      const s = short(a.slice(cs, ce), 12);
+      let items: string[] = [];
+      if (a[ce] === ":" || a[ce] === "(") {
+        const close = a[ce] === "(" ? a.indexOf(")", ce) : -1;
+        const rest = a.slice(ce + 1, close > 0 ? close : undefined);
+        items = splitItems(close > 0 ? rest : (sentences(rest)[0]?.s ?? rest)).map((x) => short(x, 6)).slice(0, 4);
+      }
+      if (out.some((o) => o.s === s)) return;
+      // Named as the question names it ("direct clients", "Postgres").
+      let t = name;
+      if (k > 0) {
+        const cut = w.findIndex((x, j) => j > 0 && STOP.has(x.toLowerCase()));
+        t = w.slice(0, cut > 0 ? cut : w.length).join(" ");
+      }
+      const o: FaqOption = { t, s };
+      if (items.length >= 2) o.i = items;
+      if (/\b(?:most|unless|default)\b/i.test(s) || new RegExp(`default to ${reEsc(m[0])}`, "i").test(a)) o.lead = 1;
+      out.push(o);
+      return;
+    }
+  });
+  if (out.length < 2) return [];
+  if (out.filter((o) => o.lead).length !== 1 || /^both\b/i.test(a.trim())) for (const o of out) delete o.lead;
+  return out;
+}
+
 export function faqMeta(f: FAQ): FaqMeta {
   const topic = faqTopic(f.q);
   const slug = slugify(f.q).slice(0, 48).replace(/-+$/, "");
@@ -349,5 +425,6 @@ export function faqMeta(f: FAQ): FaqMeta {
     list = "enum";
     title = en.title;
   } else steps = sayings(a).map(step);
-  return { topic, slug, id: `faq:${topic}:${slug}`, figures: found.map((x) => x.f), verdict, steps, list, title };
+  const options = topic === "availability" ? [] : findOptions(f.q, a);
+  return { topic, slug, id: `faq:${topic}:${slug}`, figures: found.map((x) => x.f), verdict, steps, list, title, options };
 }
