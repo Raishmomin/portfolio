@@ -16,8 +16,8 @@
 // visibility guard so it never sits under content. The machine belongs to its section: it
 // stays whole while any of its cards is on screen, rides up with the last card and fades as
 // that card leaves (sections without cards: the end of their content carries it out), so it
-// never lingers over the next section. A page intro frames it beside the
-// headline and sits it on its 3D caption; on phones a page may reserve an empty room for it
+// never lingers over the next section. A page intro frames it in the free side beside its
+// text column, centred on the headline block; on phones a page may reserve an empty room for it
 // ([data-svc-room]). Names are aria-hidden labels in the shared layer: each one is the chip
 // this page itself prints for that service ([data-svc-tech]), so a name the page does not
 // show is never drawn (active scene only, never over content or each other, clamped), and
@@ -135,65 +135,42 @@ function roomFor(px: Rect, minH: number, out: Rect, side: number, hw: number, hh
 }
 
 /**
- * A page intro (data-section="intro": the headline on the left, its 3D caption at the
- * bottom right): the room between the headline's actual text and the content grid's right
- * edge (a little past it on wide screens), above the caption. Returns the caption's centre
- * x (the machine centres on it), or NaN when there is no such room (narrow screens).
+ * A page intro (data-section="intro": the headline, lead, actions and 3D caption in one text
+ * column on the left): the free right side, from the column's element box (plus the
+ * occluder pad and a gap for the labels on the machine's left) to the content grid's right
+ * edge (a step past it on wide screens), vertically centred on the text column. Returns the
+ * room's centre x, or NaN when there is no such room (narrow screens).
  */
-type Intro = { els: Element[]; note: Element | null; box: Element };
-const intros = new WeakMap<Element, Intro | null>();
-let range: Range | null = null;
+const GRID_PAD = 32;
+const TEXT_GAP = 6 + 42;
+const intros = new WeakMap<Element, { block: Element; box: Element } | null>();
 function introRoom(sec: HTMLElement, W: number, H: number, out: Rect): number {
   let it = intros.get(sec);
   if (it === undefined || (it && !it.box.isConnected)) {
-    const h1 = sec.querySelector("h1");
-    const block = h1?.parentElement;
+    const block = sec.querySelector("h1")?.parentElement;
     const box = block?.parentElement;
-    it = block && box ? { els: [...block.querySelectorAll("h1, p, a")], note: box.lastElementChild !== block ? box.lastElementChild : null, box } : null;
+    it = block && box ? { block, box } : null;
     intros.set(sec, it);
   }
   if (!it) return NaN;
-  range ??= document.createRange();
-  // The text's real right edge (line boxes, not the column's).
-  let textR = 0;
-  for (const el of it.els) {
-    let r: DOMRect;
-    if (el.tagName === "A") r = el.getBoundingClientRect();
-    else {
-      range.selectNodeContents(el);
-      r = range.getBoundingClientRect();
-    }
-    if (r.width > 0 && r.right > textR) textR = r.right;
-  }
+  const tr = it.block.getBoundingClientRect();
   const br = it.box.getBoundingClientRect();
-  const nr = it.note?.getBoundingClientRect();
-  const note = nr && nr.width > 0 && getComputedStyle(it.note as Element).position === "absolute" ? nr : null;
-  const gridR = note ? note.right : br.right - 32;
-  out.l = textR + 56;
-  // Anchored to the content grid: never more than a step past the caption's right edge.
-  out.r = Math.min(W - 24, gridR + 24);
-  out.t = Math.max(HEADER_PX + 12, br.top + 12);
-  out.b = Math.min(H - 12, note ? note.top - 22 : br.bottom - 16);
+  out.l = tr.right + TEXT_GAP;
+  out.r = Math.min(W - 24, br.right - GRID_PAD + 24);
   if (out.r - out.l < 300) return NaN;
-  // Block boxes (the headline's full-width column) count as content for the labels: start
-  // clear of them, with room for a label hanging off the machine's left side.
-  occluders.sync();
-  if (occluders.hits(out.l, out.t, out.r, out.b)) {
-    let lo = out.l;
-    let hi = out.r - 300;
-    if (occluders.hits(hi, out.t, out.r, out.b)) return NaN;
-    for (let i = 0; i < 10 && hi - lo > 2; i++) {
-      const m = (lo + hi) / 2;
-      if (occluders.hits(m, out.t, out.r, out.b)) lo = m;
-      else hi = m;
-    }
-    out.l = Math.min(hi + 32, out.r - 300);
-  }
-  return note ? (note.left + note.right) / 2 : (out.l + out.r) / 2;
+  // As tall as fits both ways around the text column's centre, inside the intro and below the header.
+  const cy = (tr.top + tr.bottom) / 2;
+  const top = Math.max(HEADER_PX + 12, br.top + 12);
+  const bottom = Math.min(H - 12, br.bottom - 16);
+  const half = Math.min(cy - top, bottom - cy);
+  if (half < MIN_H.desk / 2) return NaN;
+  out.t = cy - half;
+  out.b = cy + half;
+  return (out.l + out.r) / 2;
 }
 
-/** Narrow a room to the machine's aspect: centred on x (clamped inside), sitting on its bottom. */
-function sitOn(room: Rect, x: number, hw: number, hh: number) {
+/** Narrow a room to the machine's aspect, centred on x (clamped inside) and on the room's middle. */
+function fitIn(room: Rect, x: number, hw: number, hh: number) {
   const asp = hw / hh;
   const rw = room.r - room.l;
   const rh = room.b - room.t;
@@ -202,13 +179,18 @@ function sitOn(room: Rect, x: number, hw: number, hh: number) {
     const cx = Math.min(Math.max(x, room.l + nw / 2), room.r - nw / 2);
     room.l = cx - nw / 2;
     room.r = cx + nw / 2;
-  } else room.t = room.b - rw / asp;
+  } else {
+    const nh = rw / asp;
+    const cy = (room.t + room.b) / 2;
+    room.t = cy - nh / 2;
+    room.b = cy + nh / 2;
+  }
 }
 
 /**
  * Keep the labels hanging off a machine's right side inside `limit` too: the machine (fitted
- * into `room` by sitOn; px per layout unit from its width) slides left, then shrinks on its
- * bottom, by however far its widest right-hand label would run past.
+ * into `room` by fitIn; px per layout unit from its width) slides left, then shrinks about
+ * its middle, by however far its widest right-hand label would run past.
  */
 function fitLabels(room: Rect, inner: Rect, limit: number, list: Slot[] | undefined, hw: number) {
   if (!list) return;
@@ -230,7 +212,10 @@ function fitLabels(room: Rect, inner: Rect, limit: number, list: Slot[] | undefi
     const w = room.r - room.l;
     const k = Math.max(0.6, (w - excess) / w);
     room.r = room.l + w * k;
-    room.t = room.b - (room.b - room.t) * k;
+    const h = (room.b - room.t) * k;
+    const cy = (room.t + room.b) / 2;
+    room.t = cy - h / 2;
+    room.b = cy + h / 2;
   }
 }
 
@@ -648,7 +633,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
           const x = introRoom(sec, W, H, room1);
           if (x === x && clearRect(room1, MIN_H.desk, clear)) {
             const limit = clear.r;
-            sitOn(clear, x, d.hw, d.hh);
+            fitIn(clear, x, d.hw, d.hh);
             fitLabels(clear, room1, limit, L?.slots[idx], d.hw);
             c.ok = c.doc = true;
           }
