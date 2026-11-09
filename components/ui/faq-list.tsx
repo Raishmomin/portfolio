@@ -80,8 +80,16 @@ export function FaqLayout({ side, head, faqs, name }: { side: "left" | "right"; 
 /** The plain-language caption of the FAQ scene (the head's 3D note; hidden when 3D is off). */
 export const FAQ_SCENE_NOTE =
   "Every question is a numbered node in the scene. Open one and its answer becomes a picture made from real data right beside it: the career rings, the stack, live local time, or the figures, steps and choices it states.";
+/** Below lg only the pictures that read without words open under their card. */
+export const FAQ_SCENE_NOTE_SMALL =
+  "Every question is a node in the scene above. Open the experience, stack or availability question and its picture, made from real data, opens right under the answer.";
 
 /** The FAQ head's 3D note (its own class, so CSS can drop it when the 3D is off). */
 export function FaqNote() {
-  return <SceneNote className="faq-note">{FAQ_SCENE_NOTE}</SceneNote>;
+  return (
+    <SceneNote className="faq-note">
+      <span className="hidden lg:inline">{FAQ_SCENE_NOTE}</span>
+      <span className="lg:hidden">{FAQ_SCENE_NOTE_SMALL}</span>
+    </SceneNote>
+  );
 }

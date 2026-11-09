@@ -1021,8 +1021,8 @@ export function prepare(data: NeuralData): Pre {
   const now = monthNow();
   const roles: Pre["roles"] = [];
   let cursor: number | null = null;
-  // Oldest first (data.experience is newest first), so the rings fill outward in time.
-  for (const e of [...data.experience].reverse()) {
+  // data.experience is oldest first (types.ts), so `cursor` is the previous, older role's end.
+  for (const e of data.experience) {
     const [s, en] = parsePeriod(e.period);
     const start: number = s ?? cursor ?? now - e.months;
     const end: number = e.current ? now : (en ?? start + e.months);
