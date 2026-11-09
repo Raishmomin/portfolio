@@ -26,7 +26,7 @@ export function NeuralStage({ data }: { data: NeuralData }) {
       data-neural-stage=""
       className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-lvh overflow-hidden [contain:strict]"
     >
-      <NeuralPoster />
+      <NeuralPoster data={data} />
       <NeuralIsland data={data} />
     </div>
   );

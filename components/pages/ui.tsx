@@ -14,7 +14,7 @@ import { revealProps } from "../reveal";
 /** Where a section's content sits; the stage frames its scene around it. */
 export type StageLayout = "left" | "right" | "full" | "band";
 /** Scene keys of the stage contract (`ambient`: the calm neural field). */
-export type PageScene = "hero" | "stack" | "experience" | "ai" | "work" | "contact" | "ambient";
+export type PageScene = "hero" | "stack" | "experience" | "ai" | "work" | "services" | "writing" | "faq" | "contact" | "ambient";
 
 /** Readable surface over the canvas (app/globals.css `.panel`). */
 export const panel = "panel";
@@ -211,7 +211,8 @@ export function StatTiles({ stats, className }: { stats: Stat[]; className?: str
 /**
  * Page intro, like the home hero: the page's scene fills one side of the viewport, the
  * text sits on a gradient scrim on the other ("left" by default, or "right"). The h1 and lead are plain
- * server text (LCP; never animated). Extras (stats, CTAs) and the 3D caption reveal.
+ * server text (LCP; never animated). Extras (stats, CTAs) and the 3D caption reveal; the
+ * caption closes the text column and never sits on the scene's side.
  */
 export function PageIntro({
   crumbs,
@@ -267,18 +268,15 @@ export function PageIntro({
           </h1>
           {lead ? <p className="mt-6 max-w-[56ch] text-[17px] leading-7 text-muted-foreground md:text-lg md:leading-8">{lead}</p> : null}
           {children}
+          {/* The caption stays in the text column (where every section head keeps its chip): the
+              scene's subject holds its place in the viewport while the section scrolls, so a
+              panel on the scene's side would slide across it at the first scroll step. */}
+          {note ? (
+            <SceneNote {...reveal(900)} className="mt-10 max-w-[30rem]">
+              {note}
+            </SceneNote>
+          ) : null}
         </div>
-        {note ? (
-          <SceneNote
-            {...reveal(900)}
-            className={cn(
-              "mt-10 max-w-[30rem] lg:absolute lg:bottom-10 lg:mt-0 lg:max-w-[22rem] lg:rounded-xl lg:border lg:border-border lg:bg-background/85 lg:p-4",
-              right ? "lg:left-8" : "lg:right-8",
-            )}
-          >
-            {note}
-          </SceneNote>
-        ) : null}
       </Container>
     </section>
   );

@@ -1,7 +1,9 @@
 // /projects "AI" band: every AI project (isAiProject, the same rule as the home AI scene)
 // as a card with its real pipeline stages, input → output. Each card focuses its 3D
-// pipeline (data-focus-id = slug) and links to the project's full card below. On desktop
-// the cards stack as a deck while you scroll (data-deck), like the home AI section.
+// system (data-focus-id = slug; its stage pills, data-ai-stage, light as the 3D request
+// passes) and links to the project's full card below. On desktop the cards stack as a
+// deck while you scroll (data-deck), like the home AI section; on phones the section opens
+// with a window onto the 3D system (pt-[34svh]), as the home scene sections do.
 import type { NeuralData } from "../../neural";
 import { Accent } from "../../ui/primitives";
 import { NeuralGlyph } from "../ai-badge";
@@ -11,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number }) {
   if (!ai.length) return null;
   return (
-    <PageSection id="ai" section="ai" scene="ai" stage="left" labelledBy="ai-heading">
+    <PageSection id="ai" section="ai" scene="ai" stage="left" labelledBy="ai-heading" className="pt-[34svh] lg:pt-28">
       <div className={column.left}>
         <div {...card()} className="panel p-6 md:p-8">
           <SectionHead
@@ -23,7 +25,7 @@ export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number
                 {ai.length} of {total} projects <Accent>use AI.</Accent>
               </>
             }
-            scene="On the right, each AI project is drawn as a pipeline: data flows from input through its real stages to the output. Hover a project to rebuild its pipeline."
+            scene="The 3D draws each AI project as a working system: a request runs from the input through its real stages to the answer, and the project's stages light as it passes. Hover a project to rebuild its system, or one of its stages to hold the request there."
           />
         </div>
         <ol aria-label="AI projects" data-deck="" data-card-group="" className="mt-4 flex flex-col gap-4">
@@ -49,7 +51,9 @@ export function AiPipelines({ ai, total }: { ai: NeuralData["ai"]; total: number
                   {p.stages.map((s, k) => (
                     <li key={s} className="flex items-center gap-1.5">
                       {k > 0 ? <span aria-hidden="true" className="text-muted-foreground">→</span> : null}
-                      <span className="pill normal-case tracking-normal">{s}</span>
+                      <span data-ai-stage={s} className="pill normal-case tracking-normal">
+                        {s}
+                      </span>
                     </li>
                   ))}
                 </ul>

@@ -25,6 +25,7 @@ The owner sent a screenshot of the AI section: /home/raish/raish/.my-app-lanes/d
 | ai | 3931 | components/neural/scenes/ai.tsx, scenes/ai/**, components/home/ai.tsx, components/pages/projects/ai-pipelines.tsx, globals block `/* fm3-ai */` |
 | contact | 3932 | components/neural/scenes/contact.tsx, scenes/contact/**, components/home/contact.tsx, app/contact/page.tsx, components/pages/contact/**, components/contact-form.tsx, components/copy-email.tsx, globals block `/* fm3-contact */` |
 | services | 3933 | components/neural/scenes/services.tsx, scenes/services/**, components/home/services.tsx, app/services/page.tsx, app/services/[slug]/page.tsx, components/pages/services/**, components/service-page.tsx, globals block `/* fm3-services */` |
+| writing (added 2026-11-08 after the whole-site review: Writing was the only dead home section) | 3935 | components/neural/scenes/writing.tsx, scenes/writing/**, components/home/writing.tsx, components/home/latest-posts.tsx, globals block `/* fm3-writing */`. Focus ids `post:<slug>`; the scene reads post titles/dates from the server-rendered cards (labels duplicate DOM text). |
 | faq | 3934 | components/neural/scenes/faq.tsx, scenes/faq/**, components/home/faq.tsx, components/pages/about/faq-list.tsx, the item markup of every other FAQ list (it may create a shared components/ui/faq-list.tsx), globals block `/* fm3-faq */` |
 
 - **Service pages:** the services lane owns components/service-page.tsx, but only the faq lane changes the markup of the FAQ items in it.

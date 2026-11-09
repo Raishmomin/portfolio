@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, Check } from "lucide-react";
+import { signal } from "./pages/contact/signal";
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -37,7 +38,8 @@ const fieldId = (name: FieldName) => `contact-${name}`;
  * the submit button stays focusable while sending (aria-disabled), a failed check
  * focuses the first invalid field (aria-invalid + aria-describedby), and a sent
  * message focuses its heading. The status region is always mounted, so the result
- * is announced.
+ * is announced. It also tells the contact globe (signal.ts) when a field gains focus,
+ * on typing, and when a message is sent, from where the message leaves the page.
  */
 export function ContactForm() {
   const [form, setForm] = useState<Fields>(EMPTY);
@@ -47,6 +49,7 @@ export function ContactForm() {
   const [error, setError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const sentRef = useRef<HTMLHeadingElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
   const focusAfterReset = useRef(false);
   const focusInvalid = useRef<FieldName | null>(null);
 
@@ -80,6 +83,7 @@ export function ContactForm() {
 
     setErrors({});
     setSending(true);
+    signal("send", submitRef.current);
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
@@ -87,9 +91,11 @@ export function ContactForm() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
+        signal("sent", submitRef.current);
         setForm(EMPTY);
         setSent(true);
       } else {
+        signal("error");
         const data = await res.json().catch(() => ({}));
         // Validation failures (400) arrive as { errors: string[] }; other failures as { error }.
         const messages: string[] = Array.isArray(data?.errors) ? data.errors : [];
@@ -106,6 +112,7 @@ export function ContactForm() {
         setError(general.join(". ") || (firstServer ? "" : data?.error || "Something went wrong. Try again."));
       }
     } catch {
+      signal("error");
       setError("Network error. Please try again.");
     }
     setSending(false);
@@ -115,6 +122,7 @@ export function ContactForm() {
     const name = e.target.name as FieldName;
     setForm({ ...form, [name]: e.target.value });
     if (errors[name]) setErrors({ ...errors, [name]: undefined });
+    signal("type", e.target); // the globe paces its sparks itself
   }
 
   function field(name: FieldName) {
@@ -156,7 +164,19 @@ export function ContactForm() {
           </button>
         </div>
       ) : (
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6" noValidate aria-busy={sending}>
+        <form
+          ref={formRef}
+          onSubmit={handleSubmit}
+          onFocus={(e) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) signal("focus", e.target);
+          }}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) signal("blur");
+          }}
+          className="space-y-6"
+          noValidate
+          aria-busy={sending}
+        >
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Field {...field("name")} label="Name" autoComplete="name" />
             <Field {...field("email")} label="Email" type="email" autoComplete="email" />
@@ -171,6 +191,7 @@ export function ContactForm() {
               </p>
             ) : null}
             <button
+              ref={submitRef}
               type="submit"
               aria-disabled={sending}
               className={`group inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 aria-disabled:cursor-progress aria-disabled:opacity-60 sm:ml-auto ${FOCUS_RING}`}

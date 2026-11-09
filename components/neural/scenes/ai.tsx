@@ -1,123 +1,71 @@
 "use client";
-// AI scene (tasks/neural-spec.md): the current AI project as a left→right pipeline.
-// Stage nodes (data.ai[i].stages) sit on one glowing pipe; data particles stream
-// through it (positions computed in the vertex shader, zero CPU per particle), fan out
-// through the LLM's neural cluster and leave orange (the answer). `progress` steps
-// through the projects in equal slices and `focus` (a project slug) jumps to one; the
-// stage sets morph smoothly (shared stages glide, missing ones grow/shrink in place).
-// Text: aria-hidden screen-space labels (stage names + project title) that duplicate the
-// DOM section; they follow the shared label rules (active scene only, never over content).
+// AI scene: the active AI project drawn as a working AI system, built from its real data
+// (NeuralData.ai[i].stages, and the models / vector store / agent framework in its stack).
+// Each stage is its own object: a chat window (or code, or a voice waveform) where the
+// prompt is typed, a vector store whose nearest matches light for the query, an agent
+// calling its tools in turn, a dense neural core (one orbit ring per model provider) that
+// streams the answer token by token, and an answer card whose lines assemble. One request
+// runs through the system on a clock; the stage chips of the project's DOM card light in
+// sync (data-ai-lit / data-ai-done, and a bubbling "cp:ai-stage" event); hovering or
+// focusing a stage chip holds the request in that stage. The project comes from a hovered
+// card, else the top card of the AI deck ("cp:deck"), else the card nearest the viewport's
+// centre (phones: the first card while the section opens); switching projects rebuilds the
+// system (shared stages glide, others grow or dissolve). The system's free area is cut to
+// the part of its section in view, so it shrinks, slides and fades with the section and
+// never draws over the neighbouring sections' content.
+// Names are aria-hidden labels in the shared layer that duplicate the DOM cards.
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
-import type { Group, Mesh } from "three";
-import { fitFree } from "../framing";
+import { Vector3, type Camera } from "three";
+import { fitFree, framing, sceneFrames } from "../framing";
 import type { SceneProps } from "../types";
-import { buildPipeline, PATH_W, type StageKind } from "./ai/pipeline";
-import { AiRig, emptyRegistry, type AiRegistry } from "./ai/rig";
-import { isLight } from "./ai/shared";
-import { LabelLayer } from "./stack/labels";
+import { buildModel } from "./ai/layout";
+import { AiRig, type AiRegistry } from "./ai/rig";
+import { smooth } from "./ai/shared";
+import { LabelLayer, type Align } from "./stack/labels";
 
 /** A section that shows this scene (home: data-section="ai"; subpages: data-scene="ai"). */
 const AI_SECTION = '[data-section="ai"], [data-scene="ai"]';
+/** Largest world units per layout unit, and the smallest frame (px) worth fitting into. */
+const CAP = 1.25;
+const MIN_RECT = 140;
+/** How far the nearest parts come toward the camera (layout units), for the perspective fit. */
+const NEAR_Z = 1.3;
+/** Clearance (px) kept between the system and its section's top / bottom edge. */
+const EDGE = 28;
+/** The system fades out as the section's part in view drops from FADE[1] to FADE[0] px tall. */
+const FADE = [90, 210] as const;
+const BELOW: Align = { x: -0.5, y: 0 };
+const ABOVE: Align = { x: -0.5, y: -1 };
 
-/** Label distance below (landscape) / beside (portrait) each stage, in stage units. */
-const LABEL_OFFSET: Record<StageKind, number> = { llm: 0.98, rag: 0.5, io: 0.56, speech: 0.56, agent: 0.6, generic: 0.56 };
-
-/**
- * The look of one stage: a gate ring (in/out), a database stack (retrieval), a tool
- * orbit (agent), sound waves (speech) or the LLM's neural cluster. Its little props
- * animate here; position, scale and presence come from the rig.
- */
-function StageBody({ rig, kind, out, active }: { rig: AiRig; kind: StageKind; out: boolean; active: boolean }) {
-  const { geo, mats, cluster } = rig;
-  const spin = useRef<Group>(null);
-  const parts = useRef<(Mesh | null)[]>([]);
-  useFrame((state, dt) => {
-    if (!active) return;
-    const t = state.clock.elapsedTime;
-    if (spin.current) spin.current.rotation.x += Math.min(dt, 0.1) * 0.28;
-    for (let k = 0; k < 3; k++) {
-      const m = parts.current[k];
-      if (!m) continue;
-      if (kind === "agent") {
-        const a = t * 0.9 + (k * Math.PI * 2) / 3;
-        m.position.set(0, Math.cos(a) * 0.36, Math.sin(a) * 0.36);
-      } else {
-        const f = (t * 0.5 + k / 3) % 1;
-        m.scale.setScalar(0.45 + f * 1.5);
-        rig.setWave(k, 4 * f * (1 - f) * 0.85);
-      }
-    }
-  });
-  if (kind === "llm")
-    return (
-      <group ref={spin}>
-        <lineSegments geometry={cluster.lines} material={mats.synapses} frustumCulled={false} />
-        <points geometry={cluster.points} material={mats.nodes} frustumCulled={false} />
-      </group>
-    );
-  if (kind === "rag")
-    return (
-      <group>
-        {[-0.13, 0, 0.13].map((y) => (
-          <mesh key={y} geometry={geo.disc} material={mats.core} position-y={y} />
-        ))}
-      </group>
-    );
-  const core = <mesh geometry={geo.core} material={out ? mats.coreOut : mats.core} />;
-  if (kind === "speech")
-    return (
-      <group>
-        {core}
-        {[0, 1, 2].map((k) => (
-          <mesh
-            key={k}
-            ref={(m) => {
-              parts.current[k] = m;
-            }}
-            geometry={geo.wave}
-            material={mats.waves[k]}
-            rotation-y={Math.PI / 2}
-          />
-        ))}
-      </group>
-    );
-  return (
-    <group>
-      {core}
-      <mesh geometry={geo.ring} material={mats.ring} rotation-y={Math.PI / 2} />
-      {kind === "agent"
-        ? [0, 1, 2].map((k) => (
-            <mesh
-              key={k}
-              ref={(m) => {
-                parts.current[k] = m;
-              }}
-              geometry={geo.sat}
-              material={mats.coreOut}
-            />
-          ))
-        : null}
-    </group>
-  );
+const v0 = new Vector3();
+const v1 = new Vector3();
+/** World point on the z = 0 plane under a canvas pixel (out = [x, y]). */
+function toWorld(camera: Camera, px: number, py: number, w: number, h: number, out: number[]) {
+  v0.set((px / w) * 2 - 1, 1 - (py / h) * 2, 0.5).unproject(camera);
+  v1.copy(camera.position);
+  v0.sub(v1);
+  const t = Math.abs(v0.z) > 1e-6 ? -v1.z / v0.z : 0;
+  out[0] = v1.x + v0.x * t;
+  out[1] = v1.y + v0.y * t;
 }
 
+type Labels = { layer: LabelLayer; name: number[]; chip: HTMLElement[]; tech: HTMLElement[]; title: number[]; plan: number; lit: number };
+type Chips = { project: number; lit: number; els: HTMLElement[]; sections: HTMLElement[] };
+/** The driving section's edges (canvas px) and the project of the card nearest the viewport's centre. */
+type Sec = { el: HTMLElement | null; ok: boolean; top: number; bottom: number; near: number };
+
 export default function AiScene({ data, progress, weight, pointer, focus, palette, quality }: SceneProps) {
-  const model = useMemo(() => buildPipeline(data.ai ?? []), [data.ai]);
-  const light = isLight(palette.bg);
-  const rig = useMemo(() => new AiRig(light), [light]);
+  const model = useMemo(() => buildModel(data.ai ?? [], data.work ?? []), [data.ai, data.work]);
+  const rig = useMemo(() => new AiRig(model), [model]);
   useEffect(() => () => rig.dispose(), [rig]);
-  useEffect(() => rig.setPalette(palette, model), [rig, palette, model]);
+  useEffect(() => rig.setPalette(palette), [rig, palette]);
   useEffect(() => rig.setQuality(quality), [rig, quality]);
-
-  const portrait = useThree((s) => s.size.width / Math.max(1, s.size.height) < 0.85);
   const active = weight > 0;
-  const llm = model.vocab.findIndex((v) => v.kind === "llm");
-  const reg = useRef<AiRegistry>(emptyRegistry());
+  const reg = useRef<AiRegistry>({ root: null, inner: null });
 
-  // The card on top of the AI deck (desktop [data-deck] emits "cp:deck"): the pipeline shows
-  // that project. Read per frame only while its deck is still live (it reverts on phones).
-  // Only the AI section's deck counts (another section's deck may list AI projects too).
+  // The card on top of the AI deck (desktop [data-deck] emits "cp:deck"); read per frame
+  // only while its deck is live (it reverts on phones). Only the AI section's deck counts.
   const deck = useRef<{ el: Element; id: string | null } | null>(null);
   useEffect(() => {
     const onDeck = (e: Event) => {
@@ -132,70 +80,317 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     return () => document.removeEventListener("cp:deck", onDeck);
   }, [model]);
 
-  // Labels: stage names under each stage, the current project's title above the pipe, in
-  // the shared screen-space layer (active scene only, hidden over content, clamped).
-  // Rebuilt when the theme changes; the layer itself is cheap plain DOM.
+  // The section in view: measured in the scroll / resize handlers themselves (they run
+  // before this frame renders), so the cut follows the page without a frame of lag; only
+  // while this scene shows (and once as it starts showing).
+  const gl = useThree((s) => s.gl);
+  const sec = useRef<Sec>({ el: null, ok: false, top: 0, bottom: 0, near: -1 });
+  const measure = useMemo(
+    () => () => {
+      const st = sec.current;
+      const own = sceneFrames.ai.el;
+      const el = own?.isConnected ? own : document.querySelector<HTMLElement>(AI_SECTION);
+      st.el = el;
+      if (!el || !el.isConnected) {
+        st.ok = false;
+        st.near = -1;
+        return;
+      }
+      const c = gl.domElement.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      st.ok = r.height > 0;
+      st.top = r.top - c.top;
+      st.bottom = r.bottom - c.top;
+      // The card nearest the viewport's centre (the first one until any card is in view).
+      const vh = c.height || window.innerHeight;
+      let best = Infinity;
+      let near = -1;
+      let first = -1;
+      el.querySelectorAll<HTMLElement>("[data-focus-id]").forEach((card) => {
+        const j = model.index.get(card.dataset.focusId ?? "");
+        if (j === undefined) return;
+        if (first < 0) first = j;
+        const b = card.getBoundingClientRect();
+        if (b.bottom < c.top || b.top > c.top + vh) return;
+        const d = Math.abs((b.top + b.bottom) / 2 - c.top - vh / 2);
+        if (d < best) {
+          best = d;
+          near = j;
+        }
+      });
+      st.near = near >= 0 ? near : first;
+    },
+    [gl, model],
+  );
+  const on = useRef(false);
+  useEffect(() => {
+    on.current = active;
+    if (active) measure();
+  }, [active, measure]);
+  useEffect(() => {
+    const read = () => {
+      if (on.current) measure();
+    };
+    const ro = new ResizeObserver(read);
+    ro.observe(document.body);
+    window.addEventListener("scroll", read, { passive: true });
+    window.addEventListener("resize", read, { passive: true });
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", read);
+      window.removeEventListener("resize", read);
+    };
+  }, [measure]);
+
+  // A hovered / focused stage chip (data-ai-stage inside a project's card) holds the request there.
+  const hold = useRef<{ slug: string; stage: string } | null>(null);
+  useEffect(() => {
+    const chipOf = (t: EventTarget | null) => (t instanceof Element ? t.closest<HTMLElement>("[data-ai-stage]") : null);
+    const enter = (e: Event) => {
+      const chip = chipOf(e.target);
+      if (!chip || !chip.closest(AI_SECTION)) return;
+      const slug = chip.closest<HTMLElement>("[data-focus-id]")?.dataset.focusId;
+      const stage = chip.dataset.aiStage;
+      if (slug && stage && model.index.has(slug)) hold.current = { slug, stage };
+    };
+    const leave = (e: Event) => {
+      const from = chipOf(e.target);
+      if (from && from !== chipOf((e as PointerEvent | FocusEvent).relatedTarget) && hold.current?.stage === from.dataset.aiStage) hold.current = null;
+    };
+    document.addEventListener("pointerover", enter, { passive: true });
+    document.addEventListener("pointerout", leave, { passive: true });
+    document.addEventListener("focusin", enter);
+    document.addEventListener("focusout", leave);
+    return () => {
+      document.removeEventListener("pointerover", enter);
+      document.removeEventListener("pointerout", leave);
+      document.removeEventListener("focusin", enter);
+      document.removeEventListener("focusout", leave);
+    };
+  }, [model]);
+
+  // The DOM side of the clock: the shown project's stage chips (data-ai-stage="<name>").
+  const chips = useRef<Chips>({ project: -1, lit: -1, els: [], sections: [] });
+  const syncChips = useMemo(
+    () => (project: number, lit: number) => {
+      const st = chips.current;
+      if (project === st.project && lit === st.lit) return;
+      st.project = project;
+      st.lit = lit;
+      const plan = project >= 0 && !model.generic ? model.plans[project] : undefined;
+      for (const el of st.els) {
+        el.removeAttribute("data-ai-lit");
+        el.removeAttribute("data-ai-done");
+      }
+      st.els.length = 0;
+      if (!plan) {
+        for (const s of st.sections) s.removeAttribute("data-ai-sync");
+        st.sections.length = 0;
+        return;
+      }
+      document.querySelectorAll<HTMLElement>(AI_SECTION).forEach((sec) => {
+        if (!sec.hasAttribute("data-ai-sync")) {
+          sec.setAttribute("data-ai-sync", "");
+          st.sections.push(sec);
+        }
+        const card = sec.querySelector<HTMLElement>(`[data-focus-id="${CSS.escape(plan.slug)}"]`);
+        if (!card) return;
+        plan.stages.forEach((name, j) => {
+          if (j > lit) return;
+          const chip = card.querySelector<HTMLElement>(`[data-ai-stage="${CSS.escape(name)}"]`);
+          if (!chip) return;
+          chip.setAttribute(j === lit ? "data-ai-lit" : "data-ai-done", "");
+          st.els.push(chip);
+        });
+        if (lit >= 0) card.dispatchEvent(new CustomEvent("cp:ai-stage", { bubbles: true, detail: { slug: plan.slug, stage: plan.stages[lit], index: lit } }));
+      });
+    },
+    [model],
+  );
+  useEffect(() => () => syncChips(-1, -1), [syncChips]);
+
+  // Labels: each stage's name with its technology line, and each project's title, in the
+  // shared screen-space layer (active scene only, hidden over content, clamped).
   const host = useThree((s) => s.gl.domElement.parentElement);
-  const labels = useRef<{ layer: LabelLayer; stage: number[]; title: number[] } | null>(null);
+  const labels = useRef<Labels | null>(null);
   useEffect(() => {
     if (!host || model.generic) return;
     const layer = new LabelLayer(host);
-    const chip = `color-mix(in srgb, ${palette.bg} 78%, transparent)`;
-    const stage = model.vocab.map((v) => {
-      const id = layer.add(
-        v.name,
-        "",
-        "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase leading-none tracking-[0.14em]",
-        portrait ? { x: 0, y: -0.5 } : { x: -0.5, y: 0 },
-      );
-      layer.style(id, {
-        color: v.kind === "llm" ? palette.ai : palette.fg,
-        background: chip,
-        borderColor: `color-mix(in srgb, ${v.kind === "llm" ? palette.ai : palette.muted} 45%, transparent)`,
-      });
+    const chip: HTMLElement[] = [];
+    const tech: HTMLElement[] = [];
+    const name = model.slots.map((s) => {
+      const id = layer.add("", "", "flex flex-col items-center gap-1", BELOW);
+      const el = layer.el.children[id] as HTMLElement;
+      const c = document.createElement("span");
+      c.className = "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase leading-none tracking-[0.14em]";
+      c.textContent = s.name;
+      const t = document.createElement("span");
+      t.className = "font-mono text-[10.5px] leading-none tracking-[0.02em]";
+      Object.assign(t.style, { color: palette.muted, textShadow: `0 0 8px ${palette.bg}, 0 0 3px ${palette.bg}` });
+      el.append(c, t);
+      chip.push(c);
+      tech.push(t);
+      layer.style(id, {});
       return id;
     });
-    const title = model.projects.map((p) => {
-      const id = layer.add(`\u25CF ${p.title}`, "", "font-mono text-xs uppercase tracking-[0.16em]", { x: -0.5, y: -0.5 });
+    const title = model.plans.map((p) => {
+      const id = layer.add(`● ${p.title}`, "", "font-mono text-xs uppercase tracking-[0.16em]", { x: 0, y: 0 });
       layer.style(id, { color: palette.fg, textShadow: `0 0 10px ${palette.bg}, 0 0 4px ${palette.bg}` });
       return id;
     });
-    labels.current = { layer, stage, title };
+    labels.current = { layer, name, chip, tech, title, plan: -1, lit: -2 };
     return () => {
       labels.current = null;
       layer.dispose();
     };
-  }, [host, model, portrait, palette]);
+  }, [host, model, palette]);
+
+  const titleO = useRef<Float32Array>(new Float32Array(0));
+  const pt = useMemo(() => [0, 0], []);
+  const at = useMemo(() => new Float32Array(3), []);
+  const live = useRef({ project: 0 });
+  const lastFit = useRef({ x: 0, y: 0, scale: 0 });
 
   useFrame((state, dt) => {
     const ids = labels.current;
-    const layer = ids?.layer;
     if (!active) {
-      layer?.hideAll();
+      ids?.layer.hideAll();
+      syncChips(-1, -1);
       return;
     }
-    // Fitted into the free part of the viewport (a full-width band on the home page).
-    const scale = portrait
-      ? fitFree(state.camera, state.size, 2.2, (PATH_W + 3.6) / 2, 1.1)
-      : fitFree(state.camera, state.size, 6.7, 2.5, 1.1, 1.3);
-    const r = reg.current;
+    const { camera, size } = state;
+    const n = model.plans.length;
+    // Which project: hover/focus wins, then the live deck's top card, then the card nearest
+    // the viewport's centre, else equal scroll slices.
     const d = deck.current;
     const deckId = d && d.el.hasAttribute("data-deck-live") ? d.id : null;
-    rig.frame(state, dt, { model, progress, weight, pointer, focus, deck: deckId, scale, yaw: portrait ? 0 : -0.32 }, r);
-    if (!layer || !ids || !r.root || !layer.begin(weight)) return;
-    const { width: w, height: h } = state.size;
-    r.root.updateMatrixWorld(true);
-    model.vocab.forEach((v, i) => {
-      const g = r.stages[i];
-      if (!g || !g.visible) return layer.hide(ids.stage[i]);
-      const off = LABEL_OFFSET[v.kind];
-      layer.place(ids.stage[i], 0, portrait ? off : -off, 0, g.matrixWorld, state.camera, w, h, r.labelO[i]);
-    });
-    model.projects.forEach((_, j) => {
-      layer.place(ids.title[j], 0, portrait ? PATH_W / 2 + 0.75 : 1.75, 0, r.root!.matrixWorld, state.camera, w, h, r.titleO[j]);
-    });
+    const st = sec.current;
+    const picked = (focus ? model.index.get(focus) : undefined) ?? (deckId ? model.index.get(deckId) : undefined) ?? (st.near >= 0 ? st.near : undefined);
+    live.current.project = picked ?? Math.min(n - 1, Math.floor(Math.max(0, Math.min(1, progress)) * n));
+
+    // Where: the scene's own free rect (unblended, from the director), else the blended framing.
+    const box = rig.box[2] > 0 ? rig.box : model.plans[live.current.project].box;
+    const hw = box[2];
+    const hh = box[3];
+    const sf = sceneFrames.ai;
+    const rl = sf.rect.l * size.width;
+    let rt = sf.rect.t * size.height;
+    let rb = sf.rect.b * size.height;
+    const rw = (sf.rect.r - sf.rect.l) * size.width;
+    const fit = lastFit.current;
+    let room = 1;
+    // Desktop: only the part of the free rect inside the section (less a clearance) is the
+    // system's; as the section scrolls in or out the system shrinks and slides with it, and
+    // fades before that part gets too small. It never reaches the next section's heading.
+    let clip = false;
+    if (!framing.phone && st.ok) {
+      const top = st.top + EDGE;
+      const bottom = st.bottom - EDGE;
+      const cutTop = top > rt;
+      const cutBottom = bottom < rb;
+      clip = cutTop || cutBottom;
+      if (cutTop) rt = top;
+      if (cutBottom) rb = bottom;
+      room = smooth(FADE[0], FADE[1], rb - rt);
+      // Keep fitting a smallest frame on the side that is still open while it fades.
+      if (rb - rt < MIN_RECT) {
+        if (cutBottom) rt = rb - MIN_RECT;
+        else rb = rt + MIN_RECT;
+      }
+    }
+    const rh = rb - rt;
+    // A free area taller than the system's shape spreads its stages vertically (up to 1.45×);
+    // from the whole area, so the system keeps its shape while a section edge cuts it.
+    const own = model.plans[live.current.project].box;
+    const rh0 = (sf.rect.b - sf.rect.t) * size.height;
+    const stretch = rw > 0 && rh0 > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh0))) : 1;
+    if (sf.el && rw >= MIN_RECT && rh >= MIN_RECT) {
+      camera.updateMatrixWorld();
+      toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
+      fit.x = pt[0];
+      fit.y = pt[1];
+      toWorld(camera, rl, rt, size.width, size.height, pt);
+      const s = Math.min(CAP, (Math.abs(fit.x - pt[0]) * 0.9) / hw, (Math.abs(pt[1] - fit.y) * 0.94) / hh);
+      const dist = Math.max(4, camera.position.z);
+      fit.scale = (s * dist) / (dist + NEAR_Z * s);
+    } else if (framing.phone) {
+      // Phones: the system lives in the section's opening; as it scrolls away the system
+      // stays put and fades, so the cards below read on a clean background.
+      room = fit.scale > 0 ? Math.max(0, Math.min(1, rh / MIN_RECT)) : 0;
+    } else {
+      fit.x = fit.y = 0;
+      const s = fitFree(camera, size, hw, hh, CAP, CAP) * 0.94;
+      const dist = Math.max(4, camera.position.z);
+      fit.scale = (s * dist) / (dist + NEAR_Z * s);
+    }
+    // A held chip of the shown project: its stage index.
+    const h = hold.current;
+    const plan0 = rig.cur >= 0 ? model.plans[rig.cur] : null;
+    const held = h && plan0 && plan0.slug === h.slug ? plan0.stages.indexOf(h.stage) : -1;
+    rig.frame(state, dt, { project: live.current.project, weight, room, stretch, pointer, x: fit.x, y: fit.y, scale: fit.scale, clip, hold: held }, reg.current);
+    syncChips(rig.cur, rig.lit);
+
+    const r = reg.current;
+    if (!ids || !r.inner || rig.cur < 0) return;
+    const { layer } = ids;
+    if (!layer.begin(weight)) return;
+    if (room < 0.05) {
+      layer.hideAll();
+      return;
+    }
+    const plan = model.plans[rig.cur];
+    // After a project switch: technology lines, label sides.
+    if (ids.plan !== rig.cur) {
+      ids.plan = rig.cur;
+      ids.lit = -2;
+      model.slots.forEach((_, g) => {
+        const text = plan.tech[g];
+        const t = ids.tech[g];
+        if (t.textContent !== text) t.textContent = text;
+        t.style.display = text ? "" : "none";
+        const up = plan.label[g] > 0;
+        (layer.el.children[ids.name[g]] as HTMLElement).style.flexDirection = up ? "column-reverse" : "column";
+        layer.setAlign(ids.name[g], up ? ABOVE : BELOW);
+        layer.style(ids.name[g], {});
+      });
+    }
+    // The stage the request is in: its chip lights like the DOM chip.
+    const litSlot = rig.lit >= 0 ? plan.steps[rig.lit].slot : -1;
+    if (litSlot !== ids.lit) {
+      model.slots.forEach((s, g) => {
+        const on = g === litSlot;
+        const tint = s.kind === "llm" ? palette.ai : s.kind === "output" || s.kind === "tts" ? palette.accent : s.kind === "rag" ? palette.ok : palette.fg;
+        Object.assign(ids.chip[g].style, {
+          color: on ? palette.bg : s.kind === "llm" ? palette.ai : palette.fg,
+          background: on ? tint : `color-mix(in srgb, ${palette.bg} 80%, transparent)`,
+          borderColor: on ? tint : `color-mix(in srgb, ${tint} 50%, transparent)`,
+          boxShadow: on ? `0 0 14px color-mix(in srgb, ${tint} 55%, transparent)` : "none",
+        });
+      });
+      ids.lit = litSlot;
+    }
+    const { width: W, height: H } = size;
+    r.inner.updateMatrixWorld(true);
+    const M = r.inner.matrixWorld;
+    for (let g = 0; g < model.slots.length; g++) {
+      const pr = rig.presence[g];
+      if (pr < 0.05) {
+        layer.hide(ids.name[g]);
+        continue;
+      }
+      rig.labelAt(g, plan.label[g] > 0 ? 1 : -1, at);
+      layer.place(ids.name[g], at[0], at[1], at[2], M, camera, W, H, pr * pr * room);
+    }
+    const k = Math.min(1, dt * 6);
+    const B = rig.box;
+    if (titleO.current.length !== n) titleO.current = new Float32Array(n);
+    const tO = titleO.current;
+    for (let j = 0; j < n; j++) {
+      tO[j] += ((j === rig.cur ? 1 : 0) - tO[j]) * k;
+      if (tO[j] < 0.02) layer.hide(ids.title[j]);
+      else layer.place(ids.title[j], B[0] - B[2], B[1] + B[3], 0, M, camera, W, H, tO[j] * room);
+    }
   });
-  const { geo, mats } = rig;
 
   return (
     <group
@@ -204,22 +399,15 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       }}
       visible={active}
     >
-      <group rotation-z={portrait ? -Math.PI / 2 : 0}>
-        <mesh geometry={geo.glow} material={mats.glow} frustumCulled={false} renderOrder={1} />
-        <mesh geometry={geo.tube} material={mats.tube} frustumCulled={false} renderOrder={2} />
-        <points geometry={geo.halos} material={mats.halos} frustumCulled={false} renderOrder={3} />
-        <points geometry={geo.particles} material={mats.particles} frustumCulled={false} renderOrder={4} />
-        {model.vocab.map((v, i) => (
-          <group
-            key={v.name}
-            ref={(g) => {
-              reg.current.stages[i] = g;
-            }}
-            visible={false}
-          >
-            <StageBody rig={rig} kind={v.kind} out={llm >= 0 && i > llm} active={active} />
-          </group>
-        ))}
+      <group
+        ref={(g) => {
+          reg.current.inner = g;
+        }}
+      >
+        <mesh geometry={rig.gl.glows.geometry} material={rig.gl.spriteMat} frustumCulled={false} renderOrder={0} />
+        <mesh geometry={rig.gl.panels.geometry} material={rig.gl.panelMat} frustumCulled={false} renderOrder={1} />
+        <mesh geometry={rig.gl.links.geometry} material={rig.gl.linkMat} frustumCulled={false} renderOrder={2} />
+        <mesh geometry={rig.gl.sprites.geometry} material={rig.gl.spriteMat} frustumCulled={false} renderOrder={3} />
       </group>
     </group>
   );

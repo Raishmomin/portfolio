@@ -31,6 +31,10 @@ const MIN_RECT = 160;
 const short = (title: string) => title.split(/\s+[–—-]\s+|\s*\(/)[0].trim();
 
 type Spy = { el: Element; slug: string | null; tech: string | null };
+/** The services list uses the same [data-arch] spy with "service:" slugs: never the work scene's. */
+const SERVICE = "service:";
+const isServiceSpy = (el: Element, slug: string | null | undefined) =>
+  !!slug?.startsWith(SERVICE) || !!el.querySelector(`[data-arch-item][data-focus-id^="${SERVICE}"]`);
 /** The section's scene window (px, canvas space): shown at all, and the share of it in view. */
 type Win = { el: HTMLElement | null; l: number; t: number; w: number; h: number; ok: boolean; vis: number };
 
@@ -68,10 +72,14 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
   useEffect(() => {
     const onArch = (e: Event) => {
       const d = (e as CustomEvent<{ slug?: string | null; tech?: string | null }>).detail;
-      if (e.target instanceof Element) spy.current = { el: e.target, slug: d?.slug ?? null, tech: d?.tech ?? null };
+      if (e.target instanceof Element && !isServiceSpy(e.target, d?.slug)) {
+        spy.current = { el: e.target, slug: d?.slug ?? null, tech: d?.tech ?? null };
+      }
     };
     document.addEventListener("cp:arch", onArch);
-    const el = document.querySelector<HTMLElement>("[data-arch][data-arch-slug]");
+    const el = [...document.querySelectorAll<HTMLElement>("[data-arch][data-arch-slug]")].find(
+      (x) => !isServiceSpy(x, x.dataset.archSlug),
+    );
     if (el) spy.current = { el, slug: el.dataset.archSlug || null, tech: el.dataset.archTech || null };
     return () => document.removeEventListener("cp:arch", onArch);
   }, []);

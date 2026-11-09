@@ -20,7 +20,7 @@ import {
   type IUniform,
   type PerspectiveCamera,
 } from "three";
-import { compositionFor, framing, isLayout, sceneFrames, zeroComposition } from "../../framing";
+import { compositionFor, framing, isLayout, sceneFrames, scroll as pageScroll, zeroComposition } from "../../framing";
 import { isLight, setColor, setGlowBlending } from "../../fx";
 import { BASE_PITCH, BASE_YAW, brainSteps, COUNTS, FOV, VIEW_HALF, type BrainLayout } from "../../hero-layout";
 import type { SceneProps } from "../../types";
@@ -262,8 +262,8 @@ export class HeroCore {
     this.boxEl = own?.querySelector<HTMLElement>("[data-hero-core]") ?? null;
     const r = this.boxEl?.getBoundingClientRect();
     if (this.boxEl && r && r.width > 0 && r.height > 0) {
-      this.box = { x: r.left, y: r.top + scrollY, w: r.width, h: r.height };
-      this.sectionTop = (own?.getBoundingClientRect().top ?? 0) + scrollY;
+      this.box = { x: r.left, y: r.top + pageScroll.y, w: r.width, h: r.height };
+      this.sectionTop = (own?.getBoundingClientRect().top ?? 0) + pageScroll.y;
     } else {
       this.boxEl = null;
       const stage = own?.dataset.stage;
@@ -325,7 +325,7 @@ export class HeroCore {
     const W = size.width;
     const H = size.height;
     if (!this.measured || this.ownEl !== sceneFrames.hero.el) this.measure(W, H);
-    const scroll = scrollY;
+    const scroll = pageScroll.y;
     const b = this.box;
     // The home core scrolls with its section but lags behind it (it lingers while it disperses).
     const cx = b.x + b.w / 2;

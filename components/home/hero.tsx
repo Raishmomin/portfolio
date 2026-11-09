@@ -42,7 +42,7 @@ export function Hero({
       <div
         aria-hidden="true"
         data-hero-core=""
-        className={`pointer-events-none absolute inset-x-4 top-4 h-[calc(36svh-1.5rem)] lg:inset-x-auto lg:right-4 lg:top-6 lg:h-[calc(100svh-4rem-1px-9.5rem)] ${CORE_LEFT}`}
+        className={`pointer-events-none absolute inset-x-4 top-4 h-[calc(36svh-1.5rem)] lg:inset-x-auto lg:right-4 lg:top-6 lg:h-[calc(100svh-4rem-1px-3.5rem)] ${CORE_LEFT}`}
       />
       <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center pb-6 pt-[36svh] lg:py-16">
         <div data-stage-content="" className="max-w-[44rem]">
@@ -95,15 +95,14 @@ export function Hero({
           <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
             {PROFILE.location.locality}, {PROFILE.location.countryCode} · IST (UTC+5:30) <LocalTime />
           </p>
+          {/* The 3D caption closes the text column (like every section head's chip), so it never
+              crosses the brain, which holds its viewport position while the page scrolls. */}
+          <SceneNote {...reveal(900)} className="mt-7 max-w-[30rem]">
+            The 3D brain is a neural network of thousands of glowing neurons: signals fire along its connections, and
+            it turns toward your cursor.
+          </SceneNote>
         </div>
       </Container>
-      <div
-        className={`mx-auto max-w-[1280px] px-4 pb-12 md:px-8 lg:absolute lg:right-4 lg:top-[calc(100svh-4rem-1px-7rem)] lg:flex lg:max-w-none lg:justify-center lg:p-0 ${CORE_LEFT}`}>
-        <SceneNote {...reveal(900)} className="mt-4 max-w-[30rem] lg:mt-0 lg:max-w-[25rem]">
-          The 3D brain is a neural network of thousands of glowing neurons: signals fire along its connections, and
-          it turns toward your cursor.
-        </SceneNote>
-      </div>
     </section>
   );
 }

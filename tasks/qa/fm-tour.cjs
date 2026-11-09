@@ -41,14 +41,14 @@ const BASE = BASE_ARG.replace(/\/+$/, "");
 const OUT = path.resolve(OUT_ARG);
 const EXE = "/home/raish/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell";
 const ARGS = ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=gl"];
-const SCENE_KEYS = ["hero", "stack", "experience", "ai", "work", "contact", "ambient"];
+const SCENE_KEYS = ["hero", "stack", "experience", "ai", "work", "services", "writing", "faq", "contact", "ambient"];
 const STAGE_VALUES = ["left", "right", "full", "band"];
 const NOT_FOUND = "/this-page-does-not-exist";
 const CARD_SEL = process.env.FM_CARD_SEL || "[data-card]";
 const SERIAL = process.env.FM_SERIAL === "1";
 const ONLY = process.env.FM_ONLY ? process.env.FM_ONLY.split(",").map((x) => x.trim()) : null;
 const T_START = Date.now();
-const GLOBAL_MS = QUICK ? 170000 : 420000;
+const GLOBAL_MS = QUICK ? 300000 : 600000;
 
 for (const d of ["frames", "mobile", "light", "video"]) fs.mkdirSync(path.join(OUT, d), { recursive: true });
 
@@ -679,7 +679,7 @@ async function cardsOn(ctx, p) {
     // Pass 1: wheel down in ~0.85-viewport stops; sample the on-screen cards once they stop moving.
     const t0 = Date.now();
     let bottom = 0;
-    while (Date.now() - t0 < (QUICK ? 50000 : 70000)) {
+    while (Date.now() - t0 < (QUICK ? 110000 : 130000)) {
       for (let k = 0; k < 5; k++) { await page.mouse.wheel(0, Math.round(vp.height * 0.17)); await page.waitForTimeout(40); }
       await settled();
       const s = await page.evaluate(() => ({ y: scrollY, max: document.documentElement.scrollHeight - innerHeight }));
@@ -1048,7 +1048,7 @@ process.on("unhandledRejection", (e) => log("unhandledRejection:", String((e && 
 
   const lane1 = async () => {
     await step("frames", ["c", "d", "e"], 150000, stepFrames);
-    await step("cards", ["f"], 170000, stepCards);
+    await step("cards", ["f"], 300000, stepCards);
     await step("anchors", ["j"], 90000, stepAnchors);
     if (!QUICK) await step("light", ["k", "e"], 60000, stepLight);
   };

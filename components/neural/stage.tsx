@@ -26,56 +26,157 @@ import { Canvas, useFrame, useThree, type GLProps } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import {
   AddEquation,
+  BufferGeometry,
   CustomBlending,
+  Float32BufferAttribute,
+  Mesh,
   OneMinusSrcAlphaFactor,
-  PlaneGeometry,
   ShaderMaterial,
   Vector3,
   WebGLRenderer,
   ZeroFactor,
   type PerspectiveCamera,
 } from "three";
-import { SceneStore, type Frame } from "./director";
-import { framing, zeroComposition, type Composition } from "./framing";
+import { measure, sceneOf, SceneStore, type Frame } from "./director";
+import { framing, scroll, zeroComposition, type Composition } from "./framing";
 import { DEFAULT_DISTANCE, FOV, heroCamera, type CameraTarget } from "./hero-layout";
 import { readPalette, samePalette } from "./palette";
-import { contextOwner, nextIdle } from "./runtime";
-import type { NeuralData, SceneKey, ScenePalette, SceneProps } from "./types";
-import Hero from "./scenes/hero";
-import Stack from "./scenes/stack";
-import Experience from "./scenes/experience";
-import Ai from "./scenes/ai";
-import Work from "./scenes/work";
-import Services from "./scenes/services";
-import Faq from "./scenes/faq";
-import Contact from "./scenes/contact";
-import Ambient from "./scenes/ambient";
+import { contextOwner, nextIdle, onIdle } from "./runtime";
+import { SCENE_KEYS, type NeuralData, type SceneKey, type ScenePalette, type SceneProps } from "./types";
 
-const SCENES: [SceneKey, ComponentType<SceneProps>][] = [
-  ["hero", Hero],
-  ["stack", Stack],
-  ["experience", Experience],
-  ["ai", Ai],
-  ["work", Work],
-  ["services", Services],
-  ["faq", Faq],
-  ["contact", Contact],
-  ["ambient", Ambient],
-];
+// Every scene is its own lazy chunk: the stage loads the scenes in view first (the hero
+// on the home page), then prefetches the page's other scenes in scroll order in idle time,
+// so the entry 3D payload stays small and a scene is ready before its section arrives.
+type SceneComponent = ComponentType<SceneProps>;
+const LOADERS: Record<SceneKey, () => Promise<{ default: SceneComponent }>> = {
+  hero: () => import("./scenes/hero"),
+  stack: () => import("./scenes/stack"),
+  experience: () => import("./scenes/experience"),
+  ai: () => import("./scenes/ai"),
+  work: () => import("./scenes/work"),
+  services: () => import("./scenes/services"),
+  writing: () => import("./scenes/writing"),
+  faq: () => import("./scenes/faq"),
+  contact: () => import("./scenes/contact"),
+  ambient: () => import("./scenes/ambient"),
+};
 
-const MIN_FPS = 30; // a 1 s window below this (back-to-back frames only) is a slow window
-const SUSTAINED = 4; // this many slow windows in a row (already at low quality) fall back to the poster
+/** Loaded scene modules (kept across stage remounts and client navigations); `mods` is replaced on each load. */
+const scenes = {
+  mods: {} as Readonly<Partial<Record<SceneKey, SceneComponent>>>,
+  pending: {} as Partial<Record<SceneKey, Promise<void>>>,
+  listeners: new Set<() => void>(),
+  load(key: SceneKey): Promise<void> {
+    if (this.mods[key]) return Promise.resolve();
+    return (this.pending[key] ??= LOADERS[key]().then(
+      (m) => {
+        this.mods = { ...this.mods, [key]: m.default };
+        this.listeners.forEach((l) => l());
+      },
+      (err: unknown) => {
+        // A failed chunk (offline, a flaky network, a deploy in between): the next call
+        // fetches it again (the slot's delayed retry, or the stage's remount after a fallback).
+        delete this.pending[key];
+        throw err;
+      },
+    ));
+  },
+  subscribe(l: () => void) {
+    scenes.listeners.add(l);
+    return () => void scenes.listeners.delete(l);
+  },
+};
+
+/** The scenes in view right now (non-zero weight), loaded before the first frame is shown. */
+function scenesInView(): SceneKey[] {
+  const f = measure();
+  return SCENE_KEYS.filter((k) => f.weight[k] > 0);
+}
+
+/**
+ * The page's other scenes in scroll order (sections below the viewport centre first, then
+ * those above it), each loaded in its own idle period. Scenes the page never uses are not
+ * fetched; they still load on demand if a section asks for one later.
+ */
+function prefetchScenes(): () => void {
+  const below: SceneKey[] = [];
+  const above: SceneKey[] = [];
+  const mid = window.innerHeight / 2;
+  document.querySelectorAll<HTMLElement>("[data-section]").forEach((el) => {
+    const key = sceneOf(el);
+    (el.getBoundingClientRect().bottom < mid ? above : below).push(key);
+  });
+  const queue = [...new Set([...below, ...above.reverse()])].filter((k) => !scenes.mods[k]);
+  let cancel = () => {};
+  let stopped = false;
+  const next = () => {
+    const key = queue.shift();
+    if (!key || stopped) return;
+    cancel = onIdle(() => {
+      scenes.load(key).then(next, next);
+    }, 1500);
+  };
+  next();
+  return () => {
+    stopped = true;
+    cancel();
+  };
+}
+
+// Frame monitor: 1 s windows that judge the 3D's OWN cost per frame (its loop on the main
+// thread: every useFrame plus gl.render; its draws on the GPU where timer queries exist),
+// not the page's frame rate. A busy page (scroll work, another tab, an editor, a GC pause)
+// slows the frame rate without the 3D being the cause, and must never cost the visitor
+// the 3D: a window is slow only when the frame rate is low AND the 3D itself is heavy.
+const MIN_FPS = 30;
+const CPU_BUDGET = 8; // ms/frame of 3D loop time above which the 3D is heavy
+const GPU_BUDGET = 12; // ms/frame of GPU time (timer queries) above which the 3D is heavy
+const DROP_AFTER = 2; // slow windows in a row → one step down the quality ladder
+const SUSTAINED = 8; // slow windows in a row on the last step (scroll windows not counted), averaging
+const FALLBACK_FPS = 24; //   below FALLBACK_FPS → the poster (the island may retry later)
+const UP_FPS = 55; // windows at this rate with a light 3D (below UP_CPU / UP_GPU) step back up
+const UP_CPU = 4;
+const UP_GPU = 6;
+const UP_AFTER = 10; // fast windows in a row to step up; doubles after every step up, so it never flaps
+const QUIET_MS = 2000; // not measured after a scene or quality switch (scenes build and upload buffers)
+const PAUSE_MS = 1000; // a longer gap is a pause (hidden tab, idle stop), not a slow frame
+const SCROLL_MS = 300; // a window with scrolling this recent never counts toward the fallback
 const WARMUP_FRAMES = 90; // first frames compile shaders and build scenes: not measured
+/**
+ * The quality ladder: full counts at dpr up to 1.5 → dpr 1 (cheap: only the canvas
+ * resizes) → half counts (the scenes rebuild once) → the poster. Phones start on the last
+ * step and stay there.
+ */
+const LADDER: { quality: SceneProps["quality"]; dpr: number | [number, number] }[] = [
+  { quality: "high", dpr: [1, 1.5] },
+  { quality: "high", dpr: 1 },
+  { quality: "low", dpr: 1 },
+];
+const LAST = LADDER.length - 1;
 const IDLE_MS = 45_000; // no input for this long pauses the render loop until the next input
 const INPUTS = ["scroll", "wheel", "pointerdown", "pointermove", "keydown", "touchstart"] as const;
 const CAMERA_TAU = 0.45; // s
 const POINTER_TAU = 0.18; // s
 
+/** A scene the slot needs is retried this often (after CHUNK_RETRY_MS each) before the stage falls back. */
+const CHUNK_RETRIES = 1;
+const CHUNK_RETRY_MS = 1200;
+
+export type FallbackReason = "slow" | "lost" | "chunk";
 type StageProps = {
   data: NeuralData;
   active: boolean;
+  /** A remount after a slow fallback: starts at low quality. */
+  retry?: boolean;
   onReady: (ready: boolean) => void;
-  onFallback: () => void;
+  /**
+   * "slow": the device could not keep up; "chunk": a scene's code failed to load (offline,
+   * a deploy in between) — the island shows the poster and may retry both; "lost": the GPU
+   * dropped the context (final).
+   */
+  onFallback: (reason: FallbackReason) => void;
+  /** True while the leading section's scene failed to load and is being retried: the poster shows through the canvas. */
+  onMissing?: (missing: boolean) => void;
 };
 
 type Quality = SceneProps["quality"];
@@ -94,15 +195,23 @@ function cameraFor(key: SceneKey, aspect: number, progress: number, out: CameraT
   return out;
 }
 
-// The dimmer: a full-screen pass drawn after every scene that scales down what the scenes
+// The dimmer: a screen-space pass drawn after every scene that scales down what the scenes
 // drew (colour and alpha alike) wherever the composition puts content, so text always sits
 // over a quiet scene: left / right halves, a uniform veil for "full", everything below the
-// band, and on phones everything outside the section opening in view.
+// band, and on phones everything outside the section opening in view. It is drawn only
+// where it dims (perf D1: a full-screen blend cost about 1 ms of GPU per frame on an
+// HD 520): two unit quads, each mapped onto a screen rect by the vertex shader (the main
+// region, and the strip above a band or an opening), and no draw at all when every weight
+// is 0. Outside those rects the fragment would be exactly 0, so the picture is the same.
 const DIM_VERT = /* glsl */ `
+uniform vec4 uRectA; // screen uv (y up): x0, y0, x1, y1 of quad 0
+uniform vec4 uRectB; // ... of quad 1
+attribute float aQuad;
 varying vec2 vUv;
 void main() {
-  vUv = uv;
-  gl_Position = vec4(position.xy, 0.0, 1.0);
+  vec4 r = aQuad > 0.5 ? uRectB : uRectA;
+  vUv = mix(r.xy, r.zw, position.xy);
+  gl_Position = vec4(vUv * 2.0 - 1.0, 0.0, 1.0);
 }`;
 const DIM_FRAG = /* glsl */ `
 uniform vec4 uMask; // left, right, full, band weights
@@ -124,8 +233,40 @@ void main() {
   gl_FragColor = vec4(0.0, 0.0, 0.0, clamp(a, 0.0, 0.92));
 }`;
 
+/** Below this weight a mask contributes nothing visible: the pass is skipped. */
+const DIM_EPS = 0.01;
+/** Where the fragment shader's side masks reach (its smoothstep edges), as viewport fractions. */
+const DIM_LEFT_TO = 0.62;
+const DIM_RIGHT_FROM = 0.38;
+/** The fragment shader's band/opening edges: dimmed down to top + 0.02 and from bottom - 0.03. */
+const DIM_ABOVE = 0.02;
+const DIM_BELOW = 0.03;
+
+/** Two unit quads (xy in 0..1, aQuad 0/1), each mapped onto its own screen rect in the vertex shader. */
+function dimGeometry(): BufferGeometry {
+  const g = new BufferGeometry();
+  const pos: number[] = [];
+  const quad: number[] = [];
+  for (let q = 0; q < 2; q++) {
+    pos.push(0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0);
+    quad.push(q, q, q, q);
+  }
+  g.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  g.setAttribute("aQuad", new Float32BufferAttribute(quad, 1));
+  g.setIndex([0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7]);
+  return g;
+}
+
+/** Writes a rect given in top-down viewport fractions as the shader's y-up uv rect. */
+function setRect(v: number[], x0: number, top: number, x1: number, bottom: number) {
+  v[0] = x0;
+  v[1] = 1 - bottom;
+  v[2] = x1;
+  v[3] = 1 - top;
+}
+
 class Dimmer {
-  readonly geometry = new PlaneGeometry(2, 2);
+  readonly geometry = dimGeometry();
   readonly material = new ShaderMaterial({
     vertexShader: DIM_VERT,
     fragmentShader: DIM_FRAG,
@@ -134,6 +275,8 @@ class Dimmer {
       uPhone: { value: 0 },
       uBand: { value: [0, 0] },
       uOpen: { value: [0, 0] },
+      uRectA: { value: [0, 0, 1, 1] },
+      uRectB: { value: [0, 0, 0, 0] },
     },
     transparent: true,
     depthTest: false,
@@ -146,6 +289,12 @@ class Dimmer {
     blendSrcAlpha: ZeroFactor,
     blendDstAlpha: OneMinusSrcAlphaFactor,
   });
+  readonly mesh = new Mesh(this.geometry, this.material);
+
+  constructor() {
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 1e6;
+  }
 
   update(c: Composition, f: Frame) {
     const u = this.material.uniforms;
@@ -161,6 +310,52 @@ class Dimmer {
     const o = u.uOpen.value as number[];
     o[0] = f.open.top;
     o[1] = f.open.bottom;
+
+    // The region the pass changes (top-down fractions): quad 0 is x0..x1 from `top` to the
+    // bottom; quad 1 (band / opening) the strip from the top down to `strip`. A blend of a
+    // side and a band, or of both sides, covers the whole screen (the union is no rect).
+    let x0 = 1;
+    let x1 = 0;
+    let top = 0;
+    let strip = 0;
+    if (f.phone) {
+      x0 = 0;
+      x1 = 1;
+      top = f.open.bottom - DIM_BELOW;
+      strip = f.open.top + DIM_ABOVE;
+    } else {
+      const left = c.mL >= DIM_EPS;
+      const right = c.mR >= DIM_EPS;
+      const band = c.mB >= DIM_EPS;
+      if (c.mF >= DIM_EPS || (left && right) || (band && (left || right))) {
+        x0 = 0;
+        x1 = 1;
+      } else if (left) {
+        x0 = 0;
+        x1 = DIM_LEFT_TO;
+      } else if (right) {
+        x0 = DIM_RIGHT_FROM;
+        x1 = 1;
+      } else if (band) {
+        x0 = 0;
+        x1 = 1;
+        top = f.band.bottom - DIM_BELOW;
+        strip = f.band.top + DIM_ABOVE;
+      }
+    }
+    const visible = x1 > x0;
+    this.mesh.visible = visible;
+    if (!visible) return;
+    top = Math.min(1, Math.max(0, top));
+    strip = Math.min(1, Math.max(0, strip));
+    if (strip >= top) {
+      // The clear part is too thin to leave out (or there is none): one quad, top to bottom.
+      top = 0;
+      strip = 0;
+    }
+    setRect(u.uRectA.value as number[], x0, top, x1, 1);
+    if (strip > 0) setRect(u.uRectB.value as number[], x0, 0, x1, strip);
+    this.geometry.setDrawRange(0, strip > 0 ? 12 : 6);
   }
 
   dispose() {
@@ -179,13 +374,6 @@ class Rig {
   private readonly target: CameraTarget = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0 };
   private readonly sum: CameraTarget = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0 };
   private first = true;
-  private last = 0;
-  private frames = 0;
-  private time = 0;
-  private seen = 0;
-  private slowRun = 0;
-  private monitored: SceneKey | null = null;
-  private quietUntil = 0;
 
   setPointer(x: number, y: number) {
     this.raw.x = x;
@@ -199,7 +387,7 @@ class Rig {
   private appliedW = 0;
   private appliedH = 0;
 
-  /** Advances one frame; returns how many 1 s windows in a row ran below MIN_FPS (0 = none / not yet). */
+  /** Advances one frame: pointer, camera rig, composition. */
   frame(
     camera: PerspectiveCamera,
     rawDelta: number,
@@ -207,7 +395,7 @@ class Rig {
     store: SceneStore,
     size: { width: number; height: number },
     dim: Dimmer,
-  ): number {
+  ) {
     const dt = Math.min(rawDelta, 0.1);
     const { pointer, raw, sum, pos, look } = this;
     const kp = 1 - Math.exp(-dt / POINTER_TAU);
@@ -218,7 +406,7 @@ class Rig {
     const { frame } = store;
     sum.px = sum.py = sum.pz = sum.lx = sum.ly = sum.lz = 0;
     let total = 0;
-    for (const [key] of SCENES) {
+    for (const key of SCENE_KEYS) {
       const w = frame.weight[key];
       if (w <= 0) continue;
       const t = cameraFor(key, aspect, frame.progress[key], this.target);
@@ -268,28 +456,126 @@ class Rig {
       this.appliedH = size.height;
     }
     dim.update(c, frame);
+  }
+}
 
-    // Frame monitor: only back-to-back frames count, after the warm-up, and not in the
-    // first second after a scene switch (a scene's first frames upload its buffers).
+type GL2 = WebGL2RenderingContext;
+type TimerExt = { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number };
+
+/** One 1 s window of the frame monitor. */
+export type FrameWindow = { fps: number; cpu: number; gpu: number; scrolled: boolean };
+
+/**
+ * Frame monitor: the frame rate of rendered frames, the 3D's main-thread time per frame
+ * (begin() at the start of the R3F loop to end() after gl.render) and, where the
+ * EXT_disjoint_timer_query_webgl2 extension exists, its GPU time per frame (gpu -1 if not).
+ */
+class Meter {
+  private last = 0;
+  private start = 0;
+  private seen = 0;
+  private frames = 0;
+  private time = 0;
+  private cpu = 0;
+  private gpu = 0;
+  private gpuN = 0;
+  private key = "";
+  private quietUntil = 0;
+  private scrollAt = -1e9;
+  private scrolled = false;
+  private ext: TimerExt | null | undefined;
+  private active: WebGLQuery | null = null;
+  private pending: WebGLQuery[] = [];
+  private free: WebGLQuery[] = [];
+  private gl: GL2 | null = null;
+
+  /** Scroll input marks the windows it touches (they never count toward the fallback). */
+  attach() {
+    const onScroll = () => (this.scrollAt = performance.now());
+    for (const type of ["scroll", "wheel", "touchmove"]) window.addEventListener(type, onScroll, { passive: true, capture: true });
+    return () => {
+      for (const type of ["scroll", "wheel", "touchmove"]) window.removeEventListener(type, onScroll, { capture: true });
+      const gl = this.gl;
+      if (gl && !gl.isContextLost()) for (const q of [...this.pending, ...this.free]) gl.deleteQuery(q);
+      this.pending = [];
+      this.free = [];
+    };
+  }
+
+  /** Start of the R3F loop. `key` changes (scene, quality) start a quiet period. */
+  begin(gl: GL2, key: string) {
     const now = performance.now();
+    this.start = now;
     const gap = now - this.last;
     this.last = now;
-    if (store.active !== this.monitored) {
-      this.monitored = store.active;
-      this.quietUntil = now + 1000;
-      this.frames = 0;
-      this.time = 0;
+    if (this.ext === undefined) {
+      this.gl = gl;
+      this.ext = gl.getExtension("EXT_disjoint_timer_query_webgl2") as TimerExt | null;
     }
-    if (++this.seen < WARMUP_FRAMES || gap > 100 || now < this.quietUntil) return 0;
+    this.collect(gl);
+    if (key !== this.key) {
+      this.key = key;
+      this.quietUntil = now + QUIET_MS;
+    }
+    if (++this.seen < WARMUP_FRAMES || gap > PAUSE_MS || now < this.quietUntil) {
+      this.frames = this.time = this.cpu = this.gpu = this.gpuN = 0;
+      this.scrolled = false;
+      return;
+    }
     this.frames += 1;
     this.time += gap;
-    if (this.time < 1000) return 0;
-    const slow = (this.frames * 1000) / this.time < MIN_FPS;
-    this.frames = 0;
-    this.time = 0;
-    // Consecutive slow windows: a passing hitch (a busy scroll, GC, another app) resets.
-    this.slowRun = slow ? this.slowRun + 1 : 0;
-    return this.slowRun;
+  }
+
+  /** Brackets gl.render with a GPU timer query (every 4th frame, at most 3 in flight). */
+  renderTimed(gl: GL2, render: () => void) {
+    const ext = this.ext;
+    if (!ext || this.active || this.pending.length > 2 || this.seen & 3) {
+      render();
+      return;
+    }
+    const q = this.free.pop() ?? gl.createQuery();
+    if (!q) {
+      render();
+      return;
+    }
+    gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+    this.active = q;
+    render();
+    gl.endQuery(ext.TIME_ELAPSED_EXT);
+    this.pending.push(q);
+    this.active = null;
+  }
+
+  /** End of the R3F loop (after gl.render): returns a window when one just completed. */
+  end(): FrameWindow | null {
+    const now = performance.now();
+    if (now - this.scrollAt < SCROLL_MS) this.scrolled = true;
+    if (this.frames === 0) return null;
+    this.cpu += now - this.start;
+    if (this.time < 1000) return null;
+    const w: FrameWindow = {
+      fps: (this.frames * 1000) / this.time,
+      cpu: this.cpu / this.frames,
+      gpu: this.gpuN ? this.gpu / this.gpuN : -1,
+      scrolled: this.scrolled,
+    };
+    this.frames = this.time = this.cpu = this.gpu = this.gpuN = 0;
+    this.scrolled = false;
+    return w;
+  }
+
+  /** At most one finished query per frame (results arrive a few frames late, never blocking). */
+  private collect(gl: GL2) {
+    const ext = this.ext;
+    const q = this.pending[0];
+    if (!ext || !q || !gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) return;
+    const ns = gl.getQueryParameter(q, gl.QUERY_RESULT) as number;
+    this.pending.shift();
+    this.free.push(q);
+    if (!gl.getParameter(ext.GPU_DISJOINT_EXT) && this.frames > 0) {
+      this.gpu += ns / 1e6;
+      this.gpuN += 1;
+    }
   }
 }
 
@@ -297,8 +583,16 @@ const SceneSlot = memo(function SceneSlot({
   sceneKey,
   Scene,
   store,
+  onChunkError,
+  onMissing,
   ...rest
-}: Omit<SceneProps, "progress" | "weight"> & { sceneKey: SceneKey; Scene: ComponentType<SceneProps>; store: SceneStore }) {
+}: Omit<SceneProps, "progress" | "weight"> & {
+  sceneKey: SceneKey;
+  Scene: SceneComponent | undefined;
+  store: SceneStore;
+  onChunkError: () => void;
+  onMissing: (key: SceneKey, missing: boolean) => void;
+}) {
   const snap = useSyncExternalStore(
     useCallback((l: () => void) => store.subscribe(sceneKey, l), [store, sceneKey]),
     () => store.get(sceneKey),
@@ -307,20 +601,54 @@ const SceneSlot = memo(function SceneSlot({
   // and compiled programs survive) and simply receives weight 0.
   const [seen, setSeen] = useState(snap.weight > 0);
   if (!seen && snap.weight > 0) setSeen(true);
-  if (!seen) return null;
+  // Needed before its chunk arrived (an anchor jump past the prefetch, a failed prefetch):
+  // load it now; a failure is retried once after a moment, then the stage falls back to
+  // the poster (and may come back later) rather than leave the section blank. From the
+  // first failure on, while this section leads, the poster shows through the canvas.
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!seen || Scene) return;
+    let cancelled = false;
+    let timer = 0;
+    scenes.load(sceneKey).catch(() => {
+      if (cancelled) return;
+      setFailed(true);
+      if (attempt < CHUNK_RETRIES) timer = window.setTimeout(() => setAttempt((a) => a + 1), CHUNK_RETRY_MS);
+      else onChunkError();
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [seen, Scene, sceneKey, attempt, onChunkError]);
+  const showPoster = failed && !Scene && snap.weight >= 0.5;
+  useEffect(() => {
+    if (!showPoster) return;
+    onMissing(sceneKey, true);
+    return () => onMissing(sceneKey, false);
+  }, [showPoster, sceneKey, onMissing]);
+  if (!seen || !Scene) return null;
   return <Scene {...rest} weight={snap.weight} progress={snap.progress} />;
 });
 
 function Director({
   data,
   quality,
+  dpr,
   onReady,
-  onDecline,
+  onWindow,
+  onFallback,
+  onMissing,
 }: {
   data: NeuralData;
   quality: Quality;
+  /** Ladder step (exposed for QA, and a quiet period for the monitor when it changes). */
+  dpr: number;
   onReady: (ready: boolean) => void;
-  onDecline: (slowRun: number) => void;
+  onWindow: (w: FrameWindow) => void;
+  onFallback: (reason: FallbackReason) => void;
+  onMissing?: (missing: boolean) => void;
 }) {
   const get = useThree((s) => s.get);
   const [store] = useState(() => {
@@ -331,6 +659,29 @@ function Director({
   const [palette, setPalette] = useState<ScenePalette>(readPalette);
   const [focus, setFocus] = useState<string | null>(null);
   const [rig] = useState(() => new Rig());
+  // The scroll snapshot is current only while this director runs (occluders.sync() falls back to the window).
+  useEffect(
+    () => () => {
+      scroll.live = false;
+    },
+    [],
+  );
+  const [meter] = useState(() => new Meter());
+  useEffect(() => meter.attach(), [meter]);
+  const mods = useSyncExternalStore(scenes.subscribe, () => scenes.mods);
+  const onChunkError = useCallback(() => onFallback("chunk"), [onFallback]);
+  // Scenes whose section leads while their code is missing (see SceneSlot).
+  const [missingKeys] = useState(() => new Set<SceneKey>());
+  const onSlotMissing = useCallback(
+    (key: SceneKey, on: boolean) => {
+      const before = missingKeys.size > 0;
+      if (on) missingKeys.add(key);
+      else missingKeys.delete(key);
+      if (before !== missingKeys.size > 0) onMissing?.(missingKeys.size > 0);
+    },
+    [missingKeys, onMissing],
+  );
+  const lastT = useRef(0);
   const dim = useMemo(() => new Dimmer(), []);
   useEffect(() => () => dim.dispose(), [dim]);
 
@@ -393,6 +744,11 @@ function Director({
     };
   }, []);
 
+  // Exposed for QA: the scene modules loaded so far.
+  useEffect(() => {
+    document.querySelector("[data-neural-stage]")?.setAttribute("data-scenes", Object.keys(mods).join(" "));
+  }, [mods]);
+
   // Exposed for QA: the focused DOM id and the render quality.
   useEffect(() => {
     const stage = document.querySelector("[data-neural-stage]");
@@ -416,12 +772,26 @@ function Director({
     };
   }, [rig]);
 
-  // Warm-up: compile the visible programs in an idle period, then report ready after
-  // two drawn frames, which starts the poster → canvas crossfade.
+  // Warm-up: wait for the scenes in view (their chunks were requested when the stage
+  // mounted), compile the visible programs in an idle period, then report ready after two
+  // drawn frames, which starts the poster → canvas crossfade. Then prefetch the rest.
   useEffect(() => {
     let cancelled = false;
     let raf = 0;
+    let stopPrefetch = () => {};
     (async () => {
+      const keys = SCENE_KEYS.filter((k) => store.frame.weight[k] > 0);
+      const missing = await Promise.all(keys.map((k) => scenes.load(k))).then(
+        () => false,
+        () => true,
+      );
+      if (cancelled) return;
+      // A scene in view could not load (the bundler already retried it once): keep the
+      // poster up instead of fading it out over a blank section; the island may retry.
+      if (missing) {
+        onFallback("chunk");
+        return;
+      }
       await nextIdle(500);
       if (cancelled) return;
       const { gl, scene, camera } = get();
@@ -429,30 +799,66 @@ function Director({
       await gl.compileAsync(scene, camera).catch(() => undefined);
       if (cancelled) return;
       raf = requestAnimationFrame(() => {
-        raf = requestAnimationFrame(() => onReady(true));
+        raf = requestAnimationFrame(() => {
+          onReady(true);
+          stopPrefetch = prefetchScenes();
+        });
       });
     })();
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      stopPrefetch();
     };
-  }, [get, onReady]);
+  }, [get, onReady, onFallback, store]);
 
+  // The R3F loop, bracketed for the frame monitor: begin (first), the rig (camera,
+  // composition), the scenes (priority 0), then the render, which this stage issues itself
+  // (a positive priority turns R3F's own render off) so it can be timed.
+  useFrame((state) => meter.begin(state.gl.getContext() as GL2, `${store.active}|${quality}|${dpr}`), -1000);
   useFrame((state, delta) => {
+    // R3F zeroes clock.elapsedTime whenever the frameloop changes (the idle pause, a hidden
+    // tab), and scenes that keep clock stamps would see time run backwards (the Writing
+    // scene vanished). Keep it monotonic for every scene: after a reset, continue from
+    // where it paused, with no jump for the paused span.
+    const clock = state.clock;
+    if (clock.elapsedTime + 1e-3 < lastT.current) clock.elapsedTime += lastT.current;
+    lastT.current = clock.elapsedTime;
+    // One scroll read per frame, before any scene writes DOM (perf P5): the scenes read
+    // the snapshot, so no later read forces a layout pass.
+    scroll.x = window.scrollX;
+    scroll.y = window.scrollY;
+    scroll.live = true;
     const aspect = state.size.width / Math.max(1, state.size.height);
-    const slowRun = rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim);
-    if (slowRun) onDecline(slowRun);
+    rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim);
   }, -1);
+  useFrame(({ gl, scene, camera, clock }) => {
+    meter.renderTimed(gl.getContext() as GL2, () => gl.render(scene, camera));
+    const w = meter.end();
+    if (w) {
+      onWindow(w);
+      // Exposed for QA: the last window (fps, 3D ms/frame on the CPU and GPU) and the
+      // scenes' clock (s), which must only ever grow.
+      document
+        .querySelector("[data-neural-stage]")
+        ?.setAttribute(
+          "data-fps",
+          `${Math.round(w.fps)} cpu ${w.cpu.toFixed(1)} gpu ${w.gpu < 0 ? "-" : w.gpu.toFixed(1)} t ${clock.elapsedTime.toFixed(1)}`,
+        );
+    }
+  }, 1);
 
   return (
     <>
-      <mesh geometry={dim.geometry} material={dim.material} frustumCulled={false} renderOrder={1e6} />
-      {SCENES.map(([key, Scene]) => (
+      <primitive object={dim.mesh} />
+      {SCENE_KEYS.map((key) => (
         <SceneSlot
           key={key}
           sceneKey={key}
-          Scene={Scene}
+          Scene={mods[key]}
           store={store}
+          onChunkError={onChunkError}
+          onMissing={onSlotMissing}
           data={data}
           pointer={rig.pointer}
           focus={focus}
@@ -466,22 +872,52 @@ function Director({
 
 let stages = 0;
 
-export default function Stage({ data, active, onReady, onFallback }: StageProps) {
-  const [quality, setQuality] = useState<Quality>(() => (matchMedia("(pointer: coarse)").matches ? "low" : "high"));
+export default function Stage({ data, active, retry = false, onReady, onFallback, onMissing }: StageProps) {
+  // Phones (coarse pointers) start on the last step and stay there; a retry after a slow
+  // fallback starts there too and may climb back up.
+  const [floor] = useState(() => (matchMedia("(pointer: coarse)").matches ? LAST : 0));
+  const [level, setLevel] = useState(() => (retry ? LAST : floor));
+  const { quality, dpr } = LADDER[level];
   const [token] = useState(() => `neural-${++stages}`);
   const [idle, setIdle] = useState(false);
-  const declines = useRef(0);
+  // Request the scenes in view at once: their chunks download while the renderer is created.
+  useState(() => scenesInView().forEach((k) => scenes.load(k).catch(() => undefined)));
 
-  // A slow second drops to low quality (half the counts, dpr 1); only a device that stays
-  // slow at low quality (SUSTAINED seconds in a row) falls back to the poster, so a few
-  // passing hitches over a long visit never take the 3D away.
-  const onDecline = useCallback(
-    (slowRun: number) => {
-      declines.current += 1;
-      if (declines.current === 1) setQuality("low");
-      else if (slowRun >= SUSTAINED) onFallback();
+  // The quality ladder follows the frame monitor: DROP_AFTER slow windows in a row (low
+  // frame rate AND a heavy 3D) step down; on the last step, SUSTAINED slow windows
+  // averaging under FALLBACK_FPS fall back to the poster (the island may bring the stage
+  // back later); UP_AFTER fast, light windows in a row step back up (never above the
+  // phones' last step).
+  const mon = useRef({ slow: 0, run: 0, sum: 0, fast: 0, ups: 0 });
+  const onWindow = useCallback(
+    (w: FrameWindow) => {
+      const m = mon.current;
+      const heavy = w.cpu > CPU_BUDGET || w.gpu > GPU_BUDGET;
+      const slow = w.fps < MIN_FPS && heavy;
+      const fast = w.fps >= UP_FPS && w.cpu < UP_CPU && w.gpu < UP_GPU;
+      const step = (to: number) => {
+        m.slow = m.run = m.sum = m.fast = 0;
+        setLevel(to);
+      };
+      m.fast = fast ? m.fast + 1 : 0;
+      if (level > floor && m.fast >= UP_AFTER << m.ups) {
+        m.ups += 1;
+        step(level - 1);
+        return;
+      }
+      if (level < LAST) {
+        m.slow = slow ? m.slow + 1 : 0;
+        if (m.slow >= DROP_AFTER) step(level + 1);
+        return;
+      }
+      if (w.scrolled) return;
+      if (slow) {
+        m.run += 1;
+        m.sum += w.fps;
+      } else m.run = m.sum = 0;
+      if (m.run >= SUSTAINED && m.sum / m.run < FALLBACK_FPS) onFallback("slow");
     },
-    [onFallback],
+    [level, floor, onFallback],
   );
 
   // Idle pause: no input for IDLE_MS stops the render loop; any input resumes it.
@@ -546,7 +982,10 @@ export default function Stage({ data, active, onReady, onFallback }: StageProps)
   return (
     <Canvas
       camera={{ fov: FOV, position: [0, 0, 15], near: 0.1, far: 200 }}
-      dpr={quality === "low" ? 1 : [1, 1.5]}
+      dpr={dpr}
+      // The stage is position:fixed: scrolling never moves it, so R3F need not re-measure
+      // its container on every scroll (perf R1); resizes still re-measure (debounced).
+      resize={{ scroll: false, debounce: { scroll: 0, resize: 100 } }}
       frameloop={running ? "always" : "never"}
       flat
       gl={createRenderer}
@@ -560,13 +999,21 @@ export default function Stage({ data, active, onReady, onFallback }: StageProps)
           "webglcontextlost",
           () => {
             if (contextOwner.get() === token) contextOwner.set(null);
-            if (mountedRef.current) onFallback();
+            if (mountedRef.current) onFallback("lost");
           },
           { once: true },
         );
       }}
     >
-      <Director data={safe} quality={quality} onReady={onReady} onDecline={onDecline} />
+      <Director
+        data={safe}
+        quality={quality}
+        dpr={level}
+        onReady={onReady}
+        onWindow={onWindow}
+        onFallback={onFallback}
+        onMissing={onMissing}
+      />
     </Canvas>
   );
 }
