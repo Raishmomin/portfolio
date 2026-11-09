@@ -4,7 +4,7 @@
 // view onto the free part of the viewport and writes the live result into `framing`,
 // which scenes read in useFrame to size themselves to the space they own.
 import type { Camera, PerspectiveCamera } from "three";
-import { occluders } from "./occluders";
+import { occluders, scroll } from "./occluders";
 import { SCENE_KEYS, type SceneKey, type StageLayout } from "./types";
 
 /** One composition: free rect + dimmer mask. All values are viewport fractions (y top-down). */
@@ -124,13 +124,8 @@ export function clearRect(r: Rect, minH: number, out: Rect): Rect | null {
   return out;
 }
 
-/**
- * The page scroll, snapshotted once per frame by the director before any scene runs
- * (perf P5). Scenes read it in place of window.scrollX/Y: in Chromium every scrollY read
- * after a DOM write forces a style and layout pass, and the label and clearRect scenes
- * write DOM every frame.
- */
-export const scroll = { x: 0, y: 0 };
+/** The per-frame scroll snapshot (perf P5); it lives in occluders.ts, the leaf module both use. */
+export { scroll };
 
 /** Live, eased framing (written by the rig every frame, read by scenes). */
 export const framing = {

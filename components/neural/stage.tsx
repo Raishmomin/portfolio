@@ -659,6 +659,13 @@ function Director({
   const [palette, setPalette] = useState<ScenePalette>(readPalette);
   const [focus, setFocus] = useState<string | null>(null);
   const [rig] = useState(() => new Rig());
+  // The scroll snapshot is current only while this director runs (occluders.sync() falls back to the window).
+  useEffect(
+    () => () => {
+      scroll.live = false;
+    },
+    [],
+  );
   const [meter] = useState(() => new Meter());
   useEffect(() => meter.attach(), [meter]);
   const mods = useSyncExternalStore(scenes.subscribe, () => scenes.mods);
@@ -821,6 +828,7 @@ function Director({
     // the snapshot, so no later read forces a layout pass.
     scroll.x = window.scrollX;
     scroll.y = window.scrollY;
+    scroll.live = true;
     const aspect = state.size.width / Math.max(1, state.size.height);
     rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim);
   }, -1);

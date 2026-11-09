@@ -8,6 +8,14 @@ const REFRESH_MS = 120;
 const RESCAN_MS = 1000;
 const PAD = 6; // px of clearance around content
 
+/**
+ * The page scroll, snapshotted once per frame by the director before any scene runs
+ * (perf P5). Scenes read it in place of window.scrollX/Y: in Chromium every scrollY read
+ * after a DOM write forces a style and layout pass, and the label and clearRect scenes
+ * write DOM every frame. `live` while a stage keeps it current.
+ */
+export const scroll = { x: 0, y: 0, live: false };
+
 class Occluders {
   private els = new Set<Element>();
   private near = new Set<Element>();
@@ -75,8 +83,11 @@ class Occluders {
     this.read = -1e9;
   }
 
-  /** Bring the cached rects up to date (cheap when called every frame). `x`/`y` is the frame's scroll snapshot (framing.scroll). */
-  sync(x: number, y: number) {
+  /**
+   * Bring the cached rects up to date (cheap when called every frame). `x`/`y` is the
+   * frame's scroll; omitted, the snapshot while a stage keeps it current, else the window's.
+   */
+  sync(x = scroll.live ? scroll.x : window.scrollX, y = scroll.live ? scroll.y : window.scrollY) {
     const now = performance.now();
     this.rescan(now);
     if (now - this.read >= REFRESH_MS && (y !== this.readY || x !== this.readX || now - this.read >= RESCAN_MS)) {
