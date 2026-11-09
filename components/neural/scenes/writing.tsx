@@ -42,7 +42,7 @@ export default function WritingScene({ weight, focus, pointer, palette, quality 
     };
   }, [rig]);
 
-  useFrame((state, dt) => rig.frame(state.camera, state.size, dt, state.clock.elapsedTime, weight, focus, pointer));
+  useFrame((state, dt) => rig.frame(state.camera, state.size, dt, weight, focus, pointer));
 
   return <primitive object={rig.root} />;
 }
