@@ -175,6 +175,8 @@ type StageProps = {
    * dropped the context (final).
    */
   onFallback: (reason: FallbackReason) => void;
+  /** True while the leading section's scene failed to load and is being retried: the poster shows through the canvas. */
+  onMissing?: (missing: boolean) => void;
 };
 
 type Quality = SceneProps["quality"];
@@ -582,12 +584,14 @@ const SceneSlot = memo(function SceneSlot({
   Scene,
   store,
   onChunkError,
+  onMissing,
   ...rest
 }: Omit<SceneProps, "progress" | "weight"> & {
   sceneKey: SceneKey;
   Scene: SceneComponent | undefined;
   store: SceneStore;
   onChunkError: () => void;
+  onMissing: (key: SceneKey, missing: boolean) => void;
 }) {
   const snap = useSyncExternalStore(
     useCallback((l: () => void) => store.subscribe(sceneKey, l), [store, sceneKey]),
@@ -599,14 +603,17 @@ const SceneSlot = memo(function SceneSlot({
   if (!seen && snap.weight > 0) setSeen(true);
   // Needed before its chunk arrived (an anchor jump past the prefetch, a failed prefetch):
   // load it now; a failure is retried once after a moment, then the stage falls back to
-  // the poster (and may come back later) rather than leave the section blank.
+  // the poster (and may come back later) rather than leave the section blank. From the
+  // first failure on, while this section leads, the poster shows through the canvas.
   const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!seen || Scene) return;
     let cancelled = false;
     let timer = 0;
     scenes.load(sceneKey).catch(() => {
       if (cancelled) return;
+      setFailed(true);
       if (attempt < CHUNK_RETRIES) timer = window.setTimeout(() => setAttempt((a) => a + 1), CHUNK_RETRY_MS);
       else onChunkError();
     });
@@ -615,6 +622,12 @@ const SceneSlot = memo(function SceneSlot({
       window.clearTimeout(timer);
     };
   }, [seen, Scene, sceneKey, attempt, onChunkError]);
+  const showPoster = failed && !Scene && snap.weight >= 0.5;
+  useEffect(() => {
+    if (!showPoster) return;
+    onMissing(sceneKey, true);
+    return () => onMissing(sceneKey, false);
+  }, [showPoster, sceneKey, onMissing]);
   if (!seen || !Scene) return null;
   return <Scene {...rest} weight={snap.weight} progress={snap.progress} />;
 });
@@ -626,6 +639,7 @@ function Director({
   onReady,
   onWindow,
   onFallback,
+  onMissing,
 }: {
   data: NeuralData;
   quality: Quality;
@@ -634,6 +648,7 @@ function Director({
   onReady: (ready: boolean) => void;
   onWindow: (w: FrameWindow) => void;
   onFallback: (reason: FallbackReason) => void;
+  onMissing?: (missing: boolean) => void;
 }) {
   const get = useThree((s) => s.get);
   const [store] = useState(() => {
@@ -648,6 +663,17 @@ function Director({
   useEffect(() => meter.attach(), [meter]);
   const mods = useSyncExternalStore(scenes.subscribe, () => scenes.mods);
   const onChunkError = useCallback(() => onFallback("chunk"), [onFallback]);
+  // Scenes whose section leads while their code is missing (see SceneSlot).
+  const [missingKeys] = useState(() => new Set<SceneKey>());
+  const onSlotMissing = useCallback(
+    (key: SceneKey, on: boolean) => {
+      const before = missingKeys.size > 0;
+      if (on) missingKeys.add(key);
+      else missingKeys.delete(key);
+      if (before !== missingKeys.size > 0) onMissing?.(missingKeys.size > 0);
+    },
+    [missingKeys, onMissing],
+  );
   const lastT = useRef(0);
   const dim = useMemo(() => new Dimmer(), []);
   useEffect(() => () => dim.dispose(), [dim]);
@@ -824,6 +850,7 @@ function Director({
           Scene={mods[key]}
           store={store}
           onChunkError={onChunkError}
+          onMissing={onSlotMissing}
           data={data}
           pointer={rig.pointer}
           focus={focus}
@@ -837,7 +864,7 @@ function Director({
 
 let stages = 0;
 
-export default function Stage({ data, active, retry = false, onReady, onFallback }: StageProps) {
+export default function Stage({ data, active, retry = false, onReady, onFallback, onMissing }: StageProps) {
   // Phones (coarse pointers) start on the last step and stay there; a retry after a slow
   // fallback starts there too and may climb back up.
   const [floor] = useState(() => (matchMedia("(pointer: coarse)").matches ? LAST : 0));
@@ -970,7 +997,15 @@ export default function Stage({ data, active, retry = false, onReady, onFallback
         );
       }}
     >
-      <Director data={safe} quality={quality} dpr={level} onReady={onReady} onWindow={onWindow} onFallback={onFallback} />
+      <Director
+        data={safe}
+        quality={quality}
+        dpr={level}
+        onReady={onReady}
+        onWindow={onWindow}
+        onFallback={onFallback}
+        onMissing={onMissing}
+      />
     </Canvas>
   );
 }

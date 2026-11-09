@@ -68,6 +68,7 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
   const [retries, setRetries] = useState(0);
   // The retried stage starts on the ladder's last step only after a slow fallback.
   const [retryLow, setRetryLow] = useState(false);
+  const [missing, setMissing] = useState(false);
   const [ready, setReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const owner = useSyncExternalStore(contextOwner.subscribe, contextOwner.get, () => null);
@@ -114,26 +115,33 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
   // 3. Unmount once the canvas has faded back out over the poster.
   useEffect(() => {
     if (want || !mounted) return;
-    const timer = window.setTimeout(() => setMounted(false), FADE_MS);
+    const timer = window.setTimeout(() => {
+      setMounted(false);
+      setMissing(false);
+    }, FADE_MS);
     return () => window.clearTimeout(timer);
   }, [want, mounted]);
 
   const live = mounted && ready && want;
+  // The leading section's scene failed to load and is being retried: the poster shows
+  // through the (transparent there) canvas instead of a blank section.
+  const veiled = live && !missing;
 
-  // 4. Posters: faded out (and their CSS pulses paused) under a live canvas.
+  // 4. Posters: faded out (and their CSS pulses paused) under a live canvas, unless the
+  //    leading section's scene is missing.
   useEffect(() => {
     const stage = boxRef.current?.parentElement;
     const group = stage?.querySelector<HTMLElement>("[data-neural-posters]");
     const posters = [...(stage?.querySelectorAll<HTMLElement>("[data-neural-poster]") ?? [])];
     if (!group) return;
-    if (live) {
+    if (veiled) {
       group.style.opacity = "0";
       const timer = window.setTimeout(() => posters.forEach((p) => p.setAttribute("data-paused", "")), FADE_MS);
       return () => window.clearTimeout(timer);
     }
     group.style.opacity = "";
     posters.forEach((p) => p.removeAttribute("data-paused"));
-  }, [live]);
+  }, [veiled]);
 
   // 5. Which poster (poster.tsx CSS): the section on the viewport's centre line picks it by
   //    its scene and the side it sits on by its data-stage. A services page's phone room
@@ -233,7 +241,14 @@ export function NeuralIsland({ data }: { data: NeuralData }) {
     <div ref={boxRef} className="absolute inset-0 transition-opacity duration-700" style={{ opacity: live ? 1 : 0 }}>
       {mounted ? (
         <StageBoundary onError={onError}>
-          <Stage data={data} active={want && !hidden} retry={retryLow} onReady={onReady} onFallback={onFallback} />
+          <Stage
+            data={data}
+            active={want && !hidden}
+            retry={retryLow}
+            onReady={onReady}
+            onFallback={onFallback}
+            onMissing={setMissing}
+          />
         </StageBoundary>
       ) : null}
     </div>
