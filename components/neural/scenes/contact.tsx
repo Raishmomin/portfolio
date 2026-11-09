@@ -35,7 +35,7 @@ export default function ContactScene({ data, weight, pointer, focus, palette, qu
   }, [rig]);
 
   useFrame((state, dt) => {
-    if (rig.frame(state.clock.elapsedTime, dt, state.camera, state.size, state.gl.getPixelRatio(), weight, pointer)) state.invalidate();
+    if (rig.frame(dt, state.camera, state.size, state.gl.getPixelRatio(), weight, pointer)) state.invalidate();
   });
 
   return <primitive object={rig.root} />;
