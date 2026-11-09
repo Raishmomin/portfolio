@@ -26,9 +26,11 @@ import { Canvas, useFrame, useThree, type GLProps } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import {
   AddEquation,
+  BufferGeometry,
   CustomBlending,
+  Float32BufferAttribute,
+  Mesh,
   OneMinusSrcAlphaFactor,
-  PlaneGeometry,
   ShaderMaterial,
   Vector3,
   WebGLRenderer,
@@ -36,7 +38,7 @@ import {
   type PerspectiveCamera,
 } from "three";
 import { measure, sceneOf, SceneStore, type Frame } from "./director";
-import { framing, zeroComposition, type Composition } from "./framing";
+import { framing, scroll, zeroComposition, type Composition } from "./framing";
 import { DEFAULT_DISTANCE, FOV, heroCamera, type CameraTarget } from "./hero-layout";
 import { readPalette, samePalette } from "./palette";
 import { contextOwner, nextIdle, onIdle } from "./runtime";
@@ -72,7 +74,8 @@ const scenes = {
         this.listeners.forEach((l) => l());
       },
       (err: unknown) => {
-        // A failed chunk (offline, a deploy in between) may be retried on the next need.
+        // A failed chunk (offline, a flaky network, a deploy in between): the next call
+        // fetches it again (the slot's delayed retry, or the stage's remount after a fallback).
         delete this.pending[key];
         throw err;
       },
@@ -155,15 +158,25 @@ const INPUTS = ["scroll", "wheel", "pointerdown", "pointermove", "keydown", "tou
 const CAMERA_TAU = 0.45; // s
 const POINTER_TAU = 0.18; // s
 
-export type FallbackReason = "slow" | "lost";
+/** A scene the slot needs is retried this often (after CHUNK_RETRY_MS each) before the stage falls back. */
+const CHUNK_RETRIES = 1;
+const CHUNK_RETRY_MS = 1200;
+
+export type FallbackReason = "slow" | "lost" | "chunk";
 type StageProps = {
   data: NeuralData;
   active: boolean;
   /** A remount after a slow fallback: starts at low quality. */
   retry?: boolean;
   onReady: (ready: boolean) => void;
-  /** "slow": the device could not keep up (the island may retry); "lost": the GPU dropped the context (final). */
+  /**
+   * "slow": the device could not keep up; "chunk": a scene's code failed to load (offline,
+   * a deploy in between) — the island shows the poster and may retry both; "lost": the GPU
+   * dropped the context (final).
+   */
   onFallback: (reason: FallbackReason) => void;
+  /** True while the leading section's scene failed to load and is being retried: the poster shows through the canvas. */
+  onMissing?: (missing: boolean) => void;
 };
 
 type Quality = SceneProps["quality"];
@@ -182,15 +195,23 @@ function cameraFor(key: SceneKey, aspect: number, progress: number, out: CameraT
   return out;
 }
 
-// The dimmer: a full-screen pass drawn after every scene that scales down what the scenes
+// The dimmer: a screen-space pass drawn after every scene that scales down what the scenes
 // drew (colour and alpha alike) wherever the composition puts content, so text always sits
 // over a quiet scene: left / right halves, a uniform veil for "full", everything below the
-// band, and on phones everything outside the section opening in view.
+// band, and on phones everything outside the section opening in view. It is drawn only
+// where it dims (perf D1: a full-screen blend cost about 1 ms of GPU per frame on an
+// HD 520): two unit quads, each mapped onto a screen rect by the vertex shader (the main
+// region, and the strip above a band or an opening), and no draw at all when every weight
+// is 0. Outside those rects the fragment would be exactly 0, so the picture is the same.
 const DIM_VERT = /* glsl */ `
+uniform vec4 uRectA; // screen uv (y up): x0, y0, x1, y1 of quad 0
+uniform vec4 uRectB; // ... of quad 1
+attribute float aQuad;
 varying vec2 vUv;
 void main() {
-  vUv = uv;
-  gl_Position = vec4(position.xy, 0.0, 1.0);
+  vec4 r = aQuad > 0.5 ? uRectB : uRectA;
+  vUv = mix(r.xy, r.zw, position.xy);
+  gl_Position = vec4(vUv * 2.0 - 1.0, 0.0, 1.0);
 }`;
 const DIM_FRAG = /* glsl */ `
 uniform vec4 uMask; // left, right, full, band weights
@@ -212,8 +233,40 @@ void main() {
   gl_FragColor = vec4(0.0, 0.0, 0.0, clamp(a, 0.0, 0.92));
 }`;
 
+/** Below this weight a mask contributes nothing visible: the pass is skipped. */
+const DIM_EPS = 0.01;
+/** Where the fragment shader's side masks reach (its smoothstep edges), as viewport fractions. */
+const DIM_LEFT_TO = 0.62;
+const DIM_RIGHT_FROM = 0.38;
+/** The fragment shader's band/opening edges: dimmed down to top + 0.02 and from bottom - 0.03. */
+const DIM_ABOVE = 0.02;
+const DIM_BELOW = 0.03;
+
+/** Two unit quads (xy in 0..1, aQuad 0/1), each mapped onto its own screen rect in the vertex shader. */
+function dimGeometry(): BufferGeometry {
+  const g = new BufferGeometry();
+  const pos: number[] = [];
+  const quad: number[] = [];
+  for (let q = 0; q < 2; q++) {
+    pos.push(0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0);
+    quad.push(q, q, q, q);
+  }
+  g.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  g.setAttribute("aQuad", new Float32BufferAttribute(quad, 1));
+  g.setIndex([0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7]);
+  return g;
+}
+
+/** Writes a rect given in top-down viewport fractions as the shader's y-up uv rect. */
+function setRect(v: number[], x0: number, top: number, x1: number, bottom: number) {
+  v[0] = x0;
+  v[1] = 1 - bottom;
+  v[2] = x1;
+  v[3] = 1 - top;
+}
+
 class Dimmer {
-  readonly geometry = new PlaneGeometry(2, 2);
+  readonly geometry = dimGeometry();
   readonly material = new ShaderMaterial({
     vertexShader: DIM_VERT,
     fragmentShader: DIM_FRAG,
@@ -222,6 +275,8 @@ class Dimmer {
       uPhone: { value: 0 },
       uBand: { value: [0, 0] },
       uOpen: { value: [0, 0] },
+      uRectA: { value: [0, 0, 1, 1] },
+      uRectB: { value: [0, 0, 0, 0] },
     },
     transparent: true,
     depthTest: false,
@@ -234,6 +289,12 @@ class Dimmer {
     blendSrcAlpha: ZeroFactor,
     blendDstAlpha: OneMinusSrcAlphaFactor,
   });
+  readonly mesh = new Mesh(this.geometry, this.material);
+
+  constructor() {
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 1e6;
+  }
 
   update(c: Composition, f: Frame) {
     const u = this.material.uniforms;
@@ -249,6 +310,52 @@ class Dimmer {
     const o = u.uOpen.value as number[];
     o[0] = f.open.top;
     o[1] = f.open.bottom;
+
+    // The region the pass changes (top-down fractions): quad 0 is x0..x1 from `top` to the
+    // bottom; quad 1 (band / opening) the strip from the top down to `strip`. A blend of a
+    // side and a band, or of both sides, covers the whole screen (the union is no rect).
+    let x0 = 1;
+    let x1 = 0;
+    let top = 0;
+    let strip = 0;
+    if (f.phone) {
+      x0 = 0;
+      x1 = 1;
+      top = f.open.bottom - DIM_BELOW;
+      strip = f.open.top + DIM_ABOVE;
+    } else {
+      const left = c.mL >= DIM_EPS;
+      const right = c.mR >= DIM_EPS;
+      const band = c.mB >= DIM_EPS;
+      if (c.mF >= DIM_EPS || (left && right) || (band && (left || right))) {
+        x0 = 0;
+        x1 = 1;
+      } else if (left) {
+        x0 = 0;
+        x1 = DIM_LEFT_TO;
+      } else if (right) {
+        x0 = DIM_RIGHT_FROM;
+        x1 = 1;
+      } else if (band) {
+        x0 = 0;
+        x1 = 1;
+        top = f.band.bottom - DIM_BELOW;
+        strip = f.band.top + DIM_ABOVE;
+      }
+    }
+    const visible = x1 > x0;
+    this.mesh.visible = visible;
+    if (!visible) return;
+    top = Math.min(1, Math.max(0, top));
+    strip = Math.min(1, Math.max(0, strip));
+    if (strip >= top) {
+      // The clear part is too thin to leave out (or there is none): one quad, top to bottom.
+      top = 0;
+      strip = 0;
+    }
+    setRect(u.uRectA.value as number[], x0, top, x1, 1);
+    if (strip > 0) setRect(u.uRectB.value as number[], x0, 0, x1, strip);
+    this.geometry.setDrawRange(0, strip > 0 ? 12 : 6);
   }
 
   dispose() {
@@ -476,8 +583,16 @@ const SceneSlot = memo(function SceneSlot({
   sceneKey,
   Scene,
   store,
+  onChunkError,
+  onMissing,
   ...rest
-}: Omit<SceneProps, "progress" | "weight"> & { sceneKey: SceneKey; Scene: SceneComponent | undefined; store: SceneStore }) {
+}: Omit<SceneProps, "progress" | "weight"> & {
+  sceneKey: SceneKey;
+  Scene: SceneComponent | undefined;
+  store: SceneStore;
+  onChunkError: () => void;
+  onMissing: (key: SceneKey, missing: boolean) => void;
+}) {
   const snap = useSyncExternalStore(
     useCallback((l: () => void) => store.subscribe(sceneKey, l), [store, sceneKey]),
     () => store.get(sceneKey),
@@ -486,10 +601,33 @@ const SceneSlot = memo(function SceneSlot({
   // and compiled programs survive) and simply receives weight 0.
   const [seen, setSeen] = useState(snap.weight > 0);
   if (!seen && snap.weight > 0) setSeen(true);
-  // Needed before its chunk arrived (an anchor jump past the prefetch): load it now.
+  // Needed before its chunk arrived (an anchor jump past the prefetch, a failed prefetch):
+  // load it now; a failure is retried once after a moment, then the stage falls back to
+  // the poster (and may come back later) rather than leave the section blank. From the
+  // first failure on, while this section leads, the poster shows through the canvas.
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
-    if (seen && !Scene) scenes.load(sceneKey).catch(() => undefined);
-  }, [seen, Scene, sceneKey]);
+    if (!seen || Scene) return;
+    let cancelled = false;
+    let timer = 0;
+    scenes.load(sceneKey).catch(() => {
+      if (cancelled) return;
+      setFailed(true);
+      if (attempt < CHUNK_RETRIES) timer = window.setTimeout(() => setAttempt((a) => a + 1), CHUNK_RETRY_MS);
+      else onChunkError();
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [seen, Scene, sceneKey, attempt, onChunkError]);
+  const showPoster = failed && !Scene && snap.weight >= 0.5;
+  useEffect(() => {
+    if (!showPoster) return;
+    onMissing(sceneKey, true);
+    return () => onMissing(sceneKey, false);
+  }, [showPoster, sceneKey, onMissing]);
   if (!seen || !Scene) return null;
   return <Scene {...rest} weight={snap.weight} progress={snap.progress} />;
 });
@@ -500,6 +638,8 @@ function Director({
   dpr,
   onReady,
   onWindow,
+  onFallback,
+  onMissing,
 }: {
   data: NeuralData;
   quality: Quality;
@@ -507,6 +647,8 @@ function Director({
   dpr: number;
   onReady: (ready: boolean) => void;
   onWindow: (w: FrameWindow) => void;
+  onFallback: (reason: FallbackReason) => void;
+  onMissing?: (missing: boolean) => void;
 }) {
   const get = useThree((s) => s.get);
   const [store] = useState(() => {
@@ -517,9 +659,29 @@ function Director({
   const [palette, setPalette] = useState<ScenePalette>(readPalette);
   const [focus, setFocus] = useState<string | null>(null);
   const [rig] = useState(() => new Rig());
+  // The scroll snapshot is current only while this director runs (occluders.sync() falls back to the window).
+  useEffect(
+    () => () => {
+      scroll.live = false;
+    },
+    [],
+  );
   const [meter] = useState(() => new Meter());
   useEffect(() => meter.attach(), [meter]);
   const mods = useSyncExternalStore(scenes.subscribe, () => scenes.mods);
+  const onChunkError = useCallback(() => onFallback("chunk"), [onFallback]);
+  // Scenes whose section leads while their code is missing (see SceneSlot).
+  const [missingKeys] = useState(() => new Set<SceneKey>());
+  const onSlotMissing = useCallback(
+    (key: SceneKey, on: boolean) => {
+      const before = missingKeys.size > 0;
+      if (on) missingKeys.add(key);
+      else missingKeys.delete(key);
+      if (before !== missingKeys.size > 0) onMissing?.(missingKeys.size > 0);
+    },
+    [missingKeys, onMissing],
+  );
+  const lastT = useRef(0);
   const dim = useMemo(() => new Dimmer(), []);
   useEffect(() => () => dim.dispose(), [dim]);
 
@@ -619,7 +781,17 @@ function Director({
     let stopPrefetch = () => {};
     (async () => {
       const keys = SCENE_KEYS.filter((k) => store.frame.weight[k] > 0);
-      await Promise.all(keys.map((k) => scenes.load(k))).catch(() => undefined);
+      const missing = await Promise.all(keys.map((k) => scenes.load(k))).then(
+        () => false,
+        () => true,
+      );
+      if (cancelled) return;
+      // A scene in view could not load (the bundler already retried it once): keep the
+      // poster up instead of fading it out over a blank section; the island may retry.
+      if (missing) {
+        onFallback("chunk");
+        return;
+      }
       await nextIdle(500);
       if (cancelled) return;
       const { gl, scene, camera } = get();
@@ -638,37 +810,55 @@ function Director({
       cancelAnimationFrame(raf);
       stopPrefetch();
     };
-  }, [get, onReady, store]);
+  }, [get, onReady, onFallback, store]);
 
   // The R3F loop, bracketed for the frame monitor: begin (first), the rig (camera,
   // composition), the scenes (priority 0), then the render, which this stage issues itself
   // (a positive priority turns R3F's own render off) so it can be timed.
   useFrame((state) => meter.begin(state.gl.getContext() as GL2, `${store.active}|${quality}|${dpr}`), -1000);
   useFrame((state, delta) => {
+    // R3F zeroes clock.elapsedTime whenever the frameloop changes (the idle pause, a hidden
+    // tab), and scenes that keep clock stamps would see time run backwards (the Writing
+    // scene vanished). Keep it monotonic for every scene: after a reset, continue from
+    // where it paused, with no jump for the paused span.
+    const clock = state.clock;
+    if (clock.elapsedTime + 1e-3 < lastT.current) clock.elapsedTime += lastT.current;
+    lastT.current = clock.elapsedTime;
+    // One scroll read per frame, before any scene writes DOM (perf P5): the scenes read
+    // the snapshot, so no later read forces a layout pass.
+    scroll.x = window.scrollX;
+    scroll.y = window.scrollY;
+    scroll.live = true;
     const aspect = state.size.width / Math.max(1, state.size.height);
     rig.frame(state.camera as PerspectiveCamera, delta, aspect, store, state.size, dim);
   }, -1);
-  useFrame(({ gl, scene, camera }) => {
+  useFrame(({ gl, scene, camera, clock }) => {
     meter.renderTimed(gl.getContext() as GL2, () => gl.render(scene, camera));
     const w = meter.end();
     if (w) {
       onWindow(w);
-      // Exposed for QA: the last window (fps, 3D ms/frame on the CPU and GPU).
+      // Exposed for QA: the last window (fps, 3D ms/frame on the CPU and GPU) and the
+      // scenes' clock (s), which must only ever grow.
       document
         .querySelector("[data-neural-stage]")
-        ?.setAttribute("data-fps", `${Math.round(w.fps)} cpu ${w.cpu.toFixed(1)} gpu ${w.gpu < 0 ? "-" : w.gpu.toFixed(1)}`);
+        ?.setAttribute(
+          "data-fps",
+          `${Math.round(w.fps)} cpu ${w.cpu.toFixed(1)} gpu ${w.gpu < 0 ? "-" : w.gpu.toFixed(1)} t ${clock.elapsedTime.toFixed(1)}`,
+        );
     }
   }, 1);
 
   return (
     <>
-      <mesh geometry={dim.geometry} material={dim.material} frustumCulled={false} renderOrder={1e6} />
+      <primitive object={dim.mesh} />
       {SCENE_KEYS.map((key) => (
         <SceneSlot
           key={key}
           sceneKey={key}
           Scene={mods[key]}
           store={store}
+          onChunkError={onChunkError}
+          onMissing={onSlotMissing}
           data={data}
           pointer={rig.pointer}
           focus={focus}
@@ -682,7 +872,7 @@ function Director({
 
 let stages = 0;
 
-export default function Stage({ data, active, retry = false, onReady, onFallback }: StageProps) {
+export default function Stage({ data, active, retry = false, onReady, onFallback, onMissing }: StageProps) {
   // Phones (coarse pointers) start on the last step and stay there; a retry after a slow
   // fallback starts there too and may climb back up.
   const [floor] = useState(() => (matchMedia("(pointer: coarse)").matches ? LAST : 0));
@@ -815,7 +1005,15 @@ export default function Stage({ data, active, retry = false, onReady, onFallback
         );
       }}
     >
-      <Director data={safe} quality={quality} dpr={level} onReady={onReady} onWindow={onWindow} />
+      <Director
+        data={safe}
+        quality={quality}
+        dpr={level}
+        onReady={onReady}
+        onWindow={onWindow}
+        onFallback={onFallback}
+        onMissing={onMissing}
+      />
     </Canvas>
   );
 }

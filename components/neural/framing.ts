@@ -4,7 +4,7 @@
 // view onto the free part of the viewport and writes the live result into `framing`,
 // which scenes read in useFrame to size themselves to the space they own.
 import type { Camera, PerspectiveCamera } from "three";
-import { occluders } from "./occluders";
+import { occluders, scroll } from "./occluders";
 import { SCENE_KEYS, type SceneKey, type StageLayout } from "./types";
 
 /** One composition: free rect + dimmer mask. All values are viewport fractions (y top-down). */
@@ -95,7 +95,7 @@ export const sceneFrames = Object.fromEntries(
  * content. Callers keep the occluder registry retained (a LabelLayer does).
  */
 export function clearRect(r: Rect, minH: number, out: Rect): Rect | null {
-  occluders.sync();
+  occluders.sync(scroll.x, scroll.y);
   Object.assign(out, r);
   if (out.b - out.t < minH) return null;
   if (!occluders.hits(out.l, out.t, out.r, out.b)) return out;
@@ -123,6 +123,9 @@ export function clearRect(r: Rect, minH: number, out: Rect): Rect | null {
   out.b = b;
   return out;
 }
+
+/** The per-frame scroll snapshot (perf P5); it lives in occluders.ts, the leaf module both use. */
+export { scroll };
 
 /** Live, eased framing (written by the rig every frame, read by scenes). */
 export const framing = {

@@ -23,7 +23,10 @@ const MOTION = "@media (prefers-reduced-motion:no-preference){html.js:not([data-
 const HERO_SECTION = "[data-section=hero]:not([data-scene]),[data-scene=hero]";
 /** Posters a section can pick by its scene (any other scene shows the ambient field). */
 const OWN = ["hero", "contact", "services", "faq"] as const;
-const shown = [...OWN, "ambient"].map((k) => `[data-poster=${k}] [data-neural-poster=${k}]`).join(",");
+const shownKeys = [...OWN, "ambient"];
+const shown = shownKeys.map((k) => `[data-poster=${k}] [data-neural-poster=${k}]`).join(",");
+/** The animated tracks (signal pulses, the breathing brain, the beacon ping). */
+const TRACKS = ":is(.nw-p,.nw-b,.nw-k)";
 const CSS = [
   ":root{--nw-ai:#3F5BD9}.dark{--nw-ai:#7C9CFF}",
   ".nw-e{fill:none;stroke:var(--nw-ai);stroke-opacity:.28}.dark .nw-e{stroke-opacity:.2}",
@@ -39,7 +42,7 @@ const CSS = [
   // The hero brain fills the same box as the canvas's core ([data-hero-core] in the home
   // hero): the free right side on desktop, a band above the text on phones.
   "[data-neural-poster=hero]>svg{inset:auto;left:1rem;top:calc(4rem + 1px + 1rem);width:calc(100% - 2rem);height:calc(36svh - 1.5rem)}",
-  "@media (min-width:1024px){[data-neural-poster=hero]>svg{left:calc(max(0px,(100% - 1280px)/2) + 47rem);top:calc(4rem + 1px + 1.5rem);width:calc(100% - max(0px,(100% - 1280px)/2) - 48rem);height:calc(100svh - 4rem - 1px - 9.5rem)}}",
+  "@media (min-width:1024px){[data-neural-poster=hero]>svg{left:calc(max(0px,(100% - 1280px)/2) + 47rem);top:calc(4rem + 1px + 1.5rem);width:calc(100% - max(0px,(100% - 1280px)/2) - 48rem);height:calc(100svh - 4rem - 1px - 3.5rem)}}",
   ".nw-g{opacity:.4}.dark .nw-g{opacity:1}",
   ".nw-b{transform-box:view-box;transform-origin:50% 50%}",
   "@keyframes nw-breathe{50%{transform:scale(1.025) rotate(-1deg)}}",
@@ -65,6 +68,11 @@ const CSS = [
   `main:has(${HERO_SECTION}) [data-neural-stage]:not([data-poster]) [data-neural-poster=hero],main:not(:has(${HERO_SECTION})) [data-neural-stage]:not([data-poster]) [data-neural-poster=ambient]{display:block}`,
   "[data-poster] [data-neural-poster]{display:block;opacity:0;visibility:hidden;transition:opacity .6s,visibility 0s .6s}",
   `${shown}{opacity:1;visibility:visible;transition:opacity .6s}`,
+  // Hidden posters keep their CSS animations ticking (visibility:hidden does not stop
+  // them): only the shown poster's tracks run. "html" lifts these above the motion rules
+  // (html.js:not(...) .nw-p, whose animation shorthand resets the play state).
+  `html [data-poster] [data-neural-poster] ${TRACKS}{animation-play-state:paused}`,
+  `${shownKeys.map((k) => `html [data-poster=${k}] [data-neural-poster=${k}] ${TRACKS}`).join(",")}{animation-play-state:running}`,
   // Under a live canvas (the island sets data-paused once the crossfade is done) the posters
   // leave the render tree: no CSS animation ticks, no SVG relayout, no hit testing.
   "[data-neural-posters] [data-neural-poster][data-paused]{display:none}",
@@ -265,9 +273,11 @@ function relDots(pts: [number, number][]) {
 function ContactPoster({ city }: { city: string }) {
   const R = 200;
   const ROWS = 40;
-  const geo = CITY_GEO[city] ?? { lat: 23, lon: 72.6 };
-  const yaw = (-geo.lon * Math.PI) / 180 + 0.5;
-  const tilt = (geo.lat * Math.PI) / 180 + 0.12;
+  // As the contact rig does: a city missing from CITY_GEO gets no beacon and a neutral pose
+  // (longitude 0 turned toward the content, the rig's pitch plus its globe tilt).
+  const geo = CITY_GEO[city];
+  const yaw = (-(geo?.lon ?? 0) * Math.PI) / 180 + 0.5;
+  const tilt = geo ? (geo.lat * Math.PI) / 180 + 0.12 : 0.46;
   const view = (lat: number, lon: number): [number, number, number] => {
     const x0 = Math.cos(lat) * Math.sin(lon);
     const y0 = Math.sin(lat);
@@ -293,8 +303,8 @@ function ContactPoster({ city }: { city: string }) {
       (z > 0.45 ? near : far).push([r1(x * R), r1(-y * R)]);
     }
   }
-  const [px, py] = view((geo.lat * Math.PI) / 180, (geo.lon * Math.PI) / 180);
-  const pin = { x: r1(px * R), y: r1(-py * R) };
+  const at = geo && view((geo.lat * Math.PI) / 180, (geo.lon * Math.PI) / 180);
+  const pin = at && at[2] > 0 ? { x: r1(at[0] * R), y: r1(-at[1] * R) } : null;
   return (
     <div data-neural-poster="contact" className="absolute inset-0">
       <svg className="nw-side" viewBox="-250 -250 500 500" fill="none">
@@ -309,8 +319,12 @@ function ContactPoster({ city }: { city: string }) {
         <circle className="nw-e" r={R} strokeWidth="1.5" />
         <path className="nw-n nw-a" strokeOpacity=".45" strokeWidth="4" d={relDots(far)} />
         <path className="nw-n nw-a" strokeOpacity=".9" strokeWidth="5.5" d={relDots(near)} />
-        <circle className="nw-okr nw-k" cx={pin.x} cy={pin.y} r="8" />
-        <circle className="nw-ok" cx={pin.x} cy={pin.y} r="7" />
+        {pin ? (
+          <>
+            <circle className="nw-okr nw-k" cx={pin.x} cy={pin.y} r="8" />
+            <circle className="nw-ok" cx={pin.x} cy={pin.y} r="7" />
+          </>
+        ) : null}
       </svg>
     </div>
   );
