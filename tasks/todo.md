@@ -137,3 +137,16 @@ Asked: no "Want a 3D site?" question, remove the photo, no 3D button (motion for
 - [x] Reboot wiped /tmp mid-phase: recovered tools/research from transcripts into tasks/qa + tasks/research; lanes moved to /home/raish/raish/.my-app-lanes; WIP commits every 15 min
 - [x] Integration (fm2-int -> redesign-3d 3b32de8): fm-tour a-k all PASS; 23/23 sitemap URLs 200; 39/39 old blog URLs 301 -> 200; 1 h1 per page; 0 photo refs; owner-viewport frames (1536x732 @1.25) reviewed
 - [ ] Lighthouse on an idle machine
+
+## Phase 7 — Owner feedback round 3 (2026-11-07/09)
+Asked, with a screenshot of the AI section: change the AI animation, fix the Contact animation, add animation to Services and FAQ. Contract: tasks/fullmotion-v3.md.
+- [x] fm3-ai: a full 3D AI system per project (input, vector store, agent and tools, LLM core, answer card), synced with the deck chips, morphing between projects; glass/point restyle; leaves with its section; small-phone fit
+- [x] fm3-contact: a live dotted globe (Ahmedabad, IST clock, availability beacon, channel satellites, message packets on typing/copy/send); a compact globe in every CTA section; a static SVG globe when 3D is off; the form is unchanged
+- [x] fm3-services (new scene): a 3D machine per service (Next.js route tree, MERN loop, CI/CD to cluster, API gateway) in the glass language, synced with the cards on home, /services and the service pages
+- [x] fm3-faq (new scene): every FAQ answer drawn from its own text (career rings, stack, availability beacon, 24-hour dial, figures, steps, choices); a question field when idle; a phone picture slot; FAQPage JSON-LD in sync on all 7 pages
+- [x] fm3-writing (new scene, added after the whole-site review found Writing was the only dead section): glass manuscript pages on a build rail above the post cards
+- [x] Shared: per-scene lazy chunks (entry 3D 272.6 KB gzip, was 338); a frame monitor that judges the 3D's own cost, steps down by dpr, and recovers; section posters (contact globe, services, FAQ); a failed chunk shows the poster and retries; a monotonic scene clock across pauses; captions in the text column; one scroll read per frame; the dimmer drawn only where it dims
+- [x] Motion: off-screen decorative loops paused; tilt/spotlight reads batched (Experience scroll 28 -> 50 fps at the owner viewport)
+- [x] Review: art-director critics per lane plus a whole-site critic; staff code reviews with adversarial verification (about 30 findings fixed, including 6 majors)
+- [x] Integration (fm3-int -> redesign-3d): tsc, lint and build OK; routes static/ISR; full fm-tour a-k PASS; faq-sync 7/7; seo_check 24/24, 0 hard failures (default + GPTBot); 39/39 old blog URLs 301 -> 200; owner-viewport captures 83 desktop + 73 phone, 0 errors, 0 3D drops
+- [ ] Owner review on localhost, then push / PR (Vercel preview) when the owner approves
