@@ -266,6 +266,7 @@ export class ContactRig {
   private attached = false;
   /** The fitted target (re-fitted after a scroll / resize, else twice a second). */
   private fitAt = -1e9;
+  private clock = 0;
   private fitOk = false;
   private fitX = 0;
   private fitY = 0;
@@ -676,6 +677,31 @@ export class ContactRig {
     return true;
   }
 
+  /** Compact room beside (side: 1 right, -1 left) or above the content column. */
+  private room2(W: number, side: number) {
+    if (this.above) {
+      pxRect.l = EDGE;
+      pxRect.r = W - EDGE;
+      pxRect.b = this.colT - 16;
+    } else {
+      pxRect.l = side > 0 ? this.colR + SIDE_GAP : EDGE;
+      pxRect.r = side > 0 ? W - EDGE : this.colL - SIDE_GAP;
+    }
+  }
+
+  /** The clear part of pxRect into `clear`, or false. */
+  private fitRoom(compact: boolean, phone: boolean): boolean {
+    if (pxRect.r - pxRect.l < 160) return false;
+    const minH = compact ? 120 : phone ? 150 : 220;
+    // Beside a heading the room is clear by construction (its block box spans the row).
+    if (compact && !this.colR) {
+      if (pxRect.b - pxRect.t < minH) return false;
+      Object.assign(clear, pxRect);
+      return true;
+    }
+    return !!clearRect(pxRect, minH, clear);
+  }
+
   /** Fit the globe into the room its section leaves (px). False when there is no room. */
   private fit(W: number, H: number): boolean {
     const frame = sceneFrames.contact;
@@ -727,17 +753,11 @@ export class ContactRig {
         const vt = Math.max(pxRect.t, this.secTop + 8);
         const rSide = Math.min(Math.max(lw, rw) / 3.5, (Math.min(pxRect.b, this.secBottom - 8) - vt) / (2 * SPAN_Y));
         const rTop = (this.colT - 16 - vt) / (2 * SPAN_Y);
-        // Hysteresis: a scroll that shrinks the band never flips the globe back and forth.
+        // Hysteresis: a scroll that shrinks the band never flips the globe back and forth;
+        // the other place stands in when the chosen one has no room (fitRoom, below).
         this.above = this.above ? rTop * 1.25 > rSide : rTop > rSide * 1.25;
-        if (this.above) {
-          pxRect.l = EDGE;
-          pxRect.r = W - EDGE;
-          pxRect.b = this.colT - 16;
-        } else {
-          side = rw >= lw ? 1 : -1;
-          pxRect.l = side > 0 ? this.colR + SIDE_GAP : EDGE;
-          pxRect.r = side > 0 ? W - EDGE : this.colL - SIDE_GAP;
-        }
+        side = rw >= lw ? 1 : -1;
+        this.room2(W, side);
       } else if (this.headR > 0) {
         side = 1;
         pxRect.l = this.headR + SIDE_GAP;
@@ -752,10 +772,16 @@ export class ContactRig {
       pxRect.t = Math.max(pxRect.t, this.secTop + 8);
       pxRect.b = Math.min(pxRect.b, this.secBottom - 8);
     }
-    if (pxRect.r - pxRect.l < 160) return false;
-    const minH = phone || compact ? 150 : 220;
-    // Beside a heading the room is clear by construction (its block box spans the row).
-    const ok = compact && !this.colR ? (pxRect.b - pxRect.t >= minH ? Object.assign(clear, pxRect) : null) : clearRect(pxRect, minH, clear);
+    let ok = this.fitRoom(compact, phone);
+    if (!ok && compact && this.colR) {
+      this.above = !this.above;
+      this.room2(W, side);
+      pxRect.t = Math.max(HEADER_PX + 8, this.secTop + 8);
+      pxRect.b = Math.min(this.above ? this.colT - 16 : H - 8, this.secBottom - 8);
+      this.labL = pxRect.l;
+      this.labR = pxRect.r;
+      ok = this.fitRoom(compact, phone);
+    }
     if (!ok) return false;
     this.side = side;
     this.setOver(compact);
@@ -907,7 +933,6 @@ export class ContactRig {
   }
 
   frame(
-    time: number,
     dt: number,
     camera: Camera,
     size: { width: number; height: number },
@@ -915,6 +940,9 @@ export class ContactRig {
     weight: number,
     pointer: { x: number; y: number },
   ): boolean {
+    // The rig's own clock (stamps compare against it): monotonic whatever the stage's
+    // clock does across a frameloop pause / resume.
+    const time = (this.clock += Math.min(Math.max(dt, 0), 0.1));
     if (weight <= 0.001) {
       this.root.visible = false;
       this.handle(time, false);

@@ -40,14 +40,17 @@ export function CtaSection({
       scene={scene}
       stage={stage}
       labelledBy={`${id}-heading`}
-      // Below 1536 px the sides of a centred card are too narrow for the globe: the section
-      // opens with a window onto it instead, like a band.
-      className={globe && center ? "pt-[30svh] md:pt-[30svh] 2xl:pt-28" : undefined}
+      // Below 1280 px the sides of a centred card are too narrow for the globe: the section
+      // opens with a window onto it instead (as tall as the contact section's on phones).
+      className={globe && center ? "pt-[38svh] md:pt-[38svh] xl:pt-28" : undefined}
     >
       {/* The globe reads this untransformed wrapper (the card itself zooms in from depth). */}
       <div
         data-contact-col={globe ? "" : undefined}
-        className={center ? "mx-auto max-w-[52rem]" : stage === "band" ? "lg:max-w-[52rem]" : column[stage]}
+        className={
+          // Up to 1536 px a centred card beside the globe is a little narrower, for a bigger globe.
+          center ? cn("mx-auto max-w-[52rem]", globe && "xl:max-w-[44rem] 2xl:max-w-[52rem]") : stage === "band" ? "lg:max-w-[52rem]" : column[stage]
+        }
       >
         <div {...card("zoom")} className={cn("panel relative overflow-hidden p-6 md:p-10", center && "text-center")}>
           <div
