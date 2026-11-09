@@ -42,7 +42,7 @@ export function Hero({
       <div
         aria-hidden="true"
         data-hero-core=""
-        className={`pointer-events-none absolute inset-x-4 top-4 h-[calc(36svh-1.5rem)] lg:inset-x-auto lg:right-4 lg:top-6 lg:h-[calc(100svh-4rem-1px-9.5rem)] ${CORE_LEFT}`}
+        className={`pointer-events-none absolute inset-x-4 top-4 h-[calc(36svh-1.5rem)] lg:inset-x-auto lg:right-4 lg:top-6 lg:h-[calc(100svh-4rem-1px-3.5rem)] ${CORE_LEFT}`}
       />
       <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center pb-6 pt-[36svh] lg:py-16">
         <div data-stage-content="" className="max-w-[44rem]">

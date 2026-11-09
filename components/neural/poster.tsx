@@ -42,7 +42,7 @@ const CSS = [
   // The hero brain fills the same box as the canvas's core ([data-hero-core] in the home
   // hero): the free right side on desktop, a band above the text on phones.
   "[data-neural-poster=hero]>svg{inset:auto;left:1rem;top:calc(4rem + 1px + 1rem);width:calc(100% - 2rem);height:calc(36svh - 1.5rem)}",
-  "@media (min-width:1024px){[data-neural-poster=hero]>svg{left:calc(max(0px,(100% - 1280px)/2) + 47rem);top:calc(4rem + 1px + 1.5rem);width:calc(100% - max(0px,(100% - 1280px)/2) - 48rem);height:calc(100svh - 4rem - 1px - 9.5rem)}}",
+  "@media (min-width:1024px){[data-neural-poster=hero]>svg{left:calc(max(0px,(100% - 1280px)/2) + 47rem);top:calc(4rem + 1px + 1.5rem);width:calc(100% - max(0px,(100% - 1280px)/2) - 48rem);height:calc(100svh - 4rem - 1px - 3.5rem)}}",
   ".nw-g{opacity:.4}.dark .nw-g{opacity:1}",
   ".nw-b{transform-box:view-box;transform-origin:50% 50%}",
   "@keyframes nw-breathe{50%{transform:scale(1.025) rotate(-1deg)}}",
