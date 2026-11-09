@@ -32,6 +32,8 @@ const AI_SECTION = '[data-section="ai"], [data-scene="ai"]';
 /** Largest world units per layout unit, and the smallest frame (px) worth fitting into. */
 const CAP = 1.25;
 const MIN_RECT = 140;
+/** Phones: the smallest opening (px) a reduced system still draws into (short screens). */
+const PHONE_MIN = 64;
 /** How far the nearest parts come toward the camera (layout units), for the perspective fit. */
 const NEAR_Z = 1.3;
 /** Clearance (px) kept between the system and its section's top / bottom edge. */
@@ -258,13 +260,29 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
   const live = useRef({ project: 0 });
   const lastFit = useRef({ x: 0, y: 0, scale: 0 });
 
-  useFrame((state, dt) => {
+  // Whether the system is drawn at all (data-ai-drawn on the AI sections; change-gated, with
+  // hysteresis): the phone caption names the system only while it is there.
+  const drawn = useRef(false);
+  const setDrawn = useMemo(
+    () => (on: boolean) => {
+      if (on === drawn.current) return;
+      drawn.current = on;
+      document.querySelectorAll<HTMLElement>(AI_SECTION).forEach((s) => s.toggleAttribute("data-ai-drawn", on));
+    },
+    [],
+  );
+  useEffect(() => () => setDrawn(false), [setDrawn]);
+
+  useFrame((state, delta) => {
     const ids = labels.current;
     if (!active) {
       ids?.layer.hideAll();
       syncChips(-1, -1);
+      setDrawn(false);
       return;
     }
+    // A paused and resumed frameloop may hand over an odd delta: never step backwards.
+    const dt = Math.min(Math.max(delta, 0), 0.1);
     const { camera, size } = state;
     const n = model.plans.length;
     if (dirty.current || !sec.current.el?.isConnected) {
@@ -305,7 +323,8 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     // A free area taller than the system's shape spreads its stages vertically (up to 1.45×).
     const own = model.plans[live.current.project].box;
     const stretch = rw > 0 && rh > 0 ? Math.max(1, Math.min(1.45, own[2] / own[3] / (rw / rh))) : 1;
-    if (sf.el && rw >= MIN_RECT && rh >= MIN_RECT) {
+    // Phones fit any opening of PHONE_MIN px or more (a short screen draws a smaller system).
+    if (sf.el && rw >= MIN_RECT && rh >= (framing.phone ? PHONE_MIN : MIN_RECT)) {
       camera.updateMatrixWorld();
       let cy = rt + rh / 2;
       toWorld(camera, rl + rw / 2, cy, size.width, size.height, pt);
@@ -322,7 +341,10 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
         else if (down > 0) cy += down;
         clip = up < 0 || down > 0;
       }
-      room = Math.min(room, smooth(FADE[0], FADE[1], cy + hpx), 1 - smooth(H - FADE[2], H, cy - hpx));
+      // Fades over at most about 60% of its own height (a small phone system fades sooner).
+      const fx = Math.min(FADE[1] - FADE[0], 1.2 * hpx);
+      const fe = Math.min(FADE[2], 1.2 * hpx);
+      room = Math.min(room, smooth(FADE[0], FADE[0] + fx, cy + hpx), 1 - smooth(H - fe, H, cy - hpx));
       toWorld(camera, rl + rw / 2, cy, size.width, size.height, pt);
       fit.x = pt[0];
       fit.y = pt[1];
@@ -342,6 +364,8 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     const held = h && plan0 && plan0.slug === h.slug ? plan0.stages.indexOf(h.stage) : -1;
     rig.frame(state, dt, { project: live.current.project, weight, room, stretch, pointer, x: fit.x, y: fit.y, scale: fit.scale, clip, hold: held }, reg.current);
     syncChips(rig.cur, rig.lit);
+    const shown = weight * room;
+    setDrawn(rig.cur >= 0 && (drawn.current ? shown > 0.1 : shown > 0.3));
 
     const r = reg.current;
     if (!ids || !r.inner || rig.cur < 0) return;
