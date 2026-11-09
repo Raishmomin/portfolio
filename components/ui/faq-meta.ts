@@ -261,9 +261,11 @@ function short(s: string, max = 9): string {
     if (words(t.slice(0, at)) <= max || cut < 0) cut = at;
     if (words(t.slice(0, at)) > max) break;
   }
-  if (cut > 0) t = t.slice(0, cut);
+  // A cut before "and" can leave the list's comma behind ("…, MongoDB or PostgreSQL,").
+  const tidy = (x: string) => x.replace(/[\s,;:—–-]+$/, "");
+  if (cut > 0) t = tidy(t.slice(0, cut));
   if (words(t) <= max) return t;
-  return `${t.split(/\s+/).slice(0, max).join(" ")}…`;
+  return `${tidy(t.split(/\s+/).slice(0, max).join(" "))}…`;
 }
 
 /** Splits at top-level commas (not inside parentheses or numbers), dropping a leading "and"/"or". */

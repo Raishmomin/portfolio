@@ -115,6 +115,12 @@ function kindOf(topic: string, q: string, said: Said, named: number[], data: Neu
 }
 
 const EMPTY: Said = { f: [], v: null, s: [], l: "say", h: null, o: [] };
+/**
+ * Kinds whose picture reads without words. Below lg the shared label layer is off, so only
+ * these open the slot under their card; the others (figures, verdict, choices, lists,
+ * steps, the clock's time) carry their meaning in labels and keep it closed.
+ */
+const PICTURE: ReadonlySet<Kind> = new Set<Kind>(["career", "beacon", "stack"]);
 
 const LABEL_CLASS: Record<LabelKind, string> = {
   tag: "font-mono text-[10px] uppercase leading-none tracking-[0.16em]",
@@ -179,6 +185,8 @@ export class FaqRig {
   // Interaction state.
   private hoverIdx = -1;
   private hoverSince = 0;
+  /** Last frame's clock (R3F restarts elapsedTime at 0 when the frameloop resumes). */
+  private lastT = 0;
   private subject = -2;
   private kind: Kind = "field";
   private switchT = 0;
@@ -338,6 +346,7 @@ export class FaqRig {
         variant: 0,
       };
     });
+    for (const it of this.items) if (it.pic) it.pic.dataset.faqPic = PICTURE.has(it.kind) ? "on" : "";
     // Two questions in a row never get the same picture: the second takes the other layout
     // (a tiered list starts as stacked layers).
     this.items.forEach((it, i) => {
@@ -388,7 +397,8 @@ export class FaqRig {
     if (!this.winOk) {
       const head = this.section.querySelector(".faq-grid");
       this.headTop = head ? head.getBoundingClientRect().top - c.top : this.H;
-      const open = this.openIdx >= 0 ? this.items[this.openIdx]?.pic : null;
+      const item = this.openIdx >= 0 ? this.items[this.openIdx] : null;
+      const open = item && PICTURE.has(item.kind) ? item.pic : null;
       const pr = open?.getBoundingClientRect();
       if (pr && pr.height > 60) {
         pic.l = pr.left - c.left;
@@ -615,6 +625,14 @@ export class FaqRig {
     this.bt = t + 10;
     this.bb = t + h - 10;
 
+    // The clock restarted (frameloop paused and resumed): move the stamps with it, so the
+    // time since a switch or a hover never goes negative.
+    if (time < this.lastT) {
+      const back = this.lastT - time;
+      this.switchT -= back;
+      this.hoverSince -= back;
+    }
+    this.lastT = time;
     // Which question: the open one, else a question hovered/focused for a moment.
     const fi = focus ? (this.byId.get(focus) ?? -1) : -1;
     if (fi !== this.hoverIdx) {

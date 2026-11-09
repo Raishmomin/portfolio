@@ -1264,12 +1264,13 @@ html.motion-live details.faq[open] .faq-a {
   }
 }
 /* Below lg: an empty slot opens under the open card while the FAQ scene runs
-   ([data-faq-live], set by the scene); it draws that answer's picture there. */
+   ([data-faq-live], set by the scene), for answers whose picture reads without labels
+   (data-faq-pic="on", set by the scene); it draws that answer's picture there. */
 .faq-pic {
   height: 0;
 }
 @media (max-width: 1023px) {
-  [data-faq-live] .faq-li:has(> details[open]) > .faq-pic {
+  [data-faq-live] .faq-li:has(> details[open]) > .faq-pic[data-faq-pic="on"] {
     height: 220px;
   }
   html.motion-live [data-faq-live] .faq-pic {
