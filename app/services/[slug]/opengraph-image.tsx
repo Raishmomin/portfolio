@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { notFound } from "next/navigation";
 import { SITE } from "@/lib/config";
 import { SERVICES } from "@/lib/services";
 
@@ -7,10 +8,11 @@ export const alt = "Service — Raish Momin";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default async function OG({ params }: { params: { slug: string } }) {
-  const config = SERVICES[params.slug];
-  const h1 = config?.h1 || "Services";
-  const tagline = config?.tagline || "";
+export default async function OG({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const config = SERVICES[slug];
+  if (!config) notFound();
+  const { h1, tagline } = config;
 
   return new ImageResponse(
     (

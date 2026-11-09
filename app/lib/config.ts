@@ -1,17 +1,22 @@
+import { PROFILE, experienceLabel } from "./profile";
+
 export const SITE_URL = "https://raish-momin.vercel.app";
 
 export const SITE = {
   name: "Raish Momin",
   title: "Raish Momin — Full Stack Developer & DevOps Engineer",
-  description:
-    "Full-stack developer with 4+ years building production React, Node.js, and cloud infrastructure. Open to senior engineering roles and freelance.",
+  // A getter, so the derived years figure is current on every render (it changes
+  // each September) instead of being fixed when the module first loads.
+  get description() {
+    return `Full-stack developer with ${experienceLabel()} years building production React, Node.js, and cloud infrastructure. Open to ${PROFILE.availability}.`;
+  },
   jobTitle: "Full Stack Developer & DevOps Engineer",
-  email: "raishmomin@example.com",
-  twitter: "@raishmomin",
-  github: "https://github.com/Raishmomin",
-  linkedin: "https://www.linkedin.com/in/raish-momin/",
+  email: PROFILE.email,
+  twitter: PROFILE.social.xHandle,
+  github: PROFILE.social.github,
+  linkedin: PROFILE.social.linkedin,
   locale: "en_US",
-  themeColor: { light: "#fafafa", dark: "#121214" },
+  themeColor: { light: "#F5F3EE", dark: "#0E0F11" },
 } as const;
 
 export const NAV_SECTIONS = [

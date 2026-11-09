@@ -1,34 +1,28 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import clientPromise from "@/lib/mongodb";
 import { TAGS } from "@/lib/cache-tags";
+import { LISTED_POSTS, plainExcerpt, postTitle } from "@/lib/blog";
+import { card, lit, part } from "./pages/ui";
 
 type RelatedPost = { title: string; slug: string; excerpt: string };
 
+// DB errors throw (never cached), so a failed ISR revalidation keeps the last good output.
 const getRelated = unstable_cache(
   async (currentSlug: string, tags: string[]): Promise<RelatedPost[]> => {
     if (!tags || tags.length === 0) return [];
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const posts = await db
-        .collection("blogs")
-        .find(
-          {
-            published: { $ne: false },
-            slug: { $ne: currentSlug },
-            tags: { $in: tags },
-          },
-          { projection: { title: 1, slug: 1, excerpt: 1 } }
-        )
-        .sort({ publishedAt: -1 })
-        .limit(3)
-        .toArray();
-      return JSON.parse(JSON.stringify(posts));
-    } catch {
-      return [];
-    }
+    const client = await clientPromise;
+    const db = client.db("Portfolio");
+    const posts = await db
+      .collection("blogs")
+      .find(
+        { $and: [LISTED_POSTS, { slug: { $ne: currentSlug }, tags: { $in: tags } }] },
+        { projection: { title: 1, slug: 1, excerpt: 1 } }
+      )
+      .sort({ publishedAt: -1 })
+      .limit(3)
+      .toArray();
+    return JSON.parse(JSON.stringify(posts));
   },
   ["related-posts"],
   { tags: [TAGS.blogs], revalidate: 3600 }
@@ -45,26 +39,28 @@ export async function RelatedPosts({
   if (posts.length === 0) return null;
 
   return (
-    <section className="mt-16 pt-12 border-t border-border" aria-label="Related posts">
-      <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground mb-8">
+    <section className="mt-16" aria-labelledby="related-posts">
+      <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">keep reading</p>
+      <h2 data-split="" id="related-posts" className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
         Related reading
       </h2>
-      <ul className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <ul data-card-group="" className="mt-6 grid grid-cols-1 gap-3">
         {posts.map((p) => (
-          <li key={p.slug}>
+          <li key={p.slug} {...card()}>
             <Link
               href={`/blog/${p.slug}`}
-              className="group block h-full p-5 rounded-xl border border-border bg-card hover:border-foreground/40 transition-colors"
+              {...lit}
+              className="group block rounded-lg border border-border bg-card p-5 transition-colors duration-150 hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <h3 className="text-sm md:text-base font-semibold tracking-tight text-foreground mb-2 group-hover:text-foreground/80 transition-colors line-clamp-2">
-                {p.title}
+              <h3 {...part} className="text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-150 group-hover:text-primary md:text-lg">
+                {postTitle(p.title)}
               </h3>
-              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-                {p.excerpt}
-              </p>
-              <span className="inline-flex items-center gap-1.5 text-xs text-foreground/80">
+              <p {...part} className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{plainExcerpt(p.excerpt)}</p>
+              <span {...part} className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-foreground">
                 Read post
-                <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                <span aria-hidden="true" className="inline-block text-muted-foreground transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-primary">
+                  →
+                </span>
               </span>
             </Link>
           </li>

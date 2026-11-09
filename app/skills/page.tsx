@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { Navbar } from "../../components/navbar";
-import { Skills } from "../../components/skills";
 import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
+import { Accent } from "../../components/ui/primitives";
+import { RelatedPages } from "../../components/pages/about/subpage";
+import { PageIntro, StatTiles } from "../../components/pages/ui";
+import { pageNeuralData } from "../../components/pages/neural";
+import { NeuralStage } from "../../components/neural";
+import { StackMap, TopTechnologies } from "../../components/pages/skills/stack-map";
 import { buildMetadata, breadcrumbList, webPageSchema } from "@/lib/seo";
-import { TAGS } from "@/lib/cache-tags";
-import clientPromise from "@/lib/mongodb";
+import { getProjects, getSkills } from "@/lib/data";
 
 export const revalidate = 86400;
 
@@ -28,29 +31,9 @@ export const metadata: Metadata = buildMetadata({
   ],
 });
 
-const getSkillNames = unstable_cache(
-  async (): Promise<string[]> => {
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const doc = await db.collection("skills").findOne({});
-      if (!doc) return [];
-      const out: string[] = [];
-      for (const [k, v] of Object.entries(doc)) {
-        if (k === "_id" || !Array.isArray(v)) continue;
-        for (const s of v as { name?: string }[]) if (s?.name) out.push(s.name);
-      }
-      return out;
-    } catch {
-      return [];
-    }
-  },
-  ["skills-list"],
-  { tags: [TAGS.skills], revalidate: 86400 }
-);
-
 export default async function SkillsPage() {
-  const skills = await getSkillNames();
+  const [groups, projects, neural] = await Promise.all([getSkills(), getProjects(), pageNeuralData()]);
+  const skills = groups.flatMap((g) => g.skills.map((s) => s.name));
 
   const schema: object[] = [
     webPageSchema({
@@ -74,13 +57,38 @@ export default async function SkillsPage() {
       { name: "Skills", path: "/skills" },
     ]),
   ];
+  const stats = [
+    { value: skills.length, label: "skills" },
+    { value: groups.length, label: "layers" },
+    { value: neural.links.length, label: "connections" },
+    { value: projects.length, label: "projects" },
+  ];
 
   return (
     <>
       <PageJsonLd data={schema} />
       <Navbar />
-      <main className="relative pt-24">
-        <Skills />
+      <main id="main" tabIndex={-1} className="relative outline-none">
+        <NeuralStage data={neural} />
+        <PageIntro
+          crumbs={[{ name: "Home", href: "/" }, { name: "Skills" }]}
+          kicker={`~/skills · ${skills.length} technologies`}
+          scene="stack"
+          note="The network on the right is my stack: one node per skill, one ring per layer, linked wherever two tools shipped together."
+          title={
+            <>
+              Skills — <Accent>tools I reach for.</Accent>
+            </>
+          }
+          lead="A working stack honed across years of shipping. Comfortable across the stack, opinionated where it matters."
+        >
+          <StatTiles stats={stats} className="mt-8 max-w-[36rem]" />
+        </PageIntro>
+
+        <StackMap groups={groups} projects={projects} />
+        <TopTechnologies projects={projects} />
+
+        <RelatedPages index="03" stage="left" keys={["projects", "experience", "services", "about"]} />
       </main>
       <Footer />
     </>

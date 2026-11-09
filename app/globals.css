@@ -3,49 +3,58 @@
 @tailwind utilities;
 
 @layer base {
+  /* Control Plane palette — see tasks/design-spec.md §2. HSL triplets for Tailwind's hsl(var(--x)). */
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 6% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 6% 10%;
+    --background: 43 26% 95%;      /* paper #F5F3EE */
+    --foreground: 225 9% 9%;       /* ink #141518 */
+    --card: 0 0% 100%;             /* panel */
+    --card-foreground: 225 9% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 10%;
-    --primary: 240 6% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 6% 10%;
-    --destructive: 0 70% 45%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 240 6% 10%;
-    --radius: 0.75rem;
+    --popover-foreground: 225 9% 9%;
+    --primary: 17 90% 38%;         /* orange #B83A0A — 5.1:1 on paper */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 20% 91%;
+    --secondary-foreground: 225 9% 9%;
+    --muted: 40 20% 91%;
+    --muted-foreground: 213 5% 39%; /* #5F6368 — 5.4:1 on paper */
+    --accent: 40 20% 91%;
+    --accent-foreground: 225 9% 9%;
+    --destructive: 0 70% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 42 18% 86%;          /* hairline #E2DED5 */
+    --input: 42 18% 86%;
+    --ring: 17 90% 38%;
+    --brand: 17 90% 38%;
+    --brand-foreground: 0 0% 100%;
+    --ok: 154 63% 33%;             /* #1F8A5B */
+    --ai: 229 66.5% 54.9%;         /* AI accent #3F5BD9 — 5.1:1 on paper, 5.7:1 on white */
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 240 6% 7%;
-    --foreground: 0 0% 96%;
-    --card: 240 6% 9%;
-    --card-foreground: 0 0% 96%;
-    --popover: 240 6% 9%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 0 0% 96%;
-    --primary-foreground: 240 6% 10%;
-    --secondary: 240 5% 14%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 240 5% 14%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 240 5% 14%;
-    --accent-foreground: 0 0% 96%;
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 0 0% 96%;
-    --border: 240 5% 18%;
-    --input: 240 5% 18%;
-    --ring: 0 0% 96%;
+    --background: 220 10% 6%;      /* ink #0E0F11 */
+    --foreground: 41 30% 89%;      /* bone #ECE7DC */
+    --card: 220 12% 10%;           /* panel #16181C */
+    --card-foreground: 41 30% 89%;
+    --popover: 220 12% 10%;
+    --popover-foreground: 41 30% 89%;
+    --primary: 16 100% 56%;        /* safety orange #FF5B1F — 6.2:1 on ink */
+    --primary-foreground: 220 10% 6%;
+    --secondary: 220 12% 10%;
+    --secondary-foreground: 41 30% 89%;
+    --muted: 220 12% 10%;
+    --muted-foreground: 227 4% 57%; /* #8E9097 — 6.0:1 on ink */
+    --accent: 220 12% 13%;
+    --accent-foreground: 41 30% 89%;
+    --destructive: 0 70% 58%;
+    --destructive-foreground: 220 10% 6%;
+    --border: 220 11% 17%;         /* hairline #26292F */
+    --input: 220 11% 17%;
+    --ring: 16 100% 56%;
+    --brand: 16 100% 56%;
+    --brand-foreground: 220 10% 6%;
+    --ok: 153 65% 54%;             /* #3BD68F */
+    --ai: 225 100% 74.3%;          /* AI accent #7C9CFF — 7.4:1 on ink, 6.8:1 on panel */
   }
 }
 
@@ -55,10 +64,23 @@
   }
   html {
     scroll-behavior: smooth;
+    /* The sticky header is 64px (h-16) + 1px hairline: focus scrolling and #anchor
+       jumps stop below it, never under it (WCAG 2.4.11 Focus Not Obscured). */
+    scroll-padding-top: 5rem;
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-foreground selection:text-background;
+    font-size: 17px;
+    line-height: 28px;
     font-feature-settings: "ss01", "cv11";
+  }
+  /* Visible focus ring everywhere (components may refine it with ring utilities). */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -76,114 +98,109 @@
   }
 }
 
-@layer utilities {
-  .glass {
-    @apply bg-background/70 backdrop-blur-xl border border-border;
+@layer components {
+  /* Tech pill: the <li> itself (components/ui/primitives.tsx PillList). */
+  .pill {
+    @apply inline-flex items-center rounded-full border border-border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground;
   }
-
-  .glass-card {
-    @apply bg-card/60 backdrop-blur-md border border-border shadow-sm;
+  /* List item with a neutral 12px dash centred on its first line (no extra elements). */
+  .dash-item {
+    position: relative;
+    padding-left: 1.5rem;
   }
-
-  .text-shimmer {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--muted-foreground)) 0%,
-      hsl(var(--foreground)) 50%,
-      hsl(var(--muted-foreground)) 100%
-    );
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: shimmer 6s linear infinite;
+  /* Neural design utilities (documented in components/motion/index.ts). */
+  .panel {
+    @apply rounded-xl border border-border bg-background/85;
   }
-
-  .scrim-radial {
-    background: radial-gradient(
-      ellipse at center,
-      hsl(var(--foreground) / 0.04) 0%,
-      transparent 70%
-    );
+  .panel-ai {
+    @apply rounded-xl border bg-background/85;
+    border-color: hsl(var(--ai) / 0.3);
+    box-shadow: 0 0 0 1px hsl(var(--ai) / 0.06), 0 18px 60px -24px hsl(var(--ai) / 0.45);
   }
-
-  .noise {
+  .glow-ai {
+    box-shadow: 0 0 0 1px hsl(var(--ai) / 0.18), 0 0 32px -6px hsl(var(--ai) / 0.5);
+  }
+  .border-glow {
+    position: relative;
+  }
+  .border-glow::after {
+    content: "";
     position: absolute;
     inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, hsl(var(--ai) / 0.75), hsl(var(--ai) / 0.1) 45%, hsl(var(--primary) / 0.6));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
     pointer-events: none;
-    opacity: 0.04;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   }
-
-  .mask-edge-x {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 10%,
-      black 90%,
-      transparent
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 10%,
-      black 90%,
-      transparent
-    );
+  .scrim-l {
+    background: linear-gradient(90deg, hsl(var(--background) / 0.92) 0%, hsl(var(--background) / 0.7) 45%, hsl(var(--background) / 0) 100%);
   }
-
-  .display-fluid {
-    font-size: clamp(2.5rem, 8vw, 6rem);
-    line-height: 1;
-    letter-spacing: -0.04em;
+  .scrim-b {
+    background: linear-gradient(0deg, hsl(var(--background) / 0.95) 0%, hsl(var(--background) / 0.6) 50%, hsl(var(--background) / 0) 100%);
   }
-
-  .heading-fluid {
-    font-size: clamp(1.875rem, 4.5vw, 3.25rem);
-    line-height: 1.05;
-    letter-spacing: -0.03em;
+  /* "full" compositions: content floats over the centred scene; darkens the middle most. */
+  .scrim-c {
+    background: radial-gradient(ellipse 80% 70% at 50% 45%, hsl(var(--background) / 0.84), hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.15) 100%);
   }
-
-  .ink-link {
-    @apply text-muted-foreground transition-colors duration-200 hover:text-foreground;
+  .dash-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.75em;
+    top: calc(0.5lh - 0.5px);
+    width: 0.75rem;
+    height: 1px;
+    background: hsl(var(--muted-foreground) / 0.5);
   }
 }
 
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
+/* Controls that only work with JS (copy, theme, 3D, filters) are hidden when the
+   head script has not flagged html.js, instead of rendering as dead buttons. */
+html:not(.js) .js-only {
+  display: none;
+}
+
+/*
+ * Reveal animations (components/reveal.tsx). Progressive enhancement:
+ * server HTML is visible by default, without JS, for reduced motion and in print.
+ * Only under html.js (set by the inline head script) is a [data-reveal] element
+ * hidden until the script marks it data-in, and never when the header's 3D/motion
+ * toggle has set html[data-motion="off"]. The animations use the `translate`
+ * property, so they never clobber an element's own `transform`.
+ */
+@media screen and (prefers-reduced-motion: no-preference) {
+  html.js:not([data-motion="off"]) [data-reveal]:not([data-in]) {
+    opacity: 0;
+  }
+  html.js:not([data-motion="off"]) [data-reveal][data-in] {
+    animation: reveal-up var(--reveal-duration, 0.42s) cubic-bezier(0.22, 1, 0.36, 1)
+      var(--reveal-delay, 0s) backwards;
   }
 }
 
-@keyframes marquee {
+/* Explicit opt-in from the 3D/motion toggle (html[data-motion="on"]) overrides the OS setting. */
+html.js[data-motion="on"] [data-reveal]:not([data-in]) {
+  opacity: 0;
+}
+html.js[data-motion="on"] [data-reveal][data-in] {
+  animation: reveal-up var(--reveal-duration, 0.42s) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--reveal-delay, 0s) backwards;
+}
+
+@keyframes reveal-up {
   from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes mask-reveal {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-@keyframes draw {
-  to {
-    stroke-dashoffset: 0;
+    opacity: 0;
+    translate: 0 var(--reveal-y, 16px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not([data-motion="on"]) *,
+  html:not([data-motion="on"]) *::before,
+  html:not([data-motion="on"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -226,3 +243,1282 @@
   line-height: 1.7;
 }
 
+
+/* Control Plane: status dot pulse — only when JS is on and motion is allowed. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js:not([data-motion="off"]) .status-dot {
+    animation: status-pulse 2s ease-in-out infinite;
+  }
+}
+html.js[data-motion="on"] .status-dot {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* AI indicator glow pulse — motion-gated exactly like .status-dot. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js:not([data-motion="off"]) .ai-pulse {
+    animation: ai-pulse 2.6s ease-in-out infinite;
+  }
+}
+html.js[data-motion="on"] .ai-pulse {
+  animation: ai-pulse 2.6s ease-in-out infinite;
+}
+@keyframes ai-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--ai) / 0.45); }
+  50% { box-shadow: 0 0 0 6px hsl(var(--ai) / 0); }
+}
+
+/* Decorative loops pause while their section is off screen (the motion runtime flags such
+   sections data-offscreen): an unseen infinite loop still repaints and re-layerizes the whole
+   page every frame. !important because the rules that arm them (e.g. the current role's
+   ring) are more specific; this only ever pauses. */
+[data-offscreen] .status-dot,
+[data-offscreen] .ai-pulse,
+[data-offscreen] .exp-node,
+[data-offscreen] .stage-chip::after {
+  animation-play-state: paused !important;
+}
+
+/*
+ * Motion runtime (components/motion). Every rule below only matters while the lazy
+ * GSAP runtime is active (html.motion-live, motion allowed) or targets nodes it creates.
+ */
+.split-word {
+  display: inline-block;
+}
+.count-box {
+  display: inline-block;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.motion-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 70;
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, hsl(var(--ai)), hsl(var(--primary)));
+  pointer-events: none;
+}
+/* Where supported, the hairline follows the scroll on the compositor (no JS per frame;
+   components/motion/chrome.ts keeps a JS fallback for the rest). */
+@supports (animation-timeline: scroll()) {
+  .motion-progress {
+    animation: motion-progress auto linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes motion-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.motion-glow {
+  position: fixed;
+  left: -260px;
+  top: -260px;
+  z-index: -1;
+  width: 520px;
+  height: 520px;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, hsl(var(--ai) / 0.16), hsl(var(--ai) / 0.06) 50%, transparent);
+  opacity: 0;
+  transition: opacity 400ms ease;
+  pointer-events: none;
+  will-change: transform;
+}
+.light .motion-glow {
+  background: radial-gradient(closest-side, hsl(var(--ai) / 0.12), hsl(var(--ai) / 0.04) 50%, transparent);
+}
+.motion-glow[data-on] {
+  opacity: 1;
+}
+.tilt-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), hsl(var(--ai) / 0.2), transparent 55%);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+}
+[data-tilting] > .tilt-glare {
+  opacity: 1;
+}
+.pin-dim[data-pinned] [data-step] {
+  transition: opacity 300ms ease;
+}
+.pin-dim[data-pinned] [data-step]:not([data-active]) {
+  opacity: 0.4;
+}
+
+/* Header nav: the active item (aria-current, set by pathname or the home scroll-spy)
+   gets a 1px orange rule that grows 16 -> 40px. */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.625rem;
+  height: 1px;
+  width: 16px;
+  background: hsl(var(--primary));
+  opacity: 0;
+  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms linear;
+}
+.nav-link[aria-current]:not([aria-current="false"])::after {
+  width: 40px;
+  opacity: 1;
+}
+
+/* Work archive: hovering or focusing a row dims its siblings and nudges the arrow. */
+.archive li {
+  transition: opacity 160ms linear;
+}
+.archive:has(a:hover) li:not(:has(a:hover)),
+.archive:has(a:focus-visible) li:not(:has(a:focus-visible)) {
+  opacity: 0.45;
+}
+.archive-arrow {
+  transition: translate 160ms ease-out;
+}
+.archive a:hover .archive-arrow,
+.archive a:focus-visible .archive-arrow {
+  translate: 2px -2px;
+}
+
+/* Cards entering from depth (perspective rotations) must never widen the page on phones.
+   clip, not hidden: no scroll container, so sticky frames/decks inside keep working. */
+#main {
+  overflow-x: clip;
+}
+/* The site footer sits on the page colour: the fixed 3D stage (the contact scene's
+   converging node and beam at the end of the page) never shows through its links. */
+#main ~ footer {
+  position: relative;
+  background-color: hsl(var(--background));
+}
+
+/*
+ * Card motion (components/motion/cards.ts). Every rule is keyed on an attribute the
+ * runtime sets while bound (data-*-live, data-lit, data-deck-top) or on html.motion-live,
+ * so no-JS, motion off and reduced motion keep the static layout.
+ */
+
+/* Card entrances (components/motion/cards.ts). One function list for every pose, so each
+   transition interpolates per function: perspective(1200px) translate3d rotateX rotateY
+   scale. Ease = expo.out; chips pop with a back.out curve. */
+html.motion-live [data-card-wait] {
+  opacity: 0;
+  transform: perspective(1200px) translate3d(0, 48px, -140px) rotateX(14deg) rotateY(0deg) scale(1);
+  /* Pivot on the TOP edge: same reclined plane as a bottom pivot, but the card's top stays
+     put, so the IntersectionObserver (which sees the transformed box) fires for tall cards
+     when their real top enters, not ~h*sin(14deg) later. */
+  transform-origin: 50% 0;
+}
+html.motion-live [data-card-wait="flip"] {
+  transform: perspective(1200px) translate3d(0, 12px, -60px) rotateX(-70deg) rotateY(0deg) scale(1);
+  transform-origin: 50% 0;
+}
+html.motion-live [data-card-wait="swing"] {
+  transform: perspective(1200px) translate3d(72px, 0, -160px) rotateX(0deg) rotateY(-22deg) scale(1);
+  transform-origin: 0 50%;
+}
+html.motion-live [data-card-wait="zoom"] {
+  transform: perspective(1200px) translate3d(0, 0, -220px) rotateX(0deg) rotateY(0deg) scale(0.88);
+  transform-origin: 50% 50%;
+}
+@media (max-width: 1023px) {
+  html.motion-live [data-card-wait],
+  html.motion-live [data-card-wait="swing"] {
+    transform: perspective(1200px) translate3d(0, 32px, -80px) rotateX(8deg) rotateY(0deg) scale(1);
+    transform-origin: 50% 0;
+  }
+  html.motion-live [data-card-wait="flip"] {
+    transform: perspective(1200px) translate3d(0, 16px, -40px) rotateX(-30deg) rotateY(0deg) scale(1);
+  }
+  html.motion-live [data-card-wait="zoom"] {
+    transform: perspective(1200px) translate3d(0, 0, -120px) rotateX(0deg) rotateY(0deg) scale(0.93);
+  }
+}
+html.motion-live [data-card-wait][data-card-in] {
+  opacity: 1;
+  transform: perspective(1200px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1);
+  transition:
+    transform 1.1s cubic-bezier(0.16, 1, 0.3, 1) var(--cd, 0s),
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1) var(--cd, 0s);
+}
+@media (max-width: 1023px) {
+  html.motion-live [data-card-wait][data-card-in] {
+    transition-duration: 0.75s, 0.6s;
+  }
+}
+html.motion-live [data-card-wait] [data-card-part] {
+  opacity: 0;
+  translate: 0 14px;
+}
+html.motion-live [data-card-wait] [data-card-part="pop"] {
+  opacity: 1;
+  translate: none;
+}
+html.motion-live [data-card-wait] [data-card-part="pop"] > * {
+  opacity: 0;
+  translate: 0 8px;
+  scale: 0.6;
+}
+html.motion-live [data-card-wait][data-card-in] [data-card-part] {
+  opacity: 1;
+  translate: none;
+  transition:
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    translate 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--cd, 0s) + 0.15s + var(--pi, 0) * var(--each, 0.07s));
+}
+html.motion-live [data-card-wait][data-card-in] [data-card-part="pop"] > * {
+  opacity: 1;
+  translate: none;
+  scale: 1;
+  transition:
+    opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    translate 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+    scale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: calc(var(--cd, 0s) + 0.15s + var(--pi, 0) * var(--each, 0.07s) + min(var(--ci, 0), 8) * 0.035s);
+}
+
+/* [data-deck] (desktop): sticky stack; the covered card shrinks to .92 and dims. The
+   shrink lives on the card's inner surface: GSAP owns the card's own transform (its
+   entrance) and folds a CSS `scale` on the same element into it. */
+@media (min-width: 1024px) {
+  [data-deck-live] > [data-card] {
+    position: sticky;
+    top: calc(88px + var(--i, 0) * 14px);
+    scroll-margin-top: calc(88px + var(--i, 0) * 14px);
+  }
+  [data-deck-live] > [data-card] > * {
+    scale: calc(1 - 0.08 * var(--deck, 0));
+    transform-origin: 50% 0;
+  }
+  [data-deck-live] > [data-card]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: 0.75rem;
+    background: hsl(var(--background));
+    opacity: calc(0.55 * var(--deck, 0));
+    pointer-events: none;
+  }
+  /* Stacked cards are opaque, so the covered card never shows through. */
+  [data-deck-live] > [data-card] .panel {
+    background-color: hsl(var(--background));
+  }
+}
+
+/* The per-tick journey values live on the section for scripts (the experience scene reads
+   them from its inline style) and no CSS reads them: non-inherited, a scrub tick restyles the
+   section alone instead of its whole subtree. */
+@property --hscroll-progress {
+  syntax: "*";
+  inherits: false;
+}
+@property --hscroll-fill {
+  syntax: "*";
+  inherits: false;
+}
+@property --hscroll-line {
+  syntax: "*";
+  inherits: false;
+}
+/* [data-hscroll] (desktop): the section is one viewport plus the track's overflow tall; its
+   frame (the track's parent) sticks while the track runs sideways in one row. */
+@media (min-width: 1024px) {
+  section[data-hscroll-live],
+  div[data-hscroll-live] {
+    display: block;
+    height: calc(100svh + var(--hscroll-length, 0px));
+    min-height: 0;
+    padding: 0;
+    overflow-x: clip;
+  }
+  /* Full-bleed frame: the track keeps the container's inset at its ends (--hs-pad) and
+     fades out over --hscroll-edge at each viewport edge, so items enter and leave softly. */
+  div[data-hscroll-frame] {
+    --hs-pad: max(calc((100% - 1280px) / 2 + 2rem), 5rem);
+    --hs-edge: var(--hscroll-edge, 4rem);
+    position: sticky;
+    top: 0;
+    display: flex;
+    height: 100svh;
+    max-width: none;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 5rem var(--hs-pad) 2.5rem;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--hs-edge), #000 calc(100% - var(--hs-edge)), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--hs-edge), #000 calc(100% - var(--hs-edge)), transparent);
+  }
+  [data-hscroll-live] [data-hscroll-track] {
+    display: flex;
+    width: max-content;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 1.25rem;
+  }
+  [data-hscroll-live] [data-hscroll-track] > * {
+    flex: none;
+    width: var(--hs-w, 30rem);
+  }
+}
+
+/* Hints that only make sense while the track scrolls sideways. */
+.hs-hint {
+  display: none;
+}
+@media (min-width: 1024px) {
+  [data-hscroll-live] .hs-hint {
+    display: inline-flex;
+  }
+}
+
+/* Experience journey rail (components/home/sections.tsx): lit stop by stop while pinned. */
+.exp-rail {
+  position: relative;
+  height: 1.5rem;
+  margin-right: -1.25rem;
+}
+.exp-rail::before,
+.exp-rail-fill {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 0.5px);
+  height: 1px;
+}
+.exp-rail::before {
+  background: hsl(var(--border));
+}
+.exp-rail-fill {
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--ai)));
+  transform-origin: 0 50%;
+}
+.exp-node {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin-top: -5.5px;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--primary));
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.16);
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.exp-node[data-current] {
+  border-color: hsl(var(--ok));
+  background: hsl(var(--ok));
+  box-shadow: 0 0 0 4px hsl(var(--ok) / 0.18);
+}
+/* Scroll-linked: the fill runs with the reading line (and the 3D trail head). */
+[data-hscroll-live] .exp-rail-fill {
+  transform: scaleX(var(--hs-lit, 0));
+}
+[data-hscroll-live] :not([data-lit]) > .exp-rail > .exp-node {
+  border-color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
+  box-shadow: none;
+}
+
+/* fm2-exp */
+/* Experience journey, live (desktop horizontal track): the 3D career path owns the band
+   above the cards. Each role's stop rises on a stem from the rail at the card tops (later
+   roles stand higher: growth), and the 3D milestone ring sits on that dot. */
+.exp-stem {
+  display: none;
+}
+@media (min-width: 1024px) {
+  [data-hscroll-live] .exp-rail {
+    --stem: calc(var(--hscroll-band, 30vh) * (0.3 + 0.38 * var(--rise, 0.5)));
+  }
+  [data-hscroll-live] .exp-stem {
+    position: absolute;
+    left: 5px;
+    bottom: 50%;
+    display: block;
+    width: 1px;
+    height: var(--stem);
+    background: linear-gradient(to top, hsl(var(--border)), hsl(var(--muted-foreground) / 0.35));
+  }
+  [data-hscroll-live] [data-lit] .exp-stem {
+    background: linear-gradient(to top, hsl(var(--primary) / 0.7), hsl(var(--primary) / 0.15));
+  }
+  [data-hscroll-live] [data-lit] .exp-rail[data-current] .exp-stem {
+    background: linear-gradient(to top, hsl(var(--ok) / 0.7), hsl(var(--ok) / 0.15));
+  }
+  [data-hscroll-live] .exp-node {
+    transform: translateY(calc(-1 * var(--stem)));
+  }
+  html.motion-live [data-hscroll-live] [data-lit] .exp-node[data-current] {
+    animation: exp-now 2.4s ease-in-out infinite;
+  }
+}
+/* Short desktop viewports (e.g. 1536×732 at 125% scaling): a tighter frame, so the band
+   above the cards keeps its share of the height. */
+@media (min-width: 1024px) and (max-height: 800px) {
+  div[data-hscroll-frame] {
+    padding-top: 4.25rem;
+    padding-bottom: 1.25rem;
+  }
+}
+@keyframes exp-now {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px hsl(var(--ok) / 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 9px hsl(var(--ok) / 0.06);
+  }
+}
+/* end fm2-exp */
+
+/* [data-spotlight] (mouse/trackpad): a light follows the pointer inside the card and along
+   its 1px border, and one light sweep runs round the border on enter. The inner glow sits
+   under the content (isolation + z-index -1), so text contrast is unchanged. */
+@property --sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --sweep-a {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  html.motion-live [data-spotlight] {
+    position: relative;
+    isolation: isolate;
+  }
+  html.motion-live [data-spotlight]::before,
+  html.motion-live [data-spotlight]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  html.motion-live [data-spotlight]::before {
+    z-index: -1;
+    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), hsl(var(--primary) / 0.09), transparent 60%);
+  }
+  html.motion-live [data-spotlight]::after {
+    padding: 1px;
+    background:
+      conic-gradient(from var(--sweep), transparent 0deg, hsl(var(--ai) / var(--sweep-a)) 40deg, hsl(var(--primary) / var(--sweep-a)) 70deg, transparent 110deg),
+      radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), hsl(var(--primary) / 0.75), transparent 65%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  html.motion-live [data-spotlight]:hover::before,
+  html.motion-live [data-spotlight]:hover::after {
+    opacity: 1;
+  }
+  html.motion-live [data-spotlight]:hover::after {
+    animation: spot-sweep 1.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+@keyframes spot-sweep {
+  0% {
+    --sweep: 0deg;
+    --sweep-a: 0;
+  }
+  12% {
+    --sweep-a: 1;
+  }
+  100% {
+    --sweep: 360deg;
+    --sweep-a: 0;
+  }
+}
+
+/* [data-marquee]: static = a wrapped row; live = an endless ticker with faded edges. */
+[data-marquee] {
+  position: relative;
+  overflow: hidden;
+}
+[data-marquee] > :first-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+[data-marquee-live] > :first-child {
+  width: max-content;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  animation: mq var(--mq, 40s) linear infinite;
+}
+[data-marquee-live]::before,
+[data-marquee-live]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 8%;
+  pointer-events: none;
+}
+[data-marquee-live]::before {
+  left: 0;
+  background: linear-gradient(90deg, hsl(var(--background)), transparent);
+}
+[data-marquee-live]::after {
+  right: 0;
+  background: linear-gradient(270deg, hsl(var(--background)), transparent);
+}
+[data-marquee-live]:hover > :first-child,
+[data-marquee-live]:focus-within > :first-child,
+[data-marquee-live][data-off] > :first-child,
+[data-marquee-live][data-paused] > :first-child {
+  animation-play-state: paused;
+}
+@keyframes mq {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.mq-pause {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  height: 2rem;
+  min-width: 2rem;
+  translate: 0 -50%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  line-height: 1;
+}
+.mq-pause:hover {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--foreground) / 0.4);
+}
+
+/* AI pipeline chips: a signal runs input → output across the top deck card (and on hover). */
+.stage-chip {
+  position: relative;
+}
+.stage-chip::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid hsl(var(--ai));
+  box-shadow: 0 0 14px hsl(var(--ai) / 0.55);
+  opacity: 0;
+  pointer-events: none;
+}
+html.motion-live [data-deck-top] .stage-chip::after,
+html.motion-live [data-ai-card]:hover .stage-chip::after {
+  animation: chip-signal 3s linear infinite;
+  animation-delay: calc(var(--k, 0) * 0.24s);
+}
+@keyframes chip-signal {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  32% {
+    opacity: 0;
+  }
+}
+
+/* FAQ answers open and close smoothly (Chromium ::details-content; elsewhere they snap). */
+html.motion-live {
+  interpolate-size: allow-keywords;
+}
+html.motion-live details.faq::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  transition: block-size 0.45s cubic-bezier(0.16, 1, 0.3, 1), content-visibility 0.45s allow-discrete;
+}
+html.motion-live details.faq[open]::details-content {
+  block-size: auto;
+}
+
+/* fm2-work */
+/* Work: projects as architectures. Tier colours (client, server, data, infra, AI) shared by
+   the tier chip groups and the 3D (components/neural/scenes/work.tsx). */
+[data-tier="client"] { --tier: var(--foreground); }
+[data-tier="server"] { --tier: var(--primary); }
+[data-tier="data"] { --tier: var(--ok); }
+[data-tier="infra"] { --tier: var(--muted-foreground); }
+[data-tier="ai"] { --tier: var(--ai); }
+.tier-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 9999px;
+  background: hsl(var(--tier, var(--muted-foreground)));
+}
+/* The active project's chips light up in their tier colour, one after another (as its
+   nodes fly in); a hovered chip turns orange with its node. Motion runtime only. */
+html.motion-live [data-arch-item] .arch-chip {
+  transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+html.motion-live [data-arch-active] .arch-chip {
+  border-color: hsl(var(--tier) / 0.6);
+  background-color: hsl(var(--tier) / 0.08);
+  color: hsl(var(--foreground));
+  transition-delay: calc(var(--k, 0) * 45ms);
+}
+html.motion-live [data-arch-item] .arch-chip:hover {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
+  transition-delay: 0s;
+}
+html.motion-live [data-arch-active] > .panel {
+  border-color: hsl(var(--primary) / 0.55);
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 18px 50px -28px hsl(var(--primary) / 0.55);
+}
+
+@media (min-width: 1024px) {
+  /* Home: cards zig-zag down both sides of a clear, sticky centre column (the 3D window). */
+  .arch {
+    --win: clamp(460px, 42vw, 720px);
+  }
+  .arch .arch-zig {
+    grid-template-columns: minmax(0, 1fr) var(--win) minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 0;
+  }
+  .arch .arch-zig > li {
+    grid-column: 1;
+    grid-row: var(--r) / span 2;
+    margin-bottom: 1.25rem;
+  }
+  .arch .arch-zig > li:nth-child(even) {
+    grid-column: 3;
+  }
+  .arch .arch-zig > li.arch-mini {
+    margin-bottom: 0.875rem;
+  }
+  .arch .arch-sub {
+    max-width: calc((100% - var(--win)) / 2);
+  }
+  .arch-win-col {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: var(--win);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  /* The window: an empty sticky box the scene fits itself into, marked by four corners. */
+  .arch-win {
+    --c: hsl(var(--foreground) / 0.2);
+    position: sticky;
+    top: 84px;
+    height: calc(100svh - 108px);
+    margin-inline: 18px;
+    background:
+      linear-gradient(var(--c), var(--c)) left top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 1px 16px no-repeat;
+  }
+  /* The active card points at the window: a short lit connector on its inner edge. */
+  html.motion-live .arch .arch-step {
+    position: relative;
+  }
+  html.motion-live .arch .arch-step::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 26px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .arch .arch-zig > .arch-step:nth-child(odd)::after {
+    right: -26px;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0));
+  }
+  html.motion-live .arch .arch-zig > .arch-step:nth-child(even)::after {
+    left: -26px;
+    background: linear-gradient(270deg, hsl(var(--primary)), hsl(var(--primary) / 0));
+  }
+  html.motion-live .arch .arch-step[data-arch-active]::after {
+    opacity: 1;
+  }
+}
+@media (max-width: 1023px) {
+  .arch-win-col {
+    display: none;
+  }
+}
+/* end fm2-work */
+
+/* fm3-ai */
+/* AI: while the 3D system runs (components/neural/scenes/ai.tsx sets [data-ai-sync] on the
+   section), the shown project's stage chips follow its request: data-ai-done for stages
+   it has passed, data-ai-lit for the stage it is in (orange after the model: the answer).
+   Without the 3D the CSS signal above runs instead (hovering a card included). */
+html.motion-live [data-ai-sync] .stage-chip::after,
+html.motion-live [data-ai-sync] [data-ai-card]:hover .stage-chip::after {
+  animation: none;
+}
+[data-ai-stage] {
+  transition:
+    color 0.25s,
+    border-color 0.25s,
+    background-color 0.25s,
+    box-shadow 0.25s;
+}
+[data-ai-stage][data-ai-done] {
+  border-color: hsl(var(--ai) / 0.7);
+  color: hsl(var(--ai));
+}
+[data-ai-stage][data-ai-lit] {
+  border-color: hsl(var(--ai));
+  background-color: hsl(var(--ai) / 0.16);
+  color: hsl(var(--foreground));
+  box-shadow:
+    0 0 0 1px hsl(var(--ai) / 0.35),
+    0 0 16px hsl(var(--ai) / 0.5);
+}
+[data-ai-stage][data-ai-lit][data-ai-tone="out"] {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.14);
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.35),
+    0 0 16px hsl(var(--primary) / 0.45);
+}
+/* The card whose system the 3D draws (data-ai-shown) wears the AI accent. */
+html.motion-live [data-ai-sync] .panel[data-focus-id],
+html.motion-live [data-ai-sync] [data-focus-id] > .panel {
+  transition:
+    color 0.15s,
+    border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+html.motion-live [data-ai-sync] .panel[data-ai-shown],
+html.motion-live [data-ai-sync] [data-ai-shown] > .panel {
+  border-color: hsl(var(--ai) / 0.6);
+  box-shadow:
+    0 0 0 1px hsl(var(--ai) / 0.14),
+    0 18px 50px -28px hsl(var(--ai) / 0.6);
+}
+/* Phones: the caption under the opening shows only while the 3D draws its system there
+   (data-ai-drawn: the system is on screen, not merely running). */
+.ai-caption {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.4s,
+    visibility 0s 0.4s;
+}
+[data-ai-sync][data-ai-drawn] .ai-caption {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.4s;
+}
+/* end fm3-ai */
+
+/* fm3-services */
+/* Home + /services: the card the 3D services machine shows (marked by the [data-arch] spy)
+   lights up: border and glow, a growing accent bar, its number, its chips one after
+   another. Desktop only (from 1024px, where the machine follows the spy): on smaller
+   screens the four machines take turns, so no card claims to be the one shown. Motion
+   runtime only; without it the cards are a plain list. */
+.svc-bar {
+  position: absolute;
+  left: -1px;
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
+  border-radius: 2px;
+  background: hsl(var(--primary));
+  transform: scaleY(0);
+  transform-origin: 50% 0;
+  pointer-events: none;
+}
+.svc-chip {
+  white-space: nowrap;
+}
+@media (max-width: 1023px) {
+  /* Undo the project cards' shared active-panel glow for service cards on smaller screens. */
+  html.motion-live .svc-item[data-arch-active] > .panel {
+    border-color: hsl(var(--border));
+    box-shadow: none;
+  }
+}
+@media (min-width: 1024px) {
+  html.motion-live .svc-item > .panel {
+    transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .svc-item[data-arch-active] > .panel {
+    border-color: hsl(var(--primary) / 0.6);
+    background-color: hsl(var(--background) / 0.93);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.14), 0 26px 60px -30px hsl(var(--primary) / 0.6);
+  }
+  html.motion-live .svc-bar {
+    transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .svc-item[data-arch-active] .svc-bar {
+    transform: scaleY(1);
+  }
+  html.motion-live .svc-num,
+  html.motion-live .svc-num > span {
+    transition: color 0.3s ease;
+  }
+  html.motion-live .svc-item[data-arch-active] .svc-num,
+  html.motion-live .svc-item[data-arch-active] .svc-num > span {
+    color: hsl(var(--primary));
+  }
+  html.motion-live .svc-item .svc-chip {
+    transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.motion-live .svc-item[data-arch-active] .svc-chip {
+    border-color: hsl(var(--primary) / 0.5);
+    background-color: hsl(var(--primary) / 0.08);
+    color: hsl(var(--foreground));
+    transition-delay: calc(var(--k, 0) * 60ms + 120ms);
+  }
+}
+/* Phones: the room at the top of a services page intro where the machine runs (the scene
+   frames itself into [data-svc-room]). It overlays the intro's top padding, so the room is
+   the intro's opening (the stage keeps it clear) without being a section of its own. The
+   intro's veil starts under it, the intro starts right under it instead of centring in a
+   full screen, and the 3D caption sits directly below the machine it describes. */
+.svc-room {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: min(58vw, 260px);
+  pointer-events: none;
+}
+@media (max-width: 1023px) {
+  .svc-room + [data-section="intro"] {
+    padding-top: min(58vw, 260px);
+  }
+  .svc-room + [data-section="intro"] > div:first-child {
+    top: min(58vw, 260px);
+  }
+  .svc-room + [data-section="intro"] > div:last-child {
+    min-height: 0;
+    padding-top: 0.75rem;
+  }
+  .svc-room + [data-section="intro"] > div:last-child > p:last-child {
+    order: -1;
+    margin: 0 0 1.75rem;
+  }
+}
+/* Service pages, desktop: the clear window above the deliverables where the work scene draws
+   the closest shipped project (it frames itself into [data-arch-window] and scrolls with it). */
+.svc-arch-win {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .svc-arch-win {
+    display: block;
+    height: clamp(360px, 56vh, 480px);
+    margin-bottom: 2.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="on"]) .svc-bar {
+    transition: none;
+  }
+}
+/* end fm3-services */
+
+/* fm3-faq */
+/* FAQ (components/ui/faq-list.tsx): question cards beside the FAQ scene's window. Static
+   without motion: answers open instantly and stay fully visible. With the motion runtime:
+   the accordion opens smoothly (height above, answer fade here), the open card lifts with
+   a lit border, its + turns into an x, and a lit connector runs from its question to the
+   window, where the scene's rail node and beam continue it. */
+.faq-card {
+  transition: border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    translate 0.45s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.faq-card:hover {
+  border-color: hsl(var(--foreground) / 0.22);
+}
+.faq-card[open] {
+  border-color: hsl(var(--primary) / 0.55);
+  background-color: hsl(var(--background) / 0.94);
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 22px 54px -30px hsl(var(--primary) / 0.6);
+}
+.faq-x {
+  display: inline-block;
+  transition: rotate 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+}
+.faq-card[open] .faq-x {
+  rotate: 45deg;
+  color: hsl(var(--primary));
+}
+.faq-card[open] .faq-i,
+.faq-card:hover .faq-i {
+  color: hsl(var(--primary));
+}
+html.motion-live .faq-card[open] {
+  translate: 0 -3px;
+}
+/* The answer fades and slides in as its card opens (at rest it is never transparent). */
+html.motion-live details.faq[open] .faq-a {
+  animation: faq-answer 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+@keyframes faq-answer {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+.faq-q {
+  position: relative;
+}
+@media (min-width: 1024px) {
+  /* The window: an empty sticky box the scene fits itself into, marked by four corners (as Work's). */
+  .faq-win-col {
+    position: relative;
+  }
+  /* The window rides the whole section, padding included (lg:py-28), never past it. */
+  .faq-win-track {
+    position: absolute;
+    inset: -7rem 0;
+  }
+  .faq-win {
+    --c: hsl(var(--foreground) / 0.2);
+    position: sticky;
+    top: 88px;
+    height: min(calc(100svh - 124px), 760px);
+    min-height: 360px;
+    background:
+      linear-gradient(var(--c), var(--c)) left top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right top / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) left bottom / 1px 16px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 16px 1px no-repeat,
+      linear-gradient(var(--c), var(--c)) right bottom / 1px 16px no-repeat;
+  }
+  /* Connector: from the open question across the gap to the window's rail (3rem gap +
+     the card's 1.25rem padding + 12px into the window). */
+  html.motion-live .faq-grid .faq-q::after {
+    content: "";
+    position: absolute;
+    top: calc(1rem + 12px);
+    width: calc(3rem + 13px);
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), scale 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    scale: 0 1;
+  }
+  html.motion-live .faq-l .faq-q::after {
+    left: 100%;
+    transform-origin: left center;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.35));
+  }
+  html.motion-live .faq-r .faq-q::after {
+    right: 100%;
+    transform-origin: right center;
+    background: linear-gradient(270deg, hsl(var(--primary)), hsl(var(--primary) / 0.35));
+  }
+  html.motion-live .faq-grid .faq-card[open] > .faq-q::after {
+    opacity: 1;
+    scale: 1 1;
+  }
+}
+/* Below lg: an empty slot opens under the open card while the FAQ scene runs
+   ([data-faq-live], set by the scene), for answers whose picture reads without labels
+   (data-faq-pic="on", set by the scene); it draws that answer's picture there. */
+.faq-pic {
+  height: 0;
+}
+@media (max-width: 1023px) {
+  [data-faq-live] .faq-li:has(> details[open]) > .faq-pic[data-faq-pic="on"] {
+    height: 220px;
+  }
+  html.motion-live [data-faq-live] .faq-pic {
+    transition: height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+/* 3D switched off: no note promising a scene, no empty window column. */
+html[data-motion="off"] .faq-note,
+html[data-motion="off"] .faq-win-col {
+  display: none;
+}
+@media (min-width: 1024px) {
+  html[data-motion="off"] .faq-grid {
+    display: block;
+    max-width: 52rem;
+  }
+}
+/* end fm3-faq */
+/* fm3-contact */
+/* Contact form: the sent card takes the form's place in the same grid cell, so the
+   section (and the globe framed beside it) keeps its size when a message is sent. */
+.cf-stack {
+  display: grid;
+}
+.cf-stack > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.cf-form {
+  transition: opacity 300ms ease;
+}
+.cf-form[data-off] {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 220ms ease, visibility 0s linear 220ms;
+}
+.cf-sent {
+  animation: cf-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+}
+.cf-check {
+  animation: cf-pop 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 260ms both;
+}
+@keyframes cf-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+@keyframes cf-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="on"]) .cf-sent,
+  html:not([data-motion="on"]) .cf-check {
+    animation-name: cf-fade;
+  }
+}
+@keyframes cf-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The static contact globe (components/pages/contact/static-globe.tsx): shown wherever
+   the live 3D globe is not (no JS, 3D off, before the canvas fades in, after a
+   fallback); the stage marks its posters data-paused while the canvas is live. Phones:
+   in the window that opens the section; desktop: the column beside the content, held in
+   view while the section scrolls, like the live globe. */
+.cg-poster {
+  position: absolute;
+  inset-inline: 0;
+  top: -38svh;
+  height: 38svh;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: opacity 700ms ease, visibility 0s linear 0s;
+}
+.cg-svg {
+  width: 100%;
+  height: calc(100% - 1.5rem);
+  overflow: visible;
+}
+@media (min-width: 1024px) {
+  .cg-poster {
+    inset: 0 auto 0 2rem;
+    width: calc(100% - 4rem - 40rem - 1.5rem);
+    height: auto;
+    display: block;
+  }
+  .cg-svg {
+    position: sticky;
+    top: calc(4rem + 2rem);
+    height: min(calc(100svh - 4rem - 4rem), 44rem);
+  }
+}
+html:has([data-neural-poster][data-paused]) .cg-poster {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 700ms ease, visibility 0s linear 700ms;
+}
+/* Without the live canvas, the section covers the page-wide poster behind it (the
+   hero/ambient network), softly from its top edge: only the contact globe shows here. */
+html:not(:has([data-neural-poster][data-paused])) .contact-sec {
+  background: linear-gradient(to bottom, transparent, hsl(var(--background)) 10rem);
+}
+.cg-sea-0 {
+  stop-color: color-mix(in oklab, hsl(var(--ai)) 30%, hsl(var(--background)));
+}
+.cg-sea-1 {
+  stop-color: color-mix(in oklab, hsl(var(--ai)) 7%, hsl(var(--background)));
+}
+.cg-air-0 {
+  stop-color: hsl(var(--ai));
+  stop-opacity: 0;
+}
+.cg-air-1 {
+  stop-color: hsl(var(--ai));
+  stop-opacity: 0.32;
+}
+.cg-ok {
+  stop-color: hsl(var(--ok));
+}
+.cg-dot {
+  fill: none;
+  stroke: color-mix(in oklab, hsl(var(--foreground)) 82%, hsl(var(--ai)));
+  stroke-linecap: round;
+}
+.cg-rim {
+  fill: none;
+  stroke: hsl(var(--ai) / 0.55);
+  stroke-width: 1.5;
+}
+.cg-orbit path {
+  fill: none;
+  stroke: color-mix(in oklab, hsl(var(--ai)) 70%, hsl(var(--foreground)));
+  stroke-opacity: 0.5;
+  stroke-width: 1.3;
+  transition: stroke 200ms ease, stroke-opacity 200ms ease;
+}
+.cg-orbit .cg-back {
+  stroke-opacity: 0.2;
+}
+.cg-sat {
+  fill: color-mix(in oklab, hsl(var(--foreground)) 80%, hsl(var(--ai)));
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: fill 200ms ease, transform 200ms ease;
+}
+.cg-sat-far {
+  opacity: 0.55;
+}
+.cg-pin {
+  fill: hsl(var(--ok));
+}
+.cg-ring {
+  fill: none;
+  stroke: hsl(var(--ok));
+  stroke-width: 2;
+  opacity: 0.45;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.cg-ring-2 {
+  opacity: 0;
+}
+@keyframes cg-beacon {
+  from {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  to {
+    transform: scale(3.6);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.js:not([data-motion="off"]) .cg-ring {
+    animation: cg-beacon 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  }
+  html.js:not([data-motion="off"]) .cg-ring-2 {
+    animation-delay: -1.2s;
+  }
+}
+html[data-motion="on"] .cg-ring {
+  animation: cg-beacon 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+html[data-motion="on"] .cg-ring-2 {
+  animation-delay: -1.2s;
+}
+/* Writing a message quickens the beacon; pointing at a channel lights its satellite. */
+.contact-sec:has(form:focus-within) .cg-ring {
+  animation-duration: 1.2s;
+}
+.contact-sec:has([data-focus-id="contact:email"]:is(:hover, :focus-visible)) [data-ch="email"],
+.contact-sec:has([data-focus-id="contact:github"]:is(:hover, :focus-visible)) [data-ch="github"],
+.contact-sec:has([data-focus-id="contact:linkedin"]:is(:hover, :focus-visible)) [data-ch="linkedin"],
+.contact-sec:has([data-focus-id="contact:x"]:is(:hover, :focus-visible)) [data-ch="x"] {
+  stroke: hsl(var(--primary));
+  stroke-opacity: 0.95;
+}
+.contact-sec:has([data-focus-id="contact:email"]:is(:hover, :focus-visible)) .cg-sat[data-ch="email"],
+.contact-sec:has([data-focus-id="contact:github"]:is(:hover, :focus-visible)) .cg-sat[data-ch="github"],
+.contact-sec:has([data-focus-id="contact:linkedin"]:is(:hover, :focus-visible)) .cg-sat[data-ch="linkedin"],
+.contact-sec:has([data-focus-id="contact:x"]:is(:hover, :focus-visible)) .cg-sat[data-ch="x"] {
+  fill: hsl(var(--primary));
+  stroke: none;
+  opacity: 1;
+  transform: scale(1.6);
+}
+/* Light: a cool slate-blue sea with ink dots, not a pale lilac ball. */
+html:not(.dark) .cg-sea-0 {
+  stop-color: color-mix(in oklab, color-mix(in oklab, hsl(var(--ai)) 40%, hsl(var(--foreground))) 14%, hsl(var(--background)));
+}
+html:not(.dark) .cg-sea-1 {
+  stop-color: color-mix(in oklab, color-mix(in oklab, hsl(var(--ai)) 45%, hsl(var(--foreground))) 36%, hsl(var(--background)));
+}
+html:not(.dark) .cg-air-1 {
+  stop-opacity: 0.18;
+}
+html:not(.dark) .cg-dot {
+  stroke: color-mix(in oklab, hsl(var(--foreground)) 86%, hsl(var(--ai)));
+}
+html:not(.dark) .cg-sat {
+  fill: color-mix(in oklab, hsl(var(--foreground)) 70%, hsl(var(--ai)));
+}
+html:not(.dark) .cg-orbit path {
+  stroke: color-mix(in oklab, hsl(var(--foreground)) 70%, hsl(var(--ai)));
+  stroke-opacity: 0.45;
+}
+html:not(.dark) .cg-orbit .cg-back {
+  stroke-opacity: 0.18;
+}
+/* The contact globe frames itself beside the content (never under text), so its "full"
+   sections (a centred call to action, a row of cards under a heading) drop the centred
+   scrim that would grey it out, while the canvas is live. */
+html:has([data-neural-poster][data-paused]) [data-scene="contact"][data-stage="full"] > .scrim-c {
+  display: none;
+}
+/* end fm3-contact */
+/* fm3-writing */
+/* The post whose glass page the writing scene has stepped forward (hover, focus or scroll).
+   Set by the scene only while it shows, so the static layout never depends on it. */
+[data-section="writing"] [data-lit] {
+  border-color: hsl(var(--primary) / 0.45);
+  box-shadow: 0 14px 40px -24px hsl(var(--primary) / 0.55);
+}
+/* end fm3-writing */

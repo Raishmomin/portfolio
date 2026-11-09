@@ -1,10 +1,14 @@
 import type { FAQ } from "./seo";
+import { PROFILE, experienceLabel } from "./profile";
 
 export const FAQS: Record<string, FAQ[]> = {
   "/about": [
     {
       q: "How many years of experience do you have?",
-      a: "4+ years shipping production full-stack applications. Stack defaults are Next.js 14, Node.js 20 LTS, TypeScript (strict), MongoDB or PostgreSQL, and AWS (ECS, Lambda, RDS, S3).",
+      // Getter: the years figure is derived per render, not fixed at module load.
+      get a() {
+        return `${experienceLabel()} years shipping production full-stack applications. Stack defaults are Next.js (App Router), Node.js 20 LTS, TypeScript (strict), MongoDB or PostgreSQL, and AWS (ECS, Lambda, RDS, S3).`;
+      },
     },
     {
       q: "What stack do you specialize in?",
@@ -12,7 +16,7 @@ export const FAQS: Record<string, FAQ[]> = {
     },
     {
       q: "Are you available for full-time work or only freelance?",
-      a: "Primarily freelance. I take 1–2 active clients at a time, usually on weekly retainers or fixed-price MVP builds. Open to senior contract-to-hire arrangements for the right fit.",
+      a: `Both: I'm open to ${PROFILE.availability}. Senior roles can be full-time or contract-to-hire. For freelance work I take 1–2 active clients at a time, usually on weekly retainers or fixed-price MVP builds.`,
     },
     {
       q: "What time zone do you work in?",

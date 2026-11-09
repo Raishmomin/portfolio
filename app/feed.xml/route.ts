@@ -2,25 +2,23 @@ import { unstable_cache } from "next/cache";
 import clientPromise from "@/lib/mongodb";
 import { SITE, SITE_URL } from "@/lib/config";
 import { TAGS } from "@/lib/cache-tags";
-import type { BlogPost } from "@/lib/blog-types";
+import type { BlogPostSummary } from "@/lib/blog-types";
+import { LISTED_POSTS, POST_SUMMARY_PROJECTION, plainExcerpt, postTags, postTitle } from "@/lib/blog";
 
 export const revalidate = 3600;
 
+// DB errors throw (never cached), so a failed ISR revalidation keeps the last good output.
 const getFeedPosts = unstable_cache(
-  async (): Promise<BlogPost[]> => {
-    try {
-      const client = await clientPromise;
-      const db = client.db("Portfolio");
-      const posts = await db
-        .collection("blogs")
-        .find({ published: { $ne: false } })
-        .sort({ publishedAt: -1 })
-        .limit(50)
-        .toArray();
-      return JSON.parse(JSON.stringify(posts));
-    } catch {
-      return [];
-    }
+  async (): Promise<BlogPostSummary[]> => {
+    const client = await clientPromise;
+    const db = client.db("Portfolio");
+    const posts = await db
+      .collection("blogs")
+      .find(LISTED_POSTS, { projection: POST_SUMMARY_PROJECTION })
+      .sort({ publishedAt: -1 })
+      .limit(50)
+      .toArray();
+    return JSON.parse(JSON.stringify(posts));
   },
   ["rss-feed-posts"],
   { tags: [TAGS.blogs], revalidate: 3600 }
@@ -48,15 +46,15 @@ export async function GET() {
     .map((p) => {
       const url = `${SITE_URL}/blog/${p.slug}`;
       const pubDate = toRFC822(p.publishedAt);
-      const categories = (p.tags || [])
+      const categories = postTags(p.tags)
         .map((t) => `      <category>${escapeXml(t)}</category>`)
         .join("\n");
       return `    <item>
-      <title>${escapeXml(p.title)}</title>
+      <title>${escapeXml(postTitle(p.title))}</title>
       <link>${url}</link>
       <guid isPermaLink="true">${url}</guid>
       <pubDate>${pubDate}</pubDate>
-      <description><![CDATA[${p.excerpt || ""}]]></description>
+      <description><![CDATA[${plainExcerpt(p.excerpt).replace(/]]>/g, "]]]]><![CDATA[>")}]]></description>
 ${categories}
       <dc:creator><![CDATA[${SITE.name}]]></dc:creator>
     </item>`;

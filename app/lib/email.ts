@@ -1,4 +1,7 @@
 import nodemailer from "nodemailer";
+import { SITE_URL } from "./config";
+
+const SITE_HOST = new URL(SITE_URL).host;
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -53,7 +56,7 @@ export async function sendContactEmail(data: ContactData): Promise<void> {
       </table>
 
       <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e4e4e7; color: #a1a1aa; font-size: 12px;">
-        Sent from raish-portfolio.vercel.app
+        Sent from ${SITE_HOST}
       </div>
     </div>
   `;

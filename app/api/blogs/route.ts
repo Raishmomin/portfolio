@@ -2,6 +2,10 @@ export const dynamic = "force-dynamic";
 
 import clientPromise from "@/lib/mongodb";
 import { NextResponse } from "next/server";
+import { LISTED_POSTS } from "@/lib/blog";
+
+// Published, listed posts only: drafts awaiting review (published: false) and
+// consolidated (301) slugs are never served.
 
 export async function GET() {
     try {
@@ -9,7 +13,7 @@ export async function GET() {
         const db = client.db("Portfolio");
         const posts = await db
             .collection("blogs")
-            .find({})
+            .find(LISTED_POSTS)
             .sort({ publishedAt: -1 })
             .toArray();
 
