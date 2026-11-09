@@ -358,15 +358,14 @@ function hscroll(el: HTMLElement): Binding {
 
 // [data-spotlight] (pointer:fine) — writes the pointer position (--mx/--my, px) for the CSS
 // light that follows it inside the element and along its 1px border (app/globals.css).
-// The rect is read in the pointer event, before anything of the frame is written, and only
-// on enter, after a scroll or a resize (cached otherwise); the rAF only writes. A per-frame
-// read after the tilt's writes on the same card forced an extra restyle of it every frame.
+// The rect is read in the pointer event itself, before anything of the frame is written (the
+// rAF only writes), so the light stays on the pointer while a card slides on its own (the
+// hscroll track catching up with its scrub, a card entrance) without a forced restyle. A read
+// inside the rAF, after the tilt's writes on the same card, forced one every frame.
 function spotlight(el: HTMLElement): Binding {
   const mm = gsap.matchMedia();
   mm.add(FINE, () => {
     let raf = 0;
-    let r: DOMRect | null = null;
-    let at = 0;
     let mx = 0;
     let my = 0;
     const paint = () => {
@@ -376,26 +375,17 @@ function spotlight(el: HTMLElement): Binding {
     };
     const move = (e: PointerEvent) => {
       if (e.pointerType === "touch") return;
-      const y = window.scrollY;
-      if (!r || at !== y) r = el.getBoundingClientRect(); // sticky / sideways tracks move it on scroll
-      at = y;
+      const r = el.getBoundingClientRect();
       mx = e.clientX - r.left;
       my = e.clientY - r.top;
       if (!raf) raf = requestAnimationFrame(paint);
     };
-    const stale = () => {
-      r = null;
-    };
     el.addEventListener("pointermove", move, { passive: true });
     el.addEventListener("pointerenter", move, { passive: true });
-    el.addEventListener("pointerleave", stale);
-    window.addEventListener("resize", stale);
     return () => {
       cancelAnimationFrame(raf);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerenter", move);
-      el.removeEventListener("pointerleave", stale);
-      window.removeEventListener("resize", stale);
       el.style.removeProperty("--mx");
       el.style.removeProperty("--my");
     };
