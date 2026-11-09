@@ -440,15 +440,19 @@ function lastCard(sec: HTMLElement) {
   return el;
 }
 /** A section's bottom padding (px): its content, not its box, is where the machine leaves (no cards). */
-const padB = new WeakMap<Element, number>();
+const padB = new WeakMap<Element, { w: number; p: number }>();
 function contentBottom(sec: HTMLElement, bottom: number) {
-  let p = padB.get(sec);
-  if (p === undefined) {
-    p = parseFloat(getComputedStyle(sec).paddingBottom) || 0;
-    padB.set(sec, p);
+  // The padding is responsive: read again whenever the viewport width changes.
+  const w = window.innerWidth;
+  let e = padB.get(sec);
+  if (!e || e.w !== w) {
+    e = { w, p: parseFloat(getComputedStyle(sec).paddingBottom) || 0 };
+    padB.set(sec, e);
   }
-  return bottom - p;
+  return bottom - e.p;
 }
+/** The label layer's own gate (stack/labels.ts): names show only for the active scene. */
+const titleGate = (w: number) => smooth01((w - 0.6) / 0.18);
 const room0: Rect = { l: 0, t: 0, r: 0, b: 0 };
 const room1: Rect = { l: 0, t: 0, r: 0, b: 0 };
 
@@ -719,8 +723,9 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     if (time - seen.current.last > 0.8) rig.reassemble(idx);
     seen.current.last = time;
     o.active = idx;
-    // Fully present until its section is nearly out (the section edges above do the leaving,
-    // not the long crossfade into the next section).
+    // The machine's body stays fully present until its section is nearly out (the section
+    // edges above do the leaving, not the long crossfade into the next section); its names
+    // still follow the real weight (below).
     o.weight = Math.min(1, weight * 2.5);
     o.pointer.x = pointer.x;
     o.pointer.y = pointer.y;
@@ -739,12 +744,13 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
       const t = L.slots[k0][L.slots[k0].length - 1];
       const vis = present(t, smooth01((rig.clock - 0.25) / 0.35), ease);
       const D = rig.designs[k0];
-      placeTitle(L.title, k0, t.text ?? "", rig.labelAlpha[k0] * vis * (o.room > 0.6 ? o.room : 0) * Math.min(1, weight * 1.6), D.title[0], D.title[1], D.title[2], M, camera, W, H);
+      placeTitle(L.title, k0, t.text ?? "", rig.labelAlpha[k0] * vis * (o.room > 0.6 ? o.room : 0) * titleGate(weight), D.title[0], D.title[1], D.title[2], M, camera, W, H);
       return;
     }
     hideTitle(L.title);
     const { layer } = L;
-    if (!layer.begin(o.weight * (o.room > 0.6 ? 1 : 0))) return;
+    // Names follow the scene's real blend weight (active scene only); the boost is the body's.
+    if (!layer.begin(weight * (o.room > 0.6 ? 1 : 0))) return;
     if (!L.sized) sizeLabels(L);
     for (let k = 0; k < rig.designs.length; k++) {
       const a = rig.labelAlpha[k] * o.room;

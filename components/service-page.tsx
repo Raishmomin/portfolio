@@ -49,7 +49,7 @@ function stackKeys(stack: string[]): Set<string> {
 }
 
 /**
- * The shipped project drawn above the deliverables (the work scene's architecture): the one
+ * The portfolio project drawn above the deliverables (the work scene's architecture): the one
  * whose real stack shares most technologies with this service, plus one for a matching
  * category; ties go to the more focused stack. AI products only when nothing else matches
  * (these engagements are not AI work).
@@ -91,7 +91,7 @@ function splitHeadline(text: string): [string, string] {
  * on phones it runs in a room above the headline), the brief
  * as three floating cards (full), the approach as steps on a drawn line (right, with the
  * service's machine running again beside them),
- * deliverables under a band holding the architecture of the shipped project closest to this
+ * deliverables under a band holding the architecture of the portfolio project closest to this
  * service (band: the work scene in its own clear window above the panels), related writing
  * (left), FAQ (right) and the closing call to action (full).
  */
@@ -265,7 +265,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
         </div>
       </PageSection>
 
-      {/* Deliverables + stack, under the architecture of the closest shipped project. Desktop:
+      {/* Deliverables + stack, under the architecture of the closest portfolio project. Desktop:
           the work scene frames itself into the empty window above the panels ([data-arch-window],
           scrolling with them, so it never squeezes or slides under a panel); the [data-arch]
           spy's one item names the project it draws. */}
@@ -296,7 +296,7 @@ export async function ServicePage({ config }: { config: ServiceConfig }) {
               }
               scene={
                 example
-                  ? `Above: the architecture of ${example.title}, a project I shipped end to end, built from its real tech stack.`
+                  ? `Above: the architecture of ${example.title}, a portfolio project built with technologies from this stack, drawn from its real tech stack.`
                   : "Above: the architecture of a project I have shipped end to end, built from its real tech stack."
               }
             />
