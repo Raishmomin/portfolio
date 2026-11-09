@@ -63,7 +63,14 @@ export class WritingRig {
   private focusAt = -1;
   private k = 0;
   private lit = -1;
-  private seenAt = -1;
+  /**
+   * The rig's own clocks, accumulated from clamped frame deltas while it draws: R3F zeroes
+   * clock.elapsedTime whenever the stage pauses and resumes its frameloop (idle pause,
+   * hidden tab), so nothing here may depend on that absolute value. `intro` = seconds
+   * this visit has been on screen (-1 = not yet; reset when the scene leaves).
+   */
+  private clock = 0;
+  private intro = -1;
   private room = 0;
   private hasLayout = false;
   private readonly lay = { bandT: 0, bandH: 0, l: 0, r: 0, rail: 0, hs: 0, tx: 0, tw: 0, th: 0 };
@@ -169,6 +176,7 @@ export class WritingRig {
     this.layer = null;
     this.ids = [];
     this.spans = [];
+    this.scales = [];
     if (!this.host || !this.posts.length) return;
     const layer = new LabelLayer(this.host);
     // Each label's text sits in a span scaled with the page (compositor-only, no re-measure).
@@ -240,11 +248,11 @@ export class WritingRig {
     this.mark(-1);
   }
 
-  frame(camera: Camera, size: { width: number; height: number }, dt: number, time: number, weight: number, focus: string | null, pointer: { x: number; y: number }) {
+  frame(camera: Camera, size: { width: number; height: number }, dt: number, weight: number, focus: string | null, pointer: { x: number; y: number }) {
     const sf = sceneFrames.writing;
     if (weight <= 0.001 || !sf.el) {
       this.hide();
-      this.seenAt = -1;
+      this.intro = -1;
       return;
     }
     if (sf.el !== this.section) {
@@ -323,8 +331,10 @@ export class WritingRig {
     const A = this.target;
     this.mark(weight >= 0.5 ? A : -1);
 
-    if (this.seenAt < 0) this.seenAt = time;
-    const since = time - this.seenAt;
+    this.clock += d;
+    this.intro = this.intro < 0 ? 0 : this.intro + d;
+    const time = this.clock;
+    const since = this.intro;
     const vis = smooth01(weight) * smooth01(this.room);
     const ka = 1 - Math.exp(-d * 7);
     const per0 = this.per(0);
