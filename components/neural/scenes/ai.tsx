@@ -365,7 +365,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     rig.frame(state, dt, { project: live.current.project, weight, room, stretch, pointer, x: fit.x, y: fit.y, scale: fit.scale, clip, hold: held }, reg.current);
     syncChips(rig.cur, rig.lit);
     const shown = weight * room;
-    setDrawn(rig.cur >= 0 && (drawn.current ? shown > 0.03 : shown > 0.1));
+    setDrawn(rig.cur >= 0 && (drawn.current ? shown > 0.1 : shown > 0.3));
 
     const r = reg.current;
     if (!ids || !r.inner || rig.cur < 0) return;
