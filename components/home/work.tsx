@@ -120,7 +120,7 @@ export function WorkSection({ items }: { items: WorkItem[] }) {
               <ol
                 data-card-group=""
                 aria-label="More projects"
-                className="arch-zig grid grid-cols-1 gap-3 sm:grid-cols-2 max-lg:-mx-4 max-lg:flex max-lg:snap-x max-lg:snap-mandatory max-lg:overflow-x-auto max-lg:scroll-px-4 max-lg:px-4 max-lg:pb-2 md:max-lg:-mx-8 md:max-lg:scroll-px-8 md:max-lg:px-8"
+                className="arch-zig grid grid-cols-1 gap-3 sm:grid-cols-2 max-lg:-mx-4 max-lg:flex max-lg:snap-x max-lg:snap-mandatory overflow-x-auto max-lg:scroll-px-4 lg:overflow-visible max-lg:px-4 max-lg:pb-2 md:max-lg:-mx-8 md:max-lg:scroll-px-8 md:max-lg:px-8"
               >
                 {archive.map((w, i) => {
                   const p = w.project;
