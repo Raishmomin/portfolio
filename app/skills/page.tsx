@@ -4,7 +4,7 @@ import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { Accent } from "../../components/ui/primitives";
 import { RelatedPages } from "../../components/pages/about/subpage";
-import { PageIntro, StatTiles } from "../../components/pages/ui";
+import { PageIntro, StatTiles, Where } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
 import { NeuralStage } from "../../components/neural";
 import { StackMap, TopTechnologies } from "../../components/pages/skills/stack-map";
@@ -74,7 +74,12 @@ export default async function SkillsPage() {
           crumbs={[{ name: "Home", href: "/" }, { name: "Skills" }]}
           kicker={`~/skills · ${skills.length} technologies`}
           scene="stack"
-          note="The network on the right is my stack: one node per skill, one ring per layer, linked wherever two tools shipped together."
+          note={
+            <>
+              The network <Where desk="on the right" phone="above" /> is my stack: one node per skill, one ring per layer, linked wherever
+              two tools shipped together.
+            </>
+          }
           title={
             <>
               Skills — <Accent>tools I reach for.</Accent>

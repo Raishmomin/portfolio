@@ -48,7 +48,7 @@ export function reveal(delayMs = 0) {
 const LAYOUT: Record<StageLayout, string> = {
   left: "py-20 md:py-24 lg:flex lg:min-h-[100svh] lg:flex-col lg:justify-center lg:py-28",
   right: "py-20 md:py-24 lg:flex lg:min-h-[100svh] lg:flex-col lg:justify-center lg:py-28",
-  full: "py-20 md:py-28",
+  full: "pb-20 pt-14 md:py-28",
   band: "pb-20 pt-[30svh] lg:pb-28 lg:pt-[34vh]",
 };
 
@@ -157,6 +157,20 @@ export function SceneNote({ children, className }: { children: ReactNode; classN
   );
 }
 
+/**
+ * Caption wording that depends on where the scene sits: `desk` from 1024px (the scene beside
+ * the text), `phone` below (the scene in the opening above it). Both are server text; CSS
+ * shows one.
+ */
+export function Where({ desk, phone }: { desk: string; phone: string }) {
+  return (
+    <>
+      <span className="hidden lg:inline">{desk}</span>
+      <span className="lg:hidden">{phone}</span>
+    </>
+  );
+}
+
 /** Visible breadcrumb trail; mirrors the page's BreadcrumbList JSON-LD. Links are 44px touch targets. */
 export function Crumbs({ items, className }: { items: { name: string; href?: string }[]; className?: string }) {
   return (
@@ -234,8 +248,8 @@ export function PageIntro({
   title: ReactNode;
   lead?: ReactNode;
   scene: PageScene;
-  /** What the 3D scene shows here, in plain words. */
-  note?: string;
+  /** What the 3D scene shows here, in plain words (see Where for layout-dependent words). */
+  note?: ReactNode;
   children?: ReactNode;
   /** A longer h1 (blog posts, services) gets a wider column. */
   wide?: boolean;
@@ -262,7 +276,7 @@ export function PageIntro({
       />
       {/* Phones: the scene's room. The home hero's brain frames itself into [data-hero-core]. */}
       <div aria-hidden="true" data-intro-room="" {...(scene === "hero" ? { "data-hero-core": "" } : {})} className="intro-room lg:hidden" />
-      <Container className="relative flex flex-col justify-center pb-14 pt-3 md:pb-16 lg:min-h-[calc(100svh-4rem-1px)] lg:pt-16">
+      <Container className="relative flex flex-col justify-center pb-6 pt-3 md:pb-16 lg:min-h-[calc(100svh-4rem-1px)] lg:pt-16">
         <div data-stage-content="" className={cn(wide ? "max-w-[48rem]" : "max-w-[42rem]", right && "lg:ml-auto")}>
           <Crumbs items={crumbs} />
           <Kicker className="mt-8">{kicker}</Kicker>

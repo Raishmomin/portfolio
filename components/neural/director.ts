@@ -98,6 +98,18 @@ function contentTop(el: HTMLElement): number | null {
   if (!head) return null;
   return head.getBoundingClientRect().top - (head.hasAttribute("data-stage-content") ? CONTENT_W : KEY_W);
 }
+/** Phones: an opening also ends at the section's first card or panel (a head inside a card). */
+const phoneHeadCache = new WeakMap<HTMLElement, HTMLElement | null>();
+function phoneContentTop(el: HTMLElement): number | null {
+  let h = phoneHeadCache.get(el);
+  if (h === undefined || (h && !h.isConnected)) {
+    h = el.querySelector<HTMLElement>("[data-stage-content], h1, h2, .panel, [data-card]");
+    phoneHeadCache.set(el, h);
+  }
+  if (!h) return null;
+  const tag = h.tagName;
+  return h.getBoundingClientRect().top - (tag === "H1" || tag === "H2" ? KEY_W : CONTENT_W);
+}
 const tmpComp = zeroComposition();
 type Part = { key: SceneKey; layout: StageLayout; f: number; el: HTMLElement; top: number };
 const parts: Part[] = [];
@@ -150,7 +162,7 @@ export function measure(out: Frame = emptyFrame()): Frame {
     }
     // Phones: the opening of a section (above its content) is where its scene shows.
     if (phone && r.bottom > 0 && r.top < vh) {
-      const ct = contentTop(el);
+      const ct = phoneContentTop(el);
       if (ct !== null && ct - r.top >= OPEN_MIN) {
         const t = Math.max(PHONE_TOP, r.top);
         const b = Math.min(vh, ct);
