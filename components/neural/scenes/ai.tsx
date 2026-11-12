@@ -34,6 +34,10 @@ const CAP = 1.25;
 const MIN_RECT = 140;
 /** Phones: the smallest opening (px) a reduced system still draws into (short screens). */
 const PHONE_MIN = 64;
+/** Phones: the site header's height (px); the system never draws under it. */
+const HEADER_PX = 64;
+/** Phones: below this visible opening height (px) the system fades out as it shrinks. */
+const PHONE_FULL = 150;
 /** How far the nearest parts come toward the camera (layout units), for the perspective fit. */
 const NEAR_Z = 1.3;
 /** Clearance (px) kept between the system and its section's top / bottom edge. */
@@ -313,7 +317,8 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
     let rt = sf.rect.t * H;
     let rb = sf.rect.b * H;
     if (framing.phone && st.ok) {
-      rt = st.top + 8;
+      // The opening's visible part below the header: the system stays whole in it.
+      rt = Math.max(st.top, HEADER_PX) + 8;
       rb = st.open;
     }
     const rh = rb - rt;
@@ -345,6 +350,7 @@ export default function AiScene({ data, progress, weight, pointer, focus, palett
       const fx = Math.min(FADE[1] - FADE[0], 1.2 * hpx);
       const fe = Math.min(FADE[2], 1.2 * hpx);
       room = Math.min(room, smooth(FADE[0], FADE[0] + fx, cy + hpx), 1 - smooth(H - fe, H, cy - hpx));
+      if (framing.phone) room = Math.min(room, smooth(PHONE_MIN, PHONE_FULL, rh));
       toWorld(camera, rl + rw / 2, cy, size.width, size.height, pt);
       fit.x = pt[0];
       fit.y = pt[1];
