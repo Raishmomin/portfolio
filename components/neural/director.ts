@@ -112,6 +112,8 @@ function phoneContentTop(el: HTMLElement): number | null {
 }
 const tmpComp = zeroComposition();
 type Part = { key: SceneKey; layout: StageLayout; f: number; el: HTMLElement; top: number };
+/** Phones: a section's opening in view (px: its visible height, top and bottom). */
+type Opening = { key: SceneKey; layout: StageLayout; el: HTMLElement; vis: number; t: number; b: number };
 const parts: Part[] = [];
 const bestF = {} as Record<SceneKey, number>;
 
@@ -133,7 +135,7 @@ export function measure(out: Frame = emptyFrame()): Frame {
   let total = 0;
   let nearest: { key: SceneKey; layout: StageLayout; el: HTMLElement; d: number } | null = null;
   // Phones: the opening with the most of itself in view (px, visible top/bottom).
-  let open: { key: SceneKey; layout: StageLayout; el: HTMLElement; vis: number; t: number; b: number } | null = null;
+  let open: Opening | null = null;
 
   sections.forEach((el) => {
     // A pinned section stands still inside its spacer: the spacer carries the scroll.
@@ -244,11 +246,7 @@ export function measure(out: Frame = emptyFrame()): Frame {
  * scene's weight follows how much of the opening shows, the composition and the scene's
  * own frame are that visible opening, and the dimmer erases everything outside it.
  */
-function measurePhone(
-  out: Frame,
-  open: { key: SceneKey; layout: StageLayout; el: HTMLElement; vis: number; t: number; b: number } | null,
-  vh: number,
-): Frame {
+function measurePhone(out: Frame, open: Opening | null, vh: number): Frame {
   const comp = out.comp;
   out.band.top = BAND_TOP;
   out.band.bottom = BAND_BOTTOM;
