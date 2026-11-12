@@ -19,6 +19,8 @@ const MAXP = 4;
 const ASPECT = 0.78; // page width / height (the active page opens up to OPEN)
 const OPEN = 1;
 const HEADER_PX = 64;
+/** Phones: the header is 64 px plus its 1 px border; scenes start a few px below it. */
+const PHONE_TOP = 72;
 const LABEL_W = 150; // px, the title label's design width (scaled with the page)
 const FIXED = MAXP + 6; // glow points: rail joints, the terminal's port, the cursor, 4 corners
 const ROWS = Math.floor((1 - 2 * PAGE.m - PAGE.top) / PAGE.rh);
@@ -273,7 +275,7 @@ export class WritingRig {
     const px = this.px;
     px.l = sf.rect.l * W;
     px.r = sf.rect.r * W;
-    px.t = Math.max(sf.rect.t * H, phone ? 56 : HEADER_PX + 6);
+    px.t = Math.max(sf.rect.t * H, phone ? PHONE_TOP : HEADER_PX + 6);
     px.b = Math.min(sf.rect.b * H, H);
     const ok = clearRect(px, phone ? 110 : 120, this.clear);
     this.room += ((ok ? 1 : 0) - this.room) * (1 - Math.exp(-d * 7));

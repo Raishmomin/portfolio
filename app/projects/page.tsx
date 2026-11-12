@@ -119,8 +119,9 @@ export default async function ProjectsPage() {
 
         {/* "right" composition: every card in one column on the right; the stage frames the
             active project's architecture in the free left half (the card at the reading
-            line, or the hovered one, is the active project). */}
-        <PageSection id="archive" section="archive" scene="work" stage="right" labelledBy="archive-heading">
+            line, or the hovered one, is the active project). Phones: no opening (the intro shows the
+            architecture), so a shorter gap above the heading. */}
+        <PageSection id="archive" section="archive" scene="work" stage="right" labelledBy="archive-heading" className="pt-8">
           <div className={column.right}>
             <SectionHead
               id="archive-heading"

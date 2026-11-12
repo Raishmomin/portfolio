@@ -4,7 +4,7 @@ import { Footer } from "../../components/footer";
 import { PageJsonLd } from "../../components/page-json-ld";
 import { Accent } from "../../components/ui/primitives";
 import { RelatedPages } from "../../components/pages/about/subpage";
-import { PageIntro, StatTiles } from "../../components/pages/ui";
+import { PageIntro, StatTiles, Where } from "../../components/pages/ui";
 import { pageNeuralData } from "../../components/pages/neural";
 import { NeuralStage } from "../../components/neural";
 import { ExperienceTimeline } from "../../components/pages/experience/timeline";
@@ -75,7 +75,12 @@ export default async function ExperiencePage() {
           crumbs={[{ name: "Home", href: "/" }, { name: "Experience" }]}
           kicker={`~/experience · since ${careerStartLabel}`}
           scene="experience"
-          note="The glowing path on the right is my career, oldest to newest: one milestone per company, the current role pulsing at the end."
+          note={
+            <>
+              The glowing path <Where desk="on the right" phone="above" /> is my career, oldest to newest: one milestone per company,
+              the current role pulsing at the end.
+            </>
+          }
           title={
             <>
               Experience — <Accent>a working timeline.</Accent>

@@ -43,6 +43,8 @@ const PULSE_EVERY = 2.4; // s between the current role's pulses
 const RING_PX = 24; // ring radius on screen at full size
 const RIBBON_PX = 15; // half-width of the trail's glow on screen
 const HEADER_PX = 64; // the site header: never lay the free path under it
+/** Phones: the header is 64 px plus its 1 px border; scenes start a few px below it. */
+const PHONE_TOP = 72;
 
 // Ribbon: a camera-facing strip along the spline (positions computed in the vertex shader
 // from the control-point uniforms). Drawn part: bright core + glow + shimmer; the part
@@ -486,7 +488,7 @@ export class ExperienceRig {
     const fr = frame.rect;
     pxRect.l = fr.l * W;
     pxRect.r = fr.r * W;
-    pxRect.t = Math.max(fr.t * H, framing.phone ? 56 : HEADER_PX);
+    pxRect.t = Math.max(fr.t * H, framing.phone ? PHONE_TOP : HEADER_PX);
     pxRect.b = Math.min(fr.b * H, H);
     const minH = framing.phone ? 110 : 130;
     const ok = clearRect(pxRect, minH, clear);
