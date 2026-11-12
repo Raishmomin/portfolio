@@ -159,8 +159,9 @@
 
 /* Phones: a page intro opens with an empty room where its scene draws (components/pages/ui.tsx
    PageIntro, [data-intro-room]); the intro's veil starts under it. A services page brings its
-   own room ([data-svc-room]), so this one is dropped there. Hidden from 1024px. */
-[data-section="intro"] {
+   own room ([data-svc-room]), so this one is dropped there; an ambient intro sets the room
+   to 0 (hence :where). Hidden from 1024px. */
+:where([data-section="intro"]) {
   --intro-room: min(60vw, 16rem);
 }
 .intro-room {

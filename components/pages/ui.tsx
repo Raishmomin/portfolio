@@ -228,9 +228,9 @@ export function StatTiles({ stats, className }: { stats: Stat[]; className?: str
  * server text (LCP; never animated). Extras (stats, CTAs) and the 3D caption reveal; the
  * caption closes the text column and never sits on the scene's side.
  * Phones (below lg): the intro opens with an empty room ([data-intro-room]) where the scene
- * draws (the stage frames it into the opening above [data-stage-content]); the text starts
- * right under it instead of centring in a full screen. A services page brings its own room
- * ([data-svc-room], globals), so this one stays out of its way.
+ * draws (the stage frames it into the opening above [data-stage-content]; an ambient intro
+ * gets none); the text starts right under it instead of centring in a full screen. A
+ * services page brings its own room ([data-svc-room], globals), so this one stays out of its way.
  */
 export function PageIntro({
   crumbs,
@@ -257,13 +257,15 @@ export function PageIntro({
   side?: "left" | "right";
 }) {
   const right = side === "right";
+  // The calm field alone is no picture: an ambient intro gets no room on phones.
+  const room = scene !== "ambient";
   return (
     <section
       data-section="intro"
       data-scene={scene}
       data-stage={side}
       aria-labelledby="page-title"
-      className="relative"
+      className={cn("relative", !room && "[--intro-room:0px]")}
     >
       <div
         aria-hidden="true"
@@ -275,8 +277,15 @@ export function PageIntro({
         )}
       />
       {/* Phones: the scene's room. The home hero's brain frames itself into [data-hero-core]. */}
-      <div aria-hidden="true" data-intro-room="" {...(scene === "hero" ? { "data-hero-core": "" } : {})} className="intro-room lg:hidden" />
-      <Container className="relative flex flex-col justify-center pb-6 pt-3 md:pb-16 lg:min-h-[calc(100svh-4rem-1px)] lg:pt-16">
+      {room ? (
+        <div aria-hidden="true" data-intro-room="" {...(scene === "hero" ? { "data-hero-core": "" } : {})} className="intro-room lg:hidden" />
+      ) : null}
+      <Container
+        className={cn(
+          "relative flex flex-col justify-center pb-6 md:pb-16 lg:min-h-[calc(100svh-4rem-1px)] lg:pt-16",
+          room ? "pt-3" : "pt-10",
+        )}
+      >
         <div data-stage-content="" className={cn(wide ? "max-w-[48rem]" : "max-w-[42rem]", right && "lg:ml-auto")}>
           <Crumbs items={crumbs} />
           <Kicker className="mt-8">{kicker}</Kicker>
