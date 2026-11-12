@@ -46,6 +46,8 @@ import { ATMO_FRAG, ATMO_VERT, GLOBE_FRAG, GLOBE_VERT, LINES_FRAG, LINES_VERT, R
 export type ContactSignal = { kind: "focus" | "blur" | "type" | "copy" | "send" | "sent" | "error" | "go"; x?: number; y?: number; el?: Element };
 
 const HEADER_PX = 64;
+/** Phones: the header is 64 px plus its 1 px border; scenes start a few px below it. */
+const PHONE_TOP = 72;
 const SPAN_X = 1.62; // half-width of globe + orbits + labels, in globe radii
 const SPAN_X_NARROW = 1.48; // a narrow column (small laptops): the labels may run past it
 const SPAN_Y = 1.38;
@@ -728,7 +730,7 @@ export class ContactRig {
       // rect, so the globe takes the room beside it instead of giving up.
       pxRect.l = fr.l * W;
       pxRect.r = fr.r * W;
-      pxRect.t = Math.max(fr.t * H, phone ? 56 : HEADER_PX + 8);
+      pxRect.t = Math.max(fr.t * H, phone ? PHONE_TOP : HEADER_PX + 8);
       pxRect.b = Math.min(fr.b * H, H - 8);
       if (!phone && this.colR > 0) {
         if (frame.layout === "right") {

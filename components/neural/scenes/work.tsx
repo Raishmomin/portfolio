@@ -9,12 +9,13 @@
 // reports the card at the reading line or under the pointer, and a hovered chip's
 // technology (its node lights up). The scene sits in the section's [data-arch-window]
 // (an empty sticky box in the layout) when there is one, else in its own free rect
-// (framing.sceneFrames.work). Names are aria-hidden screen-space labels in the shared layer (they duplicate the
+// (framing.sceneFrames.work; phones: the section's opening below the header, faded out as
+// it scrolls away, never left over the cards). Names are aria-hidden screen-space labels in the shared layer (they duplicate the
 // DOM cards and follow its rules: active scene only, never over content, clamped).
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Vector3, type Camera } from "three";
-import { fitFree, sceneFrames } from "../framing";
+import { fitFree, framing, sceneFrames } from "../framing";
 import type { SceneProps } from "../types";
 import { STACK } from "./work/layout";
 import { ArchRig, emptyRegistry, type ArchRegistry } from "./work/rig";
@@ -27,6 +28,9 @@ const RIGHT: Align = { x: 0, y: -0.5, dx: 11 };
 const CAP = 1.2;
 /** Smallest frame (px) worth fitting the system into; below it the blended framing is used. */
 const MIN_RECT = 160;
+/** Phones: the site header (px), and the visible opening heights (px) the system fades over. */
+const HEADER_PX = 64;
+const PHONE_FADE = [96, 200] as const;
 
 const short = (title: string) => title.split(/\s+[–—-]\s+|\s*\(/)[0].trim();
 
@@ -38,6 +42,10 @@ const isServiceSpy = (el: Element, slug: string | null | undefined) =>
 /** The section's scene window (px, canvas space): shown at all, and the share of it in view. */
 type Win = { el: HTMLElement | null; l: number; t: number; w: number; h: number; ok: boolean; vis: number };
 
+const smooth01 = (v: number) => {
+  const t = v < 0 ? 0 : v > 1 ? 1 : v;
+  return t * t * (3 - 2 * t);
+};
 const v0 = new Vector3();
 const v1 = new Vector3();
 /** World point on the z = 0 plane under a canvas pixel (out = [x, y]). */
@@ -157,7 +165,7 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
   }, [host, rig, work, palette, vocabTier]);
 
   const reg = useRef<ArchRegistry>(emptyRegistry());
-  const live = useRef({ x: 0, y: 0, scale: 1, active: 0, tech: null as string | null });
+  const live = useRef({ x: 0, y: 0, scale: 1, active: 0, tech: null as string | null, room: 1 });
   const titleO = useRef<Float32Array>(new Float32Array(0));
   const pt = useMemo(() => [0, 0], []);
 
@@ -189,30 +197,42 @@ export default function WorkScene({ data, weight, pointer, focus, palette, quali
     let rt = w.t;
     let rw = w.w;
     let rh = w.h;
+    const phone = framing.phone && !w.ok;
     if (!w.ok && sf.el) {
       rl = sf.rect.l * size.width;
       rt = sf.rect.t * size.height;
       rw = (sf.rect.r - sf.rect.l) * size.width;
       rh = (sf.rect.b - sf.rect.t) * size.height;
+      if (phone) {
+        // The opening's visible part below the header: the system stays whole in it.
+        const top = Math.max(rt, HEADER_PX + 8);
+        rh -= top - rt;
+        rt = top;
+      }
     }
-    if (w.ok || (sf.el && rw >= MIN_RECT && rh >= MIN_RECT)) {
-      camera.updateMatrixWorld();
-      toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
-      o.x = pt[0];
-      o.y = pt[1];
-      toWorld(camera, rl, rt, size.width, size.height, pt);
-      const halfW = Math.abs(o.x - pt[0]);
-      const halfH = Math.abs(pt[1] - o.y);
-      o.scale = Math.min(w.ok ? CAP * 1.15 : CAP, (halfW * 0.9) / L.hw, (halfH * 0.9) / L.hh);
-    } else {
-      o.x = 0;
-      o.y = 0;
-      o.scale = fitFree(camera, size, L.hw, L.hh, CAP, CAP) * 0.94;
+    // Phones: no opening on screen → nothing drawn (never a ghost over the cards).
+    o.room = phone ? (sf.el && rw >= MIN_RECT ? smooth01((rh - PHONE_FADE[0]) / (PHONE_FADE[1] - PHONE_FADE[0])) : 0) : 1;
+    // Hidden on a phone: the last fit stays.
+    if (!(phone && o.room <= 0)) {
+      if (w.ok || (sf.el && rw >= MIN_RECT && rh >= (phone ? PHONE_FADE[0] : MIN_RECT))) {
+        camera.updateMatrixWorld();
+        toWorld(camera, rl + rw / 2, rt + rh / 2, size.width, size.height, pt);
+        o.x = pt[0];
+        o.y = pt[1];
+        toWorld(camera, rl, rt, size.width, size.height, pt);
+        const halfW = Math.abs(o.x - pt[0]);
+        const halfH = Math.abs(pt[1] - o.y);
+        o.scale = Math.min(w.ok ? CAP * 1.15 : CAP, (halfW * 0.9) / L.hw, (halfH * 0.9) / L.hh);
+      } else {
+        o.x = 0;
+        o.y = 0;
+        o.scale = fitFree(camera, size, L.hw, L.hh, CAP, CAP) * 0.94;
+      }
+      // Perspective: the parts nearest the camera project larger than the flat fit assumed.
+      const dist = Math.max(4, camera.position.z);
+      o.scale = (o.scale * dist) / (dist + L.zn * o.scale);
     }
-    // Perspective: the parts nearest the camera project larger than the flat fit assumed.
-    const dist = Math.max(4, camera.position.z);
-    o.scale = (o.scale * dist) / (dist + L.zn * o.scale);
-    rig.frame(state, dt, { active: o.active, tech: o.tech, weight, pointer, x: o.x, y: o.y, scale: o.scale }, r);
+    rig.frame(state, dt, { active: o.active, tech: o.tech, weight: weight * o.room, pointer, x: o.x, y: o.y, scale: o.scale }, r);
 
     if (!ids || !r.tilt) return;
     const { layer } = ids;

@@ -12,6 +12,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import type { PerspectiveCamera } from "three";
+import { occluders } from "../occluders";
 import type { SceneProps } from "../types";
 import { HeroCore } from "./hero/core";
 
@@ -21,6 +22,12 @@ export default function Hero(props: SceneProps) {
   const core = useMemo(() => new HeroCore(quality), [quality]);
   useEffect(() => () => core.dispose(), [core]);
   useEffect(() => core.attach(), [core]);
+  // Phones without a [data-hero-core] box fit the brain into the clear part of the
+  // section's opening (framing.clearRect reads the occluder registry).
+  useEffect(() => {
+    occluders.retain();
+    return () => occluders.release();
+  }, []);
   useEffect(() => core.setPalette(palette), [core, palette]);
 
   useFrame((s, delta) => {
