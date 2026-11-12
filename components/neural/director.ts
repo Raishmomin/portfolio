@@ -4,9 +4,14 @@
 //   scene key, else "ambient" (never the previous section's scene).
 // - Composition: data-stage="left|right|full|band" (default left), blended like the
 //   scenes across section boundaries (weights sharpened, so the incoming section owns the
-//   framing early); phones (<1024px) use their own treatment. A band is measured: from
-//   the section top (or the header) down to where its content starts
-//   ([data-stage-content], else the first h1/h2), and the scene is framed into it.
+//   framing early). A band is measured: from the section top (or the header) down to
+//   where its content starts ([data-stage-content], else the first h1/h2), and the scene
+//   is framed into it.
+// - Phones (<1024px): a scene shows only in its section's OPENING (the room between the
+//   section top and its content), never under text. The opening with the most of itself in
+//   view owns the stage alone, fading in over its first OPEN_T0..OPEN_T1 of visible height,
+//   and frames the scene (composition = that visible opening); with no opening in view,
+//   every weight is 0 and nothing draws.
 // - Per scene, the unblended free rect of its driving section goes to framing.sceneFrames.
 // - Pinned sections (ScrollTrigger wraps them in a .pin-spacer) are measured through
 //   their spacer, so progress keeps moving while the section itself stands still; a live
@@ -80,6 +85,13 @@ function headOf(el: HTMLElement): HTMLElement | null {
 
 const KEY_W = 28; // px kept clear above a heading (its kicker line)
 const CONTENT_W = 14; // px kept clear above a [data-stage-content] block
+/** Phones: the sticky header's bottom (px); an opening shows below it. */
+const PHONE_TOP = 65;
+/** Phones: a section opens with a room for its scene when this much (px) sits above its content. */
+const OPEN_MIN = 120;
+/** Phones: the visible opening height (viewport fractions) where its scene starts to fade in / is at full strength. */
+const OPEN_T0 = 0.07;
+const OPEN_T1 = 0.17;
 /** Top of a section's content minus the clearance kept above it (px), or null. */
 function contentTop(el: HTMLElement): number | null {
   const head = headOf(el);
@@ -108,7 +120,8 @@ export function measure(out: Frame = emptyFrame()): Frame {
   parts.length = 0;
   let total = 0;
   let nearest: { key: SceneKey; layout: StageLayout; el: HTMLElement; d: number } | null = null;
-  let openBest = 0;
+  // Phones: the opening with the most of itself in view (px, visible top/bottom).
+  let open: { key: SceneKey; layout: StageLayout; el: HTMLElement; vis: number; t: number; b: number } | null = null;
 
   sections.forEach((el) => {
     // A pinned section stands still inside its spacer: the spacer carries the scroll.
@@ -135,18 +148,18 @@ export function measure(out: Frame = emptyFrame()): Frame {
       parts.push({ key, layout, f, el, top: spacer ? el.getBoundingClientRect().top : r.top });
       total += f;
     }
-    // Phones: the opening of a section (above its heading) is where the scene may shine.
+    // Phones: the opening of a section (above its content) is where its scene shows.
     if (phone && r.bottom > 0 && r.top < vh) {
-      const headTop = contentTop(el) ?? r.bottom;
-      const top = Math.max(0, r.top);
-      const bottom = Math.min(vh, headTop);
-      if (bottom - top > Math.max(openBest, vh * 0.1)) {
-        openBest = bottom - top;
-        out.open.top = top / vh;
-        out.open.bottom = bottom / vh;
+      const ct = contentTop(el);
+      if (ct !== null && ct - r.top >= OPEN_MIN) {
+        const t = Math.max(PHONE_TOP, r.top);
+        const b = Math.min(vh, ct);
+        if (b - t > (open?.vis ?? 0)) open = { key, layout, el, vis: b - t, t, b };
       }
     }
   });
+
+  if (phone) return measurePhone(out, open, vh);
 
   if (total === 0 && nearest) {
     const n = nearest as { key: SceneKey; layout: StageLayout; el: HTMLElement };
@@ -174,7 +187,7 @@ export function measure(out: Frame = emptyFrame()): Frame {
       compositionFor(p.layout, p.key, phone, tmpComp);
       let bandT = 0;
       let bandB = 0;
-      if (!phone && p.layout === "band") {
+      if (p.layout === "band") {
         // The measured band: section top (or the header line) down to its content.
         const top = clamp(p.top / vh, BAND_TOP, 1);
         const ct = contentTop(p.el);
@@ -194,14 +207,7 @@ export function measure(out: Frame = emptyFrame()): Frame {
         const sf = sceneFrames[p.key];
         sf.el = p.el;
         sf.layout = p.layout;
-        if (phone) {
-          const ct = contentTop(p.el);
-          const top = Math.max(0, p.top);
-          sf.rect.l = 0.04;
-          sf.rect.r = 0.96;
-          sf.rect.t = top / vh;
-          sf.rect.b = Math.max(top, Math.min(vh, ct ?? vh)) / vh;
-        } else if (p.layout === "band") {
+        if (p.layout === "band") {
           sf.rect.l = 0;
           sf.rect.r = 1;
           sf.rect.t = bandT;
@@ -218,6 +224,44 @@ export function measure(out: Frame = emptyFrame()): Frame {
   out.band.top = bandW > 0 ? bandTop / bandW : BAND_TOP;
   out.band.bottom = bandW > 0 ? bandBottom / bandW : BAND_BOTTOM;
   for (const k of SCENE_KEYS) out.weight[k] = clamp01(out.weight[k]);
+  return out;
+}
+
+/**
+ * Phones: the opening most in view owns the stage alone (never two scenes at once): its
+ * scene's weight follows how much of the opening shows, the composition and the scene's
+ * own frame are that visible opening, and the dimmer erases everything outside it.
+ */
+function measurePhone(
+  out: Frame,
+  open: { key: SceneKey; layout: StageLayout; el: HTMLElement; vis: number; t: number; b: number } | null,
+  vh: number,
+): Frame {
+  const comp = out.comp;
+  out.band.top = BAND_TOP;
+  out.band.bottom = BAND_BOTTOM;
+  if (!open) {
+    // Nothing to show: every weight stays 0 (the last composition stays as it was).
+    out.layout.full = 1;
+    out.open.top = out.open.bottom = 0;
+    return out;
+  }
+  const t = open.t / vh;
+  const b = open.b / vh;
+  out.weight[open.key] = smooth(clamp01((b - t - OPEN_T0) / (OPEN_T1 - OPEN_T0)));
+  out.layout[open.layout] = 1;
+  out.open.top = t;
+  out.open.bottom = b;
+  compositionFor(open.layout, open.key, true, comp);
+  comp.cy = (t + b) / 2 - 0.5;
+  comp.h = b - t;
+  const sf = sceneFrames[open.key];
+  sf.el = open.el;
+  sf.layout = open.layout;
+  sf.rect.l = 0.04;
+  sf.rect.r = 0.96;
+  sf.rect.t = t;
+  sf.rect.b = b;
   return out;
 }
 
@@ -244,7 +288,9 @@ export class SceneStore {
   /** Re-measure; notifies only the scenes whose quantized weight/progress changed. */
   update() {
     measure(this.frame);
-    const active = argmax(this.frame.weight, SCENE_KEYS);
+    // Phones between openings: no scene has weight; the stage keeps naming the last one.
+    const best = argmax(this.frame.weight, SCENE_KEYS);
+    const active = this.frame.weight[best] > 0 || !this.marked ? best : this.active;
     const layout = argmax(this.frame.layout, STAGE_LAYOUTS);
     if (active !== this.active || layout !== this.layout || !this.marked) {
       this.active = active;

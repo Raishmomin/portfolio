@@ -213,6 +213,10 @@ export function StatTiles({ stats, className }: { stats: Stat[]; className?: str
  * text sits on a gradient scrim on the other ("left" by default, or "right"). The h1 and lead are plain
  * server text (LCP; never animated). Extras (stats, CTAs) and the 3D caption reveal; the
  * caption closes the text column and never sits on the scene's side.
+ * Phones (below lg): the intro opens with an empty room ([data-intro-room]) where the scene
+ * draws (the stage frames it into the opening above [data-stage-content]); the text starts
+ * right under it instead of centring in a full screen. A services page brings its own room
+ * ([data-svc-room], globals), so this one stays out of its way.
  */
 export function PageIntro({
   crumbs,
@@ -250,14 +254,16 @@ export function PageIntro({
       <div
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-0 bg-background/75 lg:bg-transparent",
+          "intro-veil pointer-events-none absolute inset-x-0 bottom-0 top-[var(--intro-room)] bg-background/75 lg:top-0 lg:bg-transparent",
           right
             ? "lg:bg-[linear-gradient(270deg,hsl(var(--background))_0%,hsl(var(--background)/0.92)_34%,hsl(var(--background)/0.5)_52%,transparent_68%)]"
             : "lg:bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/0.92)_34%,hsl(var(--background)/0.5)_52%,transparent_68%)]",
         )}
       />
-      <Container className="relative flex min-h-[calc(100svh-4rem-1px)] flex-col justify-center pb-14 pt-10 md:py-16">
-        <div className={cn(wide ? "max-w-[48rem]" : "max-w-[42rem]", right && "lg:ml-auto")}>
+      {/* Phones: the scene's room. The home hero's brain frames itself into [data-hero-core]. */}
+      <div aria-hidden="true" data-intro-room="" {...(scene === "hero" ? { "data-hero-core": "" } : {})} className="intro-room lg:hidden" />
+      <Container className="relative flex flex-col justify-center pb-14 pt-3 md:pb-16 lg:min-h-[calc(100svh-4rem-1px)] lg:pt-16">
+        <div data-stage-content="" className={cn(wide ? "max-w-[48rem]" : "max-w-[42rem]", right && "lg:ml-auto")}>
           <Crumbs items={crumbs} />
           <Kicker className="mt-8">{kicker}</Kicker>
           <h1
