@@ -198,7 +198,8 @@ function cameraFor(key: SceneKey, aspect: number, progress: number, out: CameraT
 // The dimmer: a screen-space pass drawn after every scene that scales down what the scenes
 // drew (colour and alpha alike) wherever the composition puts content, so text always sits
 // over a quiet scene: left / right halves, a uniform veil for "full", everything below the
-// band, and on phones everything outside the section opening in view. It is drawn only
+// band, and on phones everything outside the section opening in view (erased there, so a
+// scene never sits under text on a phone). It is drawn only
 // where it dims (perf D1: a full-screen blend cost about 1 ms of GPU per frame on an
 // HD 520): two unit quads, each mapped onto a screen rect by the vertex shader (the main
 // region, and the strip above a band or an opening), and no draw at all when every weight
@@ -229,8 +230,10 @@ void main() {
     + uMask.y * 0.8 * smoothstep(0.38, 0.66, x)
     + uMask.z * 0.42
     + uMask.w * 0.82 * (1.0 - inside(y, uBand));
-  a = mix(a, 0.68 * (1.0 - inside(y, uOpen)), uPhone);
-  gl_FragColor = vec4(0.0, 0.0, 0.0, clamp(a, 0.0, 0.92));
+  // Phones: erased outside the opening, with hard edges (the content starts at its foot).
+  float o = smoothstep(uOpen.x, uOpen.x + 0.012, y) * (1.0 - smoothstep(uOpen.y - 0.025, uOpen.y, y));
+  a = mix(clamp(a, 0.0, 0.92), 1.0 - o, uPhone);
+  gl_FragColor = vec4(0.0, 0.0, 0.0, a);
 }`;
 
 /** Below this weight a mask contributes nothing visible: the pass is skipped. */
@@ -238,9 +241,12 @@ const DIM_EPS = 0.01;
 /** Where the fragment shader's side masks reach (its smoothstep edges), as viewport fractions. */
 const DIM_LEFT_TO = 0.62;
 const DIM_RIGHT_FROM = 0.38;
-/** The fragment shader's band/opening edges: dimmed down to top + 0.02 and from bottom - 0.03. */
+/** The fragment shader's band edges: dimmed down to top + 0.02 and from bottom - 0.03. */
 const DIM_ABOVE = 0.02;
 const DIM_BELOW = 0.03;
+/** ... and the phones' opening edges: erased down to top + 0.012 and from bottom - 0.025. */
+const OPEN_ABOVE = 0.012;
+const OPEN_BELOW = 0.025;
 
 /** Two unit quads (xy in 0..1, aQuad 0/1), each mapped onto its own screen rect in the vertex shader. */
 function dimGeometry(): BufferGeometry {
@@ -319,10 +325,15 @@ class Dimmer {
     let top = 0;
     let strip = 0;
     if (f.phone) {
-      x0 = 0;
-      x1 = 1;
-      top = f.open.bottom - DIM_BELOW;
-      strip = f.open.top + DIM_ABOVE;
+      // Nothing drawn (no opening in view): nothing to erase.
+      let any = false;
+      for (const k of SCENE_KEYS) if (f.weight[k] > 0) any = true;
+      if (any) {
+        x0 = 0;
+        x1 = 1;
+        top = f.open.bottom - OPEN_BELOW;
+        strip = f.open.top + OPEN_ABOVE;
+      }
     } else {
       const left = c.mL >= DIM_EPS;
       const right = c.mR >= DIM_EPS;
@@ -436,7 +447,8 @@ class Rig {
     // Composition: ease toward the sections' blend, then frame the view onto the free rect.
     const c = this.comp;
     const t = frame.comp;
-    if (this.first) Object.assign(c, t);
+    // Phones: the composition is the opening in view, which scrolls with the page: no easing.
+    if (this.first || frame.phone) Object.assign(c, t);
     else for (const key of Object.keys(c) as (keyof Composition)[]) c[key] += (t[key] - c[key]) * k;
     this.first = false;
     framing.w = Math.max(0.2, c.w);

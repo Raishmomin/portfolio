@@ -58,6 +58,8 @@ const DWELL_S = 0.7; // hover/focus this long (nothing open) previews a question
 const OUT_S = 0.22; // the old picture fades this long before the next one assembles
 const MIN_WIN = 160;
 const HEADER_PX = 64;
+/** Phones: the header is 64 px plus its 1 px border; scenes start a few px below it. */
+const PHONE_TOP = 72;
 const INSET = 16; // labels stay this far inside the window
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -598,7 +600,7 @@ export class FaqRig {
       const r = sceneFrames.faq.rect;
       l = r.l * this.W;
       w = (r.r - r.l) * this.W;
-      t = Math.max(r.t * this.H, framing.phone ? 56 : HEADER_PX);
+      t = Math.max(r.t * this.H, framing.phone ? PHONE_TOP : HEADER_PX);
       h = Math.min(r.b * this.H, this.H, this.headTop - 10) - t;
       vis = w > MIN_WIN ? clamp01((h - 110) / 90) : 0;
     }

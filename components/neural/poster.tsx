@@ -76,6 +76,11 @@ const CSS = [
   // Under a live canvas (the island sets data-paused once the crossfade is done) the posters
   // leave the render tree: no CSS animation ticks, no SVG relayout, no hit testing.
   "[data-neural-posters] [data-neural-poster][data-paused]{display:none}",
+  // Phones: a poster sits in the band at the top of the page (the first section's opening)
+  // and scrolls away with it instead of staying under the text (scroll-driven, so no JS;
+  // without support it stays fixed, as before).
+  "@keyframes nw-lift{to{transform:translateY(-100vh)}}",
+  "@media (max-width:1023px){@supports (animation-timeline:scroll()){[data-neural-posters]{animation:nw-lift linear both;animation-timeline:scroll(root);animation-range:0 100vh}}}",
 ].join("");
 
 /** The posters' stylesheet; React hoists it into <head> once per page (href dedupes it). */

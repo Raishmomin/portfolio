@@ -34,6 +34,8 @@ import { LabelLayer, type Align } from "./stack/labels";
 
 const PREFIX = "service:";
 const HEADER_PX = 76;
+/** Phones: the header is 64 px plus its 1 px border; scenes start a few px below it. */
+const PHONE_TOP = 72;
 /** Largest scale (world units per layout unit). */
 const CAP = 1.25;
 /** Below this frame height (px) there is no room: the machine fades out. */
@@ -589,7 +591,7 @@ export default function ServicesScene({ data, weight, progress, pointer, focus, 
     camera.updateMatrixWorld();
     px.l = sf.rect.l * W;
     px.r = sf.rect.r * W;
-    px.t = Math.max(sf.rect.t * H, phone ? 56 : HEADER_PX);
+    px.t = Math.max(sf.rect.t * H, phone ? PHONE_TOP : HEADER_PX);
     px.b = Math.min(sf.rect.b * H, H - 8);
     const mid = (sf.rect.l + sf.rect.r) / 2;
     const d = rig.designs[idx];

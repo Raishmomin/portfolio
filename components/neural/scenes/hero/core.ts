@@ -20,7 +20,7 @@ import {
   type IUniform,
   type PerspectiveCamera,
 } from "three";
-import { compositionFor, framing, isLayout, sceneFrames, scroll as pageScroll, zeroComposition } from "../../framing";
+import { clearRect, compositionFor, framing, isLayout, sceneFrames, scroll as pageScroll, zeroComposition, type Rect } from "../../framing";
 import { isLight, setColor, setGlowBlending } from "../../fx";
 import { BASE_PITCH, BASE_YAW, brainSteps, COUNTS, FOV, VIEW_HALF, type BrainLayout } from "../../hero-layout";
 import type { SceneProps } from "../../types";
@@ -30,6 +30,11 @@ import { SHADERS } from "./shaders";
 const DEPTH = 14;
 /** Share of its box the resting brain fills (room for the turn toward the cursor and the glow). */
 const FIT = 0.84;
+/** Phones without a core box: the brain sits in its section's opening below the header
+ *  (PHONE_TOP px), fading out as the clear opening shrinks from PHONE_FULL to PHONE_MIN px. */
+const PHONE_TOP = 72;
+const PHONE_MIN = 110;
+const PHONE_FULL = 170;
 /** Build budget per frame while the layout is generated (ms). */
 const BUILD_MS = 4;
 /** Arc tessellation. */
@@ -105,6 +110,8 @@ export class HeroCore {
   private ownEl: HTMLElement | null = null;
   private stream = { x: 0.23, y: 0.92 };
   private measured = false;
+  private readonly openPx: Rect = { l: 0, t: 0, r: 0, b: 0 };
+  private readonly openClear: Rect = { l: 0, t: 0, r: 0, b: 0 };
   private readonly onResize = () => (this.measured = false);
 
   // Eased state.
@@ -320,11 +327,30 @@ export class HeroCore {
     }
     if (this.introStart < 0 && this.canvasShown(canvas)) this.introStart = time;
     u.uIntro.value = this.introStart < 0 ? 0 : time - this.introStart;
-    u.uWeight.value = weight;
-
     const W = size.width;
     const H = size.height;
     if (!this.measured || this.ownEl !== sceneFrames.hero.el) this.measure(W, H);
+    // Phones without a core box (subpages): never under the text, only in the clear part
+    // of the section's opening (above its heading), else not drawn.
+    let room = 1;
+    if (!this.boxEl && framing.phone) {
+      const fr = sceneFrames.hero.rect;
+      const px = this.openPx;
+      px.l = fr.l * W;
+      px.r = fr.r * W;
+      px.t = Math.max(fr.t * H, PHONE_TOP);
+      px.b = Math.min(fr.b * H, H);
+      const c = sceneFrames.hero.el ? clearRect(px, PHONE_MIN, this.openClear) : null;
+      room = c ? smooth(PHONE_MIN, PHONE_FULL, c.b - c.t) : 0;
+      if (c) {
+        const b = this.box;
+        b.x = c.l;
+        b.y = c.t;
+        b.w = c.r - c.l;
+        b.h = c.b - c.t;
+      }
+    }
+    u.uWeight.value = weight * room;
     const scroll = pageScroll.y;
     const b = this.box;
     // The home core scrolls with its section but lags behind it (it lingers while it disperses).

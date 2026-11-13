@@ -6,7 +6,8 @@
 // card switches to it at once, and hovering a technology chip lights its node. Every card
 // lists its real stack grouped by tier (client, server, data, infra, AI), the same groups
 // the 3D draws. Featured projects get full cards, the rest compact ones; all of them drive
-// the scene. Phones, no-JS and motion off: one plain column of cards.
+// the scene. Phones, no-JS and motion off: one plain column of cards (phones: the archive
+// is one swipeable row).
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Accent, Container } from "../ui/primitives";
@@ -115,11 +116,23 @@ export function WorkSection({ items }: { items: WorkItem[] }) {
               <h3 className="arch-sub mb-4 mt-10 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground lg:mt-8">
                 Archive · {archive.length} more projects
               </h3>
-              <ol data-card-group="" aria-label="More projects" className="arch-zig grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Phones: one swipeable row (the archive would take four screens as a column). */}
+              <ol
+                data-card-group=""
+                aria-label="More projects"
+                className="arch-zig grid grid-cols-1 gap-3 sm:grid-cols-2 max-lg:-mx-4 max-lg:flex max-lg:snap-x max-lg:snap-mandatory overflow-x-auto max-lg:scroll-px-4 lg:overflow-visible max-lg:px-4 max-lg:pb-2 md:max-lg:-mx-8 md:max-lg:scroll-px-8 md:max-lg:px-8"
+              >
                 {archive.map((w, i) => {
                   const p = w.project;
                   return (
-                    <li key={w.slug} data-card="flip" data-arch-item="" data-focus-id={w.slug} style={row(i)} className="arch-step arch-mini flex">
+                    <li
+                      key={w.slug}
+                      data-card="flip"
+                      data-arch-item=""
+                      data-focus-id={w.slug}
+                      style={row(i)}
+                      className="arch-step arch-mini flex max-lg:w-[min(20rem,80vw)] max-lg:shrink-0 max-lg:snap-start"
+                    >
                       <article
                         data-spotlight=""
                         className={cn(panel, "flex w-full flex-col p-4 transition-colors duration-150 hover:border-foreground/30 focus-within:border-primary")}

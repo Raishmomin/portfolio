@@ -13,6 +13,7 @@ import {
   Vector3,
 } from "three";
 import type { Camera } from "three";
+import { clearRect, framing, sceneFrames, type Rect } from "../../framing";
 import type { ScenePalette, SkillLayer } from "../../types";
 import { GLOW_OUT, Sprites, clamp01, fitScale, hash01, isLightBg, layerColors, setGlowBlending, smooth01 } from "./gl";
 import type { Align, LabelLayer } from "./labels";
@@ -22,6 +23,17 @@ const TILT = 0.38; // rad: view the plates from slightly above
 const ORBIT_START = -0.6; // rad at progress 0
 const ORBIT_RANGE = 1.5; // rad over the section
 const SIGNAL_CYCLE = 1.45; // a signal travels for 1 of every 1.45 cycles, then rests
+// Phones: the network is fitted whole into its section's opening (above the heading, below
+// the header, clear of the panel), page-attached, and fades as that opening scrolls away.
+const HEADER_PX = 64;
+const PHONE_PAD = 10; // px kept clear below the header / the section's top edge
+const PHONE_MIN = 110; // px: a smaller clear opening hides the network
+const PHONE_FULL = 170; // px: from here on it draws at full strength
+const KEY_PX = 28; // px kept clear above the heading (its kicker line), as the director does
+const GLOW_PX = 12; // px kept around the outline for the nodes' glow
+const PHONE_HALO = 0.45; // node halo on phones (desktop NODE_HALO)
+const PHONE_EDGES = 0.65; // edge strength on phones
+const NODE_HALO = 0.85;
 
 const EDGE_VERT = /* glsl */ `
   attribute vec3 aColor;
@@ -102,6 +114,13 @@ const PLATE_FRAG = /* glsl */ `
 `;
 
 const tmp = new Vector3();
+const ray = new Vector3();
+/** World point on the z = 0 plane under a canvas pixel. */
+function toWorld(camera: Camera, px: number, py: number, w: number, h: number, out: Vector3) {
+  ray.set((px / w) * 2 - 1, 1 - (py / h) * 2, 0.5).unproject(camera).sub(camera.position);
+  const t = Math.abs(ray.z) > 1e-6 ? -camera.position.z / ray.z : 0;
+  return out.copy(camera.position).addScaledVector(ray, t);
+}
 /** Plate names sit left of the rim (or just inside it on narrow viewports). */
 const PLATE_OUT: Align = { x: -1, y: -0.5, dx: -6 };
 const PLATE_IN: Align = { x: 0, y: -0.5, dx: 8 };
@@ -143,6 +162,16 @@ export class StackRig {
   private px = 0;
   private py = 0;
   private settled = false;
+  /** Outline sample points (spin space) the phone fit measures on screen. */
+  private readonly hull: Float32Array;
+  /** Phones: the fitted scale (0 = not fitted yet). */
+  private phoneScale = 0;
+  private headFor: HTMLElement | null = null;
+  private head: HTMLElement | null = null;
+  private readonly openPx: Rect = { l: 0, t: 0, r: 0, b: 0 };
+  private readonly openClear: Rect = { l: 0, t: 0, r: 0, b: 0 };
+  private readonly at = new Vector3();
+  private readonly corner = new Vector3();
 
   constructor(private readonly layout: StackLayout, quality: "high" | "low") {
     const { nodes, links, plates } = layout;
@@ -151,7 +180,7 @@ export class StackRig {
     this.segs = quality === "high" ? 16 : 7;
 
     // Nodes.
-    this.nodes = new Sprites(N, { core: 0.24, halo: 0.85, renderOrder: 3 });
+    this.nodes = new Sprites(N, { core: 0.24, halo: NODE_HALO, renderOrder: 3 });
     this.baseAlpha = new Float32Array(N);
     nodes.forEach((nd, i) => {
       this.nodes.set(i, nd.x, nd.y, nd.z);
@@ -217,6 +246,21 @@ export class StackRig {
     this.edges.renderOrder = 2;
     this.linkHi = new Float32Array(L);
     this.linkHiT = new Float32Array(L);
+
+    // Outline samples (phones fit the whole network into its opening): every node, every
+    // other edge point and each plate's rim.
+    {
+      const RIM = 24;
+      const pts: number[] = [];
+      for (const nd of nodes) pts.push(nd.x, nd.y, nd.z);
+      for (let i = 0; i < pos.length; i += 6) pts.push(pos[i], pos[i + 1], pos[i + 2]);
+      for (const pl of plates)
+        for (let a = 0; a < RIM; a++) {
+          const ang = (a / RIM) * Math.PI * 2;
+          pts.push(pl.x + Math.cos(ang) * pl.radius, pl.y, pl.z + Math.sin(ang) * pl.radius);
+        }
+      this.hull = new Float32Array(pts);
+    }
 
     // Signals: one travelling glow per link, the edge shader draws its tail.
     this.signals = new Sprites(Math.max(1, L), { core: 0.2, halo: 1, renderOrder: 4 });
@@ -394,16 +438,35 @@ export class StackRig {
     const e = smooth01(weight);
     const k = 1 - Math.exp(-d * 5);
 
-    // Weight: fade, scale in, and the plates stack apart from one plane.
-    const s = (0.86 + 0.14 * e) * fitScale(camera, size, 3.5, 3.5, 1.4);
-    this.root.scale.set(s, s * (0.3 + 0.7 * e), s);
-
     // Progress → slow orbit (damped, so scroll steps never jerk); pointer → slight lean.
     this.orbit += (ORBIT_START + clamp01(progress) * ORBIT_RANGE - this.orbit) * k;
     this.px += (pointer.x - this.px) * k;
     this.py += (pointer.y - this.py) * k;
     this.spin.rotation.y = this.orbit + Math.sin(time * 0.07) * 0.06 + this.px * 0.14;
     this.root.rotation.x = TILT - this.py * 0.06;
+
+    // Weight: fade, scale in, and (desktop) the plates stack apart from one plane. Phones
+    // keep the network's aspect, fitted whole into the section's opening, with smaller
+    // glows and quieter edges (at phone size the desktop glow piles up into one hot blur).
+    const phone = framing.phone;
+    let room = 1;
+    if (phone) {
+      room = this.fitPhone(camera, size);
+      if (room <= 0.001) {
+        if (this.root.visible) this.labels?.hideAll();
+        this.root.visible = false;
+        return true;
+      }
+      const s = (0.86 + 0.14 * e) * this.phoneScale;
+      this.root.scale.set(s, s, s);
+    } else {
+      this.root.position.set(0, 0, 0);
+      this.phoneScale = 0;
+      const s = (0.86 + 0.14 * e) * fitScale(camera, size, 3.5, 3.5, 1.4);
+      this.root.scale.set(s, s * (0.3 + 0.7 * e), s);
+    }
+    this.nodes.material.uniforms.uHalo.value = phone ? PHONE_HALO : NODE_HALO;
+    this.signals.material.uniforms.uSize.value = phone ? 0.8 : 1;
 
     // Focus: highlight the skill, its edges and neighbours; dim the rest.
     if (focus !== this.focusId) this.setFocus(focus);
@@ -452,10 +515,11 @@ export class StackRig {
     }
     this.signals.flush(9);
 
-    this.nodes.material.uniforms.uOpacity.value = e;
-    this.signals.material.uniforms.uOpacity.value = e;
-    this.edgeMat.uniforms.uOpacity.value = e;
-    this.plateMat.uniforms.uOpacity.value = e * (1 - 0.5 * fa);
+    const o = e * room;
+    this.nodes.material.uniforms.uOpacity.value = o;
+    this.signals.material.uniforms.uOpacity.value = o;
+    this.edgeMat.uniforms.uOpacity.value = o * (phone ? PHONE_EDGES : 1);
+    this.plateMat.uniforms.uOpacity.value = o * (1 - 0.5 * fa);
     this.edgeMat.uniforms.uTime.value = time;
     this.edgeMat.uniforms.uFocus.value = fa;
     this.plateMat.uniforms.uTime.value = time;
@@ -491,6 +555,71 @@ export class StackRig {
       }
     }
     return true;
+  }
+
+  /**
+   * Phones: the section's opening (its top, or the header line, down to the heading's
+   * kicker), minus anything content covers (the panel). The network's outline is measured
+   * on screen at the current scale and orbit, and the root rescaled and moved so that
+   * outline sits centred in the opening (page-attached: it follows the scroll exactly).
+   * Returns the room 0..1: the network fades as the clear opening shrinks.
+   */
+  private fitPhone(camera: Camera, size: { width: number; height: number }): number {
+    const el = sceneFrames.stack.el;
+    if (!el?.isConnected) return 0;
+    if (el !== this.headFor || !this.head?.isConnected) {
+      this.headFor = el;
+      this.head = el.querySelector<HTMLElement>("[data-stage-content], h1, h2");
+    }
+    const W = size.width;
+    const H = size.height;
+    const r = el.getBoundingClientRect();
+    const px = this.openPx;
+    px.l = W * 0.04;
+    px.r = W * 0.96;
+    px.t = Math.max(r.top, HEADER_PX) + PHONE_PAD;
+    px.b = Math.min(r.bottom, this.head ? this.head.getBoundingClientRect().top - KEY_PX : r.bottom) - PHONE_PAD;
+    const c = clearRect(px, PHONE_MIN, this.openClear);
+    if (!c) return 0;
+    const root = this.root;
+    camera.updateMatrixWorld();
+    const cx = (c.l + c.r) / 2;
+    const cy = (c.t + c.b) / 2;
+    if (!(this.phoneScale > 0)) {
+      // First fit: a rough start from the rect's world size (the measured fit refines it).
+      const mid = toWorld(camera, cx, cy, W, H, this.at);
+      const cor = toWorld(camera, c.l, c.t, W, H, this.corner);
+      this.phoneScale = Math.min(Math.abs(cor.x - mid.x), Math.abs(cor.y - mid.y)) / 3.6;
+    }
+    // Measure: the outline's screen box around the root's own projection.
+    const s = this.phoneScale;
+    root.position.copy(toWorld(camera, cx, cy, W, H, this.at));
+    root.scale.set(s, s, s);
+    root.updateMatrixWorld(true);
+    const M = this.spin.matrixWorld;
+    const h = this.hull;
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (let i = 0; i < h.length; i += 3) {
+      tmp.set(h[i], h[i + 1], h[i + 2]).applyMatrix4(M).project(camera);
+      if (tmp.x < x0) x0 = tmp.x;
+      if (tmp.x > x1) x1 = tmp.x;
+      if (tmp.y < y0) y0 = tmp.y;
+      if (tmp.y > y1) y1 = tmp.y;
+    }
+    tmp.copy(root.position).project(camera);
+    // NDC → px (y down): box size and its centre's offset from the root's projection.
+    const bw = ((x1 - x0) / 2) * W;
+    const bh = ((y1 - y0) / 2) * H;
+    const offX = (((x0 + x1) / 2 - tmp.x) / 2) * W;
+    const offY = (-((y0 + y1) / 2 - tmp.y) / 2) * H;
+    // The outline runs through the node centres: room is kept for their glow.
+    const g = Math.min((c.r - c.l - 2 * GLOW_PX) / Math.max(1, bw), (c.b - c.t - 2 * GLOW_PX) / Math.max(1, bh));
+    this.phoneScale = s * g;
+    root.position.copy(toWorld(camera, cx - offX * g, cy - offY * g, W, H, this.at));
+    return smooth01((c.b - c.t - PHONE_MIN) / (PHONE_FULL - PHONE_MIN));
   }
 
   dispose() {
